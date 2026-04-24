@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model barang {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  id_kategori         BigInt                @db.UnsignedBigInt
+  nama_barang         String                @db.VarChar(150)
+  kode_barang         String                @unique(map: "kode_barang") @db.VarChar(100)
+  merk_barang         String?               @db.VarChar(150)
+  deskripsi           String?               @db.Text
+  harga               Decimal               @default(0.00) @db.Decimal(15, 2)
+  stock               BigInt                @default(0)
+  gambar              String?               @db.LongText
+  kategori_barang     kategori_barang       @relation(fields: [id_kategori], references: [id], map: "fk_barang_kategori")
+  detail_stock_mutasi detail_stock_mutasi[]
+  detail_stock_opname detail_stock_opname[]
+  detail_transaksi    detail_transaksi[]
+
+  @@index([id_kategori], map: "fk_barang_kategori")
+}
+
+model detail_stock_mutasi {
+  id              BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  id_stock_mutasi BigInt       @db.UnsignedBigInt
+  id_barang       BigInt?      @db.UnsignedBigInt
+  id_sparepart    BigInt?      @db.UnsignedBigInt
+  jumlah          BigInt       @default(0)
+  barang          barang?      @relation(fields: [id_barang], references: [id], onDelete: Restrict, map: "fk_detail_stock_mutasi_barang")
+  stock_mutasi    stock_mutasi @relation(fields: [id_stock_mutasi], references: [id], onDelete: Cascade, map: "fk_detail_stock_mutasi_header")
+  sparepart       sparepart?   @relation(fields: [id_sparepart], references: [id], onDelete: Restrict, map: "fk_detail_stock_mutasi_sparepart")
+
+  @@index([id_barang], map: "fk_detail_stock_mutasi_barang")
+  @@index([id_stock_mutasi], map: "fk_detail_stock_mutasi_header")
+  @@index([id_sparepart], map: "fk_detail_stock_mutasi_sparepart")
+}
+
+model detail_stock_opname {
+  id              BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  id_stock_opname BigInt       @db.UnsignedBigInt
+  id_barang       BigInt?      @db.UnsignedBigInt
+  id_sparepart    BigInt?      @db.UnsignedBigInt
+  stock_fisik     BigInt       @default(0)
+  stock_sistem    BigInt       @default(0)
+  selisih         BigInt       @default(0)
+  keterangan      String?      @db.Text
+  barang          barang?      @relation(fields: [id_barang], references: [id], onDelete: Restrict, map: "fk_detail_stock_opname_barang")
+  stock_opname    stock_opname @relation(fields: [id_stock_opname], references: [id], onDelete: Cascade, map: "fk_detail_stock_opname_header")
+  sparepart       sparepart?   @relation(fields: [id_sparepart], references: [id], onDelete: Restrict, map: "fk_detail_stock_opname_sparepart")
+
+  @@index([id_barang], map: "fk_detail_stock_opname_barang")
+  @@index([id_stock_opname], map: "fk_detail_stock_opname_header")
+  @@index([id_sparepart], map: "fk_detail_stock_opname_sparepart")
+}
+
+model detail_tiket_servis {
+  id              String       @id @db.VarChar(50)
+  id_tiket_servis String       @db.VarChar(50)
+  id_jasa_servis  BigInt?      @db.UnsignedBigInt
+  id_sparepart    BigInt?      @db.UnsignedBigInt
+  jumlah          BigInt       @default(1)
+  harga           Decimal      @default(0.00) @db.Decimal(15, 2)
+  subtotal        Decimal      @default(0.00) @db.Decimal(15, 2)
+  jasa_servis     jasa_servis? @relation(fields: [id_jasa_servis], references: [id], onDelete: Restrict, map: "fk_detail_tiket_jasa")
+  sparepart       sparepart?   @relation(fields: [id_sparepart], references: [id], onDelete: Restrict, map: "fk_detail_tiket_sparepart")
+  tiket_servis    tiket_servis @relation(fields: [id_tiket_servis], references: [id], onDelete: Cascade, map: "fk_detail_tiket_tiket")
+
+  @@index([id_jasa_servis], map: "fk_detail_tiket_jasa")
+  @@index([id_sparepart], map: "fk_detail_tiket_sparepart")
+  @@index([id_tiket_servis], map: "fk_detail_tiket_tiket")
+}
+
+model detail_transaksi {
+  id                  BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  id_transaksi        BigInt              @db.UnsignedBigInt
+  id_barang           BigInt              @db.UnsignedBigInt
+  jumlah              BigInt              @default(1)
+  harga_satuan        Decimal             @default(0.00) @db.Decimal(15, 2)
+  sub_total           Decimal             @default(0.00) @db.Decimal(15, 2)
+  barang              barang              @relation(fields: [id_barang], references: [id], map: "fk_detail_transaksi_barang")
+  transaksi_penjualan transaksi_penjualan @relation(fields: [id_transaksi], references: [id], onDelete: Cascade, map: "fk_detail_transaksi_transaksi")
+
+  @@index([id_barang], map: "fk_detail_transaksi_barang")
+  @@index([id_transaksi], map: "fk_detail_transaksi_transaksi")
+}
+
+model diagnosa_ai {
+  id                   BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  gejala               String?       @db.Text
+  gambar_gejala        String?       @db.LongText
+  kemungkinan_penyebab String?       @db.Text
+  kemungkinan_solusi   String?       @db.Text
+  saran_tindakan       String?       @db.Text
+  tiket_servis         tiket_servis?
+}
+
+model diagnosa_lanjutan {
+  id              BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  id_tiket_servis String       @db.VarChar(50)
+  id_user         BigInt       @db.UnsignedBigInt
+  hasil_diagnosa  String       @db.Text
+  catatan_teknisi String?      @db.Text
+  tiket_servis    tiket_servis @relation(fields: [id_tiket_servis], references: [id], onDelete: Cascade, map: "fk_diagnosa_lanjutan_tiket")
+  users           users        @relation(fields: [id_user], references: [id], map: "fk_diagnosa_lanjutan_user")
+
+  @@index([id_tiket_servis], map: "fk_diagnosa_lanjutan_tiket")
+  @@index([id_user], map: "fk_diagnosa_lanjutan_user")
+}
+
+model drop_point {
+  id              BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  nama_drop_point String         @db.VarChar(150)
+  alamat          String         @db.Text
+  phone           String?        @db.VarChar(25)
+  jam_operasional String?        @db.VarChar(100)
+  tiket_servis    tiket_servis[]
+}
+
+model garansi {
+  id                 BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  id_tiket_servis    String                 @db.VarChar(50)
+  id_user            BigInt                 @db.UnsignedBigInt
+  tanggal_mulai      DateTime               @db.DateTime(0)
+  tanggal_akhir      DateTime               @db.DateTime(0)
+  keterangan_garansi String?                @db.Text
+  status_garansi     garansi_status_garansi @default(Aktif)
+  tiket_servis       tiket_servis           @relation(fields: [id_tiket_servis], references: [id], onDelete: Cascade, map: "fk_garansi_tiket")
+  users              users                  @relation(fields: [id_user], references: [id], map: "fk_garansi_user")
+
+  @@index([id_tiket_servis], map: "fk_garansi_tiket")
+  @@index([id_user], map: "fk_garansi_user")
+}
+
+model jasa_servis {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  nama_jasa_servis    String                @db.VarChar(150)
+  deskripsi           String?               @db.Text
+  harga               Decimal               @default(0.00) @db.Decimal(15, 2)
+  jam_operasional     String?               @db.VarChar(100)
+  detail_tiket_servis detail_tiket_servis[]
+}
+
+model kategori_barang {
+  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  nama_kategori String   @db.VarChar(150)
+  deskripsi     String?  @db.Text
+  barang        barang[]
+}
+
+model pembayaran_servis {
+  id                 BigInt                              @id @default(autoincrement()) @db.UnsignedBigInt
+  id_tiket_servis    String                              @db.VarChar(50)
+  id_user            BigInt                              @db.UnsignedBigInt
+  tanggal_pembayaran DateTime                            @db.DateTime(0)
+  total_pembayaran   Decimal                             @default(0.00) @db.Decimal(15, 2)
+  metode_pembayaran  String                              @db.VarChar(50)
+  status_pembayaran  pembayaran_servis_status_pembayaran @default(Belum_Bayar)
+  tiket_servis       tiket_servis                        @relation(fields: [id_tiket_servis], references: [id], onDelete: Cascade, map: "fk_pembayaran_servis_tiket")
+  users              users                               @relation(fields: [id_user], references: [id], map: "fk_pembayaran_servis_user")
+
+  @@index([id_tiket_servis], map: "fk_pembayaran_servis_tiket")
+  @@index([id_user], map: "fk_pembayaran_servis_user")
+}
+
+model roles {
+  id         BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  nama_roles String  @db.VarChar(100)
+  users      users[]
+}
+
+model sparepart {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  id_supplier         BigInt                @db.UnsignedBigInt
+  nama_sparepart      String                @db.VarChar(150)
+  kode_sparepart      String                @unique(map: "kode_sparepart") @db.VarChar(100)
+  merk_sparepart      String?               @db.VarChar(150)
+  deskripsi           String?               @db.Text
+  harga               Decimal               @default(0.00) @db.Decimal(15, 2)
+  stock               BigInt                @default(0)
+  gambar              String?               @db.LongText
+  detail_stock_mutasi detail_stock_mutasi[]
+  detail_stock_opname detail_stock_opname[]
+  detail_tiket_servis detail_tiket_servis[]
+  suppliers           suppliers             @relation(fields: [id_supplier], references: [id], map: "fk_sparepart_supplier")
+
+  @@index([id_supplier], map: "fk_sparepart_supplier")
+}
+
+model stock_mutasi {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  id_user             BigInt                @db.UnsignedBigInt
+  id_supplier         BigInt?               @db.UnsignedBigInt
+  jenis_mutasi        String                @db.VarChar(50)
+  tanggal_mutasi      DateTime              @db.DateTime(0)
+  keterangan          String?               @db.Text
+  detail_stock_mutasi detail_stock_mutasi[]
+  suppliers           suppliers?            @relation(fields: [id_supplier], references: [id], map: "fk_stock_mutasi_supplier")
+  users               users                 @relation(fields: [id_user], references: [id], map: "fk_stock_mutasi_user")
+
+  @@index([id_supplier], map: "fk_stock_mutasi_supplier")
+  @@index([id_user], map: "fk_stock_mutasi_user")
+}
+
+model stock_opname {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  id_user             BigInt                @db.UnsignedBigInt
+  tanggal_opname      DateTime              @db.DateTime(0)
+  selisih_stock       BigInt                @default(0)
+  keterangan          String?               @db.Text
+  detail_stock_opname detail_stock_opname[]
+  users               users                 @relation(fields: [id_user], references: [id], map: "fk_stock_opname_user")
+
+  @@index([id_user], map: "fk_stock_opname_user")
+}
+
+model suppliers {
+  id            BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  nama_supplier String         @db.VarChar(150)
+  alamat        String?        @db.Text
+  phone         String?        @db.VarChar(25)
+  sparepart     sparepart[]
+  stock_mutasi  stock_mutasi[]
+}
+
+model tiket_servis {
+  id                  String                         @id @db.VarChar(50)
+  id_drop_point       BigInt?                        @db.UnsignedBigInt
+  id_diagnosa_ai      BigInt?                        @unique(map: "id_diagnosa_ai") @db.UnsignedBigInt
+  nomor_tiket         String                         @unique(map: "nomor_tiket") @db.VarChar(100)
+  sumber_tiket        tiket_servis_sumber_tiket
+  alamat_cust         String?                        @db.Text
+  nama_cust           String                         @db.VarChar(150)
+  phone_cust          String                         @db.VarChar(25)
+  jenis_perangkat     String                         @db.VarChar(150)
+  merk_perangkat      String?                        @db.VarChar(150)
+  keluhan             String                         @db.Text
+  status_verifikasi   tiket_servis_status_verifikasi @default(Menunggu)
+  status_servis       tiket_servis_status_servis     @default(Belum_Diproses)
+  alasan_penolakan    String?                        @db.Text
+  tanggal_masuk       DateTime                       @db.DateTime(0)
+  tanggal_verifikasi  DateTime?                      @db.DateTime(0)
+  estimasi_waktu      DateTime?                      @db.DateTime(0)
+  estimasi_biaya      Decimal                        @default(0.00) @db.Decimal(15, 2)
+  guest_session_id    String?
+  detail_tiket_servis detail_tiket_servis[]
+  diagnosa_lanjutan   diagnosa_lanjutan[]
+  garansi             garansi[]
+  pembayaran_servis   pembayaran_servis[]
+  diagnosa_ai         diagnosa_ai?                   @relation(fields: [id_diagnosa_ai], references: [id], map: "fk_tiket_servis_diagnosa_ai")
+  drop_point          drop_point?                    @relation(fields: [id_drop_point], references: [id], map: "fk_tiket_servis_drop_point")
+
+  @@index([id_drop_point], map: "fk_tiket_servis_drop_point")
+  @@index([guest_session_id], map: "idx_tiket_servis_guest_session_id")
+}
+
+model transaksi_penjualan {
+  id                BigInt                               @id @default(autoincrement()) @db.UnsignedBigInt
+  id_user           BigInt                               @db.UnsignedBigInt
+  tanggal_transaksi DateTime                             @db.DateTime(0)
+  total_transaksi   Decimal                              @default(0.00) @db.Decimal(15, 2)
+  metode_transaksi  String                               @db.VarChar(50)
+  status_transaksi  transaksi_penjualan_status_transaksi @default(Belum_Bayar)
+  detail_transaksi  detail_transaksi[]
+  users             users                                @relation(fields: [id_user], references: [id], map: "fk_transaksi_penjualan_user")
+
+  @@index([id_user], map: "fk_transaksi_penjualan_user")
+}
+
+model users {
+  id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  id_roles            BigInt                @db.UnsignedBigInt
+  nama                String                @db.VarChar(150)
+  email               String                @unique(map: "email") @db.VarChar(150)
+  password            String                @db.VarChar(255)
+  address             String?               @db.Text
+  phone               String?               @db.VarChar(25)
+  photo_profile_path  String?               @db.LongText
+  diagnosa_lanjutan   diagnosa_lanjutan[]
+  garansi             garansi[]
+  pembayaran_servis   pembayaran_servis[]
+  stock_mutasi        stock_mutasi[]
+  stock_opname        stock_opname[]
+  transaksi_penjualan transaksi_penjualan[]
+  roles               roles                 @relation(fields: [id_roles], references: [id], map: "fk_users_roles")
+
+  @@index([id_roles], map: "fk_users_roles")
+}
+
+enum tiket_servis_sumber_tiket {
+  Guest
+  Admin_Penjualan @map("Admin Penjualan")
+}
+
+enum transaksi_penjualan_status_transaksi {
+  Dibayar
+  Belum_Bayar @map("Belum Bayar")
+  Dibatalkan
+}
+
+enum garansi_status_garansi {
+  Aktif
+  Diklaim
+  Expired
+}
+
+enum pembayaran_servis_status_pembayaran {
+  Dibayar
+  Belum_Bayar @map("Belum Bayar")
+  Dibatalkan
+}
+
+enum tiket_servis_status_verifikasi {
+  Menunggu
+  Diterima
+  Ditolak
+}
+
+enum tiket_servis_status_servis {
+  Belum_Diproses     @map("Belum Diproses")
+  Diproses
+  Menunggu_Sparepart @map("Menunggu Sparepart")
+  Selesai
+  Diambil
+  Dibatalkan
+}

@@ -1,0 +1,36 @@
+import type { TicketServisPublicRow } from "@/utils/public/cek-status-servis.utils";
+
+export const DUMMY_TICKETS: TicketServisPublicRow[] = [
+  {
+    id: "1",
+    nomorTiket: "TK-2026-001",
+    sumberTiket: "Walk In",
+    addressCust: "Jl. Babarsari No. 10, Sleman",
+    namaCust: "Budi Susanto",
+    phoneCust: "081234567890",
+    jenisPerangkat: "Laptop",
+    merkPerangkat: "ASUS",
+    keluhan: "Laptop tidak menyala",
+    statusVerifikasi: "Menunggu",
+    statusServis: "Belum Diproses",
+    tanggalMasuk: new Date("2026-06-13T09:00:00"),
+    estimasiWaktu: null,
+    estimasiBiaya: null,
+  },
+  {
+    id: "2",
+    nomorTiket: "TK-2026-002",
+    sumberTiket: "Walk In",
+    addressCust: "Jl. Kaliurang No. 20, Sleman",
+    namaCust: "Andi Pratama",
+    phoneCust: "089876543210",
+    jenisPerangkat: "Printer",
+    merkPerangkat: "Epson",
+    keluhan: "Printer tidak bisa mencetak",
+    statusVerifikasi: "Diterima",
+    statusServis: "Diproses",
+    tanggalMasuk: new Date("2026-06-14T10:15:00"),
+    estimasiWaktu: "2-3 hari",
+    estimasiBiaya: 150000,
+  },
+];
