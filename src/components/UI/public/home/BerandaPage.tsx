@@ -43,7 +43,7 @@ const dvcCards = [
   {
     title: "Diagnosa AI",
     description:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam eu turpis molestie, dictum est a, mattis tellus.",
+      "Cek kerusakan perangkat secara otomatis dengan bantuan AI sebelum melakukan servis.",
     buttonLabel: "Coba",
     href: "/diagnosa_ai",
     image: "/images/diagnosa-ai-card.png",
@@ -54,7 +54,7 @@ const dvcCards = [
   {
     title: "Tiket Servis",
     description:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam eu turpis molestie, dictum est a, mattis tellus.",
+      "Buat tiket servis dengan mudah dan pantau proses perbaikan perangkatmu secara transparan.",
     buttonLabel: "Coba",
     href: "/tiket_servis",
     image: "/images/tiket-servis-card.png",
@@ -105,8 +105,7 @@ export default function BerandaPage() {
                 lineHeight: 1.35,
               }}
             >
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam eu
-              turpis molestie, dictum est a, mattis tellus.
+              Buat tiket servis, cek kerusakan perangkat, dan pantau proses perbaikan dengan praktis.
             </Text>
           </Box>
         </Container>
@@ -295,12 +294,7 @@ export default function BerandaPage() {
                   lineHeight: 1.5,
                 }}
               >
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam
-                eu turpis molestie, dictum est a, mattis tellus. Sed dignissim,
-                metus nec fringilla accumsan, risus sem sollicitudin lacus, ut
-                interdum tellus elit sed risus. Maecenas eget condimentum velit,
-                sit amet feugiat lectus. Class aptent taciti sociosqu ad litora
-                torquent per conubia nostra, per inceptos himenaeos.
+                Menyediakan informasi lokasi drop point untuk memudahkan pengguna dalam pengiriman perangkat servis secara efisien.
               </Text>
 
               <Button
