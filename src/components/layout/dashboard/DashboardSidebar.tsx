@@ -62,9 +62,6 @@ function isPathActive(pathname: string, href?: string): boolean {
   }
 
   const hrefSegments = cleanHref.split("/").filter(Boolean);
-
-  // menu root role seperti /owner, /admin_penjualan, /teknisi
-  // hanya aktif kalau path-nya persis sama
   if (hrefSegments.length === 1) {
     return false;
   }
@@ -497,7 +494,7 @@ export default function DashboardSidebar({
       style={{
         width: collapsed ? 96 : 262,
         minHeight: "100vh",
-        backgroundColor: "#052F78",
+        backgroundColor: "#3766AD",
         color: "#FFFFFF",
         display: "flex",
         flexDirection: "column",
@@ -553,7 +550,7 @@ export default function DashboardSidebar({
         px={collapsed ? 10 : 16}
         py={14}
         style={{
-          backgroundColor: "#052F78",
+          backgroundColor: "#3766AD",
           borderTop: "1px solid rgba(255,255,255,0.08)",
         }}
       >

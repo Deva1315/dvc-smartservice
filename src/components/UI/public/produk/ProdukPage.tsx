@@ -145,7 +145,7 @@ export default function ProdukPage() {
         style={{
           position: "relative",
           minHeight: 500,
-          overflow: "hidden",
+          // overflow: "hidden",
           backgroundImage: "url('/images/hero-banner.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
@@ -178,8 +178,7 @@ export default function ProdukPage() {
                 lineHeight: 1.35,
               }}
             >
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam eu
-              turpis molestie, dictum est a, mattis tellus.
+             Buat tiket servis, cek kerusakan perangkat, dan pantau proses perbaikan dengan praktis.
             </Text>
           </Box>
         </Container>

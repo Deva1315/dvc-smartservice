@@ -16,7 +16,7 @@ export default function PublicNavbar() {
     const pathname = usePathname();
 
     const isProdukActive = pathname === "/produk";
-    const isDropPointActive = pathname === "/drop_point";
+    const isDropPointActive = pathname === "/drop-point";
     const isServisActive = serviceMenus.some((item) => item.href === pathname);
 
     const navLinkStyle = (active: boolean) => ({
@@ -204,7 +204,7 @@ export default function PublicNavbar() {
                 </Menu>
 
                 <Anchor
-                    href="/drop_point"
+                    href="/drop-point"
                     underline="never"
                     style={mobileNavLinkStyle(isDropPointActive)}
                 >

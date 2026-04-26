@@ -1,10 +1,8 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
-// import "@mantine/modals/styles.css";
 
 import {
-  ColorSchemeScript,
   MantineProvider,
   mantineHtmlProps,
 } from "@mantine/core";
@@ -18,16 +16,14 @@ export const metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en" {...mantineHtmlProps}>
-      <head>
-        <ColorSchemeScript />
-      </head>
+      <head />
       <body>
-        <MantineProvider>
+        <MantineProvider defaultColorScheme="light">
           <ModalsProvider>
             <Notifications position="top-right" zIndex={1000} />
             {children}

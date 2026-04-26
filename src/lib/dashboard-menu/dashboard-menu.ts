@@ -1,12 +1,14 @@
 import type React from "react";
 import {
   IconBasket,
+  IconCertificate,
   IconClipboardList,
   IconClipboardText,
   IconCpu,
   IconLayoutDashboard,
   IconMapPin,
   IconReportAnalytics,
+  IconShieldCheck,
   IconShoppingCart,
   IconTool,
   IconUsers,
@@ -121,13 +123,13 @@ const DASHBOARD_MENU: Record<DashboardRoleKey, DashboardMenuItem[]> = {
       key: "garansi-servis",
       label: "Garansi Servis",
       href: "/admin_penjualan/garansi-servis",
-      icon: IconReportAnalytics,
+      icon: IconCertificate,
     },
     {
       key: "klaim-garansi",
       label: "Klaim Garansi",
       href: "/admin_penjualan/klaim-garansi",
-      icon: IconReportAnalytics,
+      icon: IconShieldCheck,
     },
     {
       key: "point-of-sale",
