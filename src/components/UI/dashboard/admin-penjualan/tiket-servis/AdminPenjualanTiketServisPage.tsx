@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActionIcon,
   Badge,
@@ -13,21 +14,27 @@ import {
   Text,
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
-import { IconDotsVertical, IconEye, IconPlus, IconCash } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
+import {
+  IconCash,
+  IconDotsVertical,
+  IconEye,
+  IconPlus,
+} from "@tabler/icons-react";
 import CustomTable, {
   type TableColumn,
 } from "@/components/table/custom-table-search/CustomTableSearch";
-import TiketServisFormModal from "@/components/UI/dashboard/admin-penjualan/tiket-servis/form/AdminPenjualanTiketServisFormModal";
-
-type StatusVerifikasi = "Menunggu" | "Diterima" | "Ditolak";
-
-type StatusServis =
-  | "Belum_Diproses"
-  | "Diproses"
-  | "Menunggu_Sparepart"
-  | "Selesai"
-  | "Diambil"
-  | "Dibatalkan";
+import TiketServisFormModal, {
+  type TicketDropPointOption,
+  type TicketRow,
+} from "@/components/UI/dashboard/admin-penjualan/tiket-servis/form/AdminPenjualanTiketServisFormModal";
+import {
+  createAdminPenjualanTiketServis,
+  getAdminPenjualanTiketServis,
+  type AdminPenjualanTiketApiItem,
+  type StatusServis,
+  type StatusVerifikasi,
+} from "@/lib/admin-penjualan/admin-penjualan-tiket-servis.client";
 
 type AdminPenjualanTiketRow = {
   id: string;
@@ -42,69 +49,6 @@ type AdminPenjualanTiketRow = {
   tanggalMasuk: string;
 };
 
-const dummyTiketServis: AdminPenjualanTiketRow[] = [
-  {
-    id: "1",
-    no: 1,
-    nomorTiket: "TSK-20260423-001",
-    namaPelanggan: "Anton Wijaya",
-    noHp: "08123456789",
-    jenisPerangkat: "Laptop",
-    merkPerangkat: "Asus VivoBook",
-    tanggalMasuk: "23-04-2024",
-    statusVerifikasi: "Menunggu",
-    statusServis: "Belum_Diproses",
-  },
-  {
-    id: "2",
-    no: 2,
-    nomorTiket: "TSK-20260423-002",
-    namaPelanggan: "Bagus Raharja",
-    noHp: "08134567890",
-    jenisPerangkat: "CPU",
-    merkPerangkat: "Dell Vostro 260",
-    tanggalMasuk: "22-04-2024",
-    statusVerifikasi: "Diterima",
-    statusServis: "Diproses",
-  },
-  {
-    id: "3",
-    no: 3,
-    nomorTiket: "TSK-20260423-003",
-    namaPelanggan: "Siti Andika",
-    noHp: "08212345678",
-    jenisPerangkat: "CPU",
-    merkPerangkat: "Dell Vostro 260",
-    tanggalMasuk: "21-04-2024",
-    statusVerifikasi: "Diterima",
-    statusServis: "Menunggu_Sparepart",
-  },
-  {
-    id: "4",
-    no: 4,
-    nomorTiket: "TSK-20260423-004",
-    namaPelanggan: "Andi Saputra",
-    noHp: "08223456789",
-    jenisPerangkat: "Laptop",
-    merkPerangkat: "Lenovo IdeaPad 3",
-    tanggalMasuk: "20-04-2024",
-    statusVerifikasi: "Diterima",
-    statusServis: "Selesai",
-  },
-  {
-    id: "5",
-    no: 5,
-    nomorTiket: "TSK-20260423-005",
-    namaPelanggan: "Agung Santoso",
-    noHp: "08198765432",
-    jenisPerangkat: "Laptop",
-    merkPerangkat: "Asus TUF Gaming",
-    tanggalMasuk: "19-04-2024",
-    statusVerifikasi: "Menunggu",
-    statusServis: "Belum_Diproses",
-  },
-];
-
 const filterStatusServisOptions = [
   { value: "Menunggu", label: "Menunggu Verifikasi" },
   { value: "Diterima", label: "Diterima" },
@@ -117,6 +61,21 @@ const filterStatusServisOptions = [
   { value: "Dibatalkan", label: "Dibatalkan" },
 ];
 
+const dropPointOptions: TicketDropPointOption[] = [];
+
+function formatDisplayDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
 
 function getPerangkatDisplay(row: AdminPenjualanTiketRow) {
   return row.merkPerangkat
@@ -170,29 +129,122 @@ function getStatusVerifikasiColor(status: StatusVerifikasi) {
   return colors[status] || "gray";
 }
 
+function mapTiketServis(data: AdminPenjualanTiketApiItem[]) {
+  return data.map((item, index): AdminPenjualanTiketRow => {
+    return {
+      id: item.id,
+      no: index + 1,
+      nomorTiket: item.nomor_tiket,
+      namaPelanggan: item.nama_cust,
+      noHp: item.phone_cust,
+      jenisPerangkat: item.jenis_perangkat,
+      merkPerangkat: item.merk_perangkat,
+      statusVerifikasi: item.status_verifikasi,
+      statusServis: item.status_servis,
+      tanggalMasuk: item.tanggal_masuk,
+    };
+  });
+}
+
+function normalizeStatusServisForForm(status: StatusServis): TicketRow["status_servis"] {
+  const labels: Record<StatusServis, TicketRow["status_servis"]> = {
+    Belum_Diproses: "Belum Diproses",
+    Diproses: "Diproses",
+    Menunggu_Sparepart: "Menunggu Sparepart",
+    Selesai: "Selesai",
+    Diambil: "Diambil",
+    Dibatalkan: "Dibatalkan",
+  };
+
+  return labels[status];
+}
+
 export default function AdminPenjualanTiketServisPage() {
   const router = useRouter();
+
   const [opened, setOpened] = useState(false);
-
-
   const [selectedStatusServis, setSelectedStatusServis] = useState<
     string | null
   >(null);
+  const [tiketServis, setTiketServis] = useState<AdminPenjualanTiketRow[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [tanggalMasuk] = useState(new Date());
 
   const tableData = useMemo(() => {
     const filtered = selectedStatusServis
-      ? dummyTiketServis.filter(
+      ? tiketServis.filter(
           (item) =>
             item.statusVerifikasi === selectedStatusServis ||
             item.statusServis === selectedStatusServis
         )
-      : dummyTiketServis;
+      : tiketServis;
 
     return filtered.map((item, index) => ({
       ...item,
       no: index + 1,
     }));
-  }, [selectedStatusServis]);
+  }, [selectedStatusServis, tiketServis]);
+
+  async function fetchTiketServis() {
+    try {
+      setIsLoading(true);
+
+      const result = await getAdminPenjualanTiketServis();
+      setTiketServis(mapTiketServis(result.data || []));
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data tiket servis.",
+        color: "red",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchTiketServis();
+  }, []);
+
+  async function handleSubmitTiketServis(
+    ticket: TicketRow,
+    _formType: any
+  ): Promise<boolean> {
+    try {
+      await createAdminPenjualanTiketServis({
+        nama_cust: ticket.nama_cust,
+        phone_cust: ticket.phone_cust,
+        alamat_cust: ticket.alamat_cust || null,
+        jenis_perangkat: ticket.jenis_perangkat,
+        merk_perangkat: ticket.merk_perangkat || null,
+        keluhan: ticket.keluhan,
+        id_drop_point: ticket.gunakan_drop_point ? ticket.drop_point_id : null,
+      });
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Tiket servis berhasil dibuat.",
+        color: "green",
+      });
+
+      await fetchTiketServis();
+      return true;
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal membuat tiket servis.",
+        color: "red",
+      });
+
+      return false;
+    }
+  }
 
   const columns: TableColumn<AdminPenjualanTiketRow>[] = [
     {
@@ -293,7 +345,7 @@ export default function AdminPenjualanTiketServisPage() {
       align: "center",
       render: (row) => (
         <Text fz={16} c="#222222">
-          {row.tanggalMasuk}
+          {formatDisplayDate(row.tanggalMasuk)}
         </Text>
       ),
     },
@@ -334,11 +386,18 @@ export default function AdminPenjualanTiketServisPage() {
             >
               Tampil Detail
             </Menu.Item>
+
             <Menu.Item
               leftSection={<IconCash size={16} stroke={1.9} />}
-              onClick={() => router.push(`/admin_penjualan/tiket-servis/${encodeURIComponent(row.nomorTiket)}/pembayaran`)}
+              onClick={() =>
+                router.push(
+                  `/admin_penjualan/tiket-servis/${encodeURIComponent(
+                    row.nomorTiket
+                  )}/pembayaran`
+                )
+              }
             >
-              Proses Pembayaran
+              Bayar
             </Menu.Item>
           </Menu.Dropdown>
         </Menu>
@@ -347,72 +406,64 @@ export default function AdminPenjualanTiketServisPage() {
   ];
 
   return (
-    <Stack gap={18}>
-      <Group justify="space-between" align="center">
-        <Text fw={800} fz={26} c="#111111">
-          Tiket Servis
-        </Text>
-
-        <Button
-          radius="xl"
-          leftSection={<IconPlus size={18} stroke={2.2} />}
-          onClick={() => setOpened(true)}
-          style={{
-            height: 36,
-            minWidth: 120,
-            backgroundColor: "#0D4CB5",
-            fontSize: 14,
-            fontWeight: 700,
-            paddingInline: 18,
-          }}
-        >
-          Buat Tiket
-        </Button>
-      </Group>
-
-      <CustomTable
-        data={tableData}
-        columns={columns}
-        searchable
-        isLoading={false}
-        searchPlaceholder="Search Tiket Servis...."
-        showFooter={false}
-        emptyText="Data tiket servis tidak ditemukan"
-        searchRightSection={
-          <Select
-            value={selectedStatusServis}
-            onChange={setSelectedStatusServis}
-            placeholder="Filter Status"
-            clearable
-            data={filterStatusServisOptions}
-            styles={{
-              input: {
-                minWidth: 190,
-                height: 44,
-                borderRadius: 999,
-              },
+    <>
+      <Stack gap={18}>
+        <Group justify="space-between" align="center">
+          <Button
+            radius="xl"
+            leftSection={<IconPlus size={18} stroke={2.2} />}
+            onClick={() => setOpened(true)}
+            style={{
+              height: 36,
+              minWidth: 120,
+              backgroundColor: "#0D4CB5",
+              fontSize: 14,
+              fontWeight: 700,
+              paddingInline: 18,
+              marginLeft: "auto",
             }}
-          />
-        }
-      />
+          >
+            Buat Tiket
+          </Button>
+        </Group>
+
+        <CustomTable
+          data={tableData}
+          columns={columns}
+          searchable
+          isLoading={isLoading}
+          searchPlaceholder="Search Tiket Servis...."
+          showFooter={false}
+          emptyText="Data tiket servis tidak ditemukan"
+          searchRightSection={
+            <Select
+              value={selectedStatusServis}
+              onChange={setSelectedStatusServis}
+              placeholder="Filter Status"
+              clearable
+              data={filterStatusServisOptions}
+              styles={{
+                input: {
+                  minWidth: 190,
+                  height: 44,
+                  borderRadius: 999,
+                },
+              }}
+            />
+          }
+        />
+      </Stack>
 
       <TiketServisFormModal
-  opened={opened}
-  onClose={() => setOpened(false)}
-  formType="create"
-  nomorTiket=""
-  tanggalMasuk={new Date()}
-  dropPointOptions={[
-    { value: "1", label: "Drop Point Jogja" },
-    { value: "2", label: "Drop Point Sleman" },
-  ]}
-  onSubmit={async (data: any) => {
-    console.log("DATA TIKET:", data);
-
-    // nanti sambung API
-    return true;
-  }}
-/>
-    </Stack>
+        opened={opened}
+        onClose={() => setOpened(false)}
+        formType="create"
+        nomorTiket=""
+        tanggalMasuk={tanggalMasuk}
+        dropPointOptions={dropPointOptions}
+        initialData={null}
+        onSubmit={handleSubmitTiketServis}
+      />
+    </>
   );
 }

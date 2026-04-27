@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActionIcon,
   Button,
@@ -10,6 +10,7 @@ import {
   Text,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import {
   IconDotsVertical,
   IconEdit,
@@ -25,6 +26,13 @@ import JasaServisFormModal, {
   type JasaServisFormPayload,
 } from "@/components/UI/dashboard/admin-penjualan/jasa-servis/form/JasaServisFormModal";
 import JasaServisDetailModal from "@/components/UI/dashboard/admin-penjualan/jasa-servis/modal/JasaServisDetailModal";
+import {
+  createJasaServis,
+  deleteJasaServis,
+  getJasaServis,
+  updateJasaServis,
+  type JasaServisApiItem,
+} from "@/lib/admin-penjualan/admin-penjualan-jasa-servis.client";
 
 type JasaServisRow = {
   id: string;
@@ -35,45 +43,6 @@ type JasaServisRow = {
   harga: number;
   jamOperasional: string;
 };
-
-const initialJasaServisData: JasaServisRow[] = [
-  {
-    id: "1",
-    no: 1,
-    slug: "perbaikan-laptop",
-    nama: "Perbaikan Laptop",
-    deskripsi: "Perbaikan berbagai masalah pada laptop",
-    harga: 150000,
-    jamOperasional: "09:00 - 17:00",
-  },
-  {
-    id: "2",
-    no: 2,
-    slug: "instalasi-ulang-os",
-    nama: "Instalasi Ulang OS",
-    deskripsi: "Instalasi ulang sistem operasi, driver, dan aplikasi",
-    harga: 100000,
-    jamOperasional: "08:00 - 16:00",
-  },
-  {
-    id: "3",
-    no: 3,
-    slug: "pembersihan-komputer",
-    nama: "Pembersihan Komputer",
-    deskripsi: "Pembersihan komputer dari debu dan kotoran",
-    harga: 75000,
-    jamOperasional: "09:00 - 15:00",
-  },
-  {
-    id: "4",
-    no: 4,
-    slug: "upgrade-hardware",
-    nama: "Upgrade Hardware",
-    deskripsi: "Upgrade RAM, SSD, atau hardware lain",
-    harga: 200000,
-    jamOperasional: "10:00 - 18:00",
-  },
-];
 
 function formatRupiah(value: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -92,9 +61,20 @@ function createSlug(value: string) {
     .replace(/-+/g, "-");
 }
 
+function mapJasaServis(data: JasaServisApiItem[]): JasaServisRow[] {
+  return data.map((item, index) => ({
+    id: item.id,
+    no: index + 1,
+    slug: item.slug || createSlug(item.nama_jasa_servis),
+    nama: item.nama_jasa_servis,
+    deskripsi: item.deskripsi,
+    harga: Number(item.harga || 0),
+    jamOperasional: item.jam_operasional,
+  }));
+}
+
 export default function AdminPenjualanJasaServisPage() {
-  const [jasaServis, setJasaServis] =
-    useState<JasaServisRow[]>(initialJasaServisData);
+  const [jasaServis, setJasaServis] = useState<JasaServisRow[]>([]);
   const [openedForm, setOpenedForm] = useState(false);
   const [openedDetail, setOpenedDetail] = useState(false);
   const [formType, setFormType] = useState<FormType>("create");
@@ -103,6 +83,7 @@ export default function AdminPenjualanJasaServisPage() {
   const [detailJasaServis, setDetailJasaServis] =
     useState<JasaServisRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const tableData = useMemo(() => {
     return jasaServis.map((item, index) => ({
@@ -110,6 +91,30 @@ export default function AdminPenjualanJasaServisPage() {
       no: index + 1,
     }));
   }, [jasaServis]);
+
+  async function fetchJasaServis() {
+    try {
+      setIsLoading(true);
+
+      const result = await getJasaServis();
+      setJasaServis(mapJasaServis(result.data || []));
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data jasa servis.",
+        color: "red",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchJasaServis();
+  }, []);
 
   function handleTambahJasaServis() {
     setFormType("create");
@@ -155,8 +160,30 @@ export default function AdminPenjualanJasaServisPage() {
       confirmProps: {
         color: "red",
       },
-      onConfirm: () => {
-        setJasaServis((prev) => prev.filter((item) => item.id !== row.id));
+      onConfirm: async () => {
+        try {
+          setIsSubmitting(true);
+
+          await deleteJasaServis(row.id);
+          await fetchJasaServis();
+
+          notifications.show({
+            title: "Berhasil",
+            message: "Jasa servis berhasil dihapus.",
+            color: "green",
+          });
+        } catch (error) {
+          notifications.show({
+            title: "Gagal",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Gagal menghapus jasa servis.",
+            color: "red",
+          });
+        } finally {
+          setIsSubmitting(false);
+        }
       },
     });
   }
@@ -165,48 +192,86 @@ export default function AdminPenjualanJasaServisPage() {
     payload: JasaServisFormPayload,
     currentFormType: FormType
   ): Promise<boolean> {
-    if (!payload.nama.trim()) return false;
-    if (!payload.harga || payload.harga < 0) return false;
-    if (!payload.jamOperasional.trim()) return false;
-
-    setIsSubmitting(true);
-
     try {
-      if (currentFormType === "create") {
-        setJasaServis((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            no: prev.length + 1,
-            slug: createSlug(payload.nama),
-            nama: payload.nama,
-            harga: payload.harga,
-            deskripsi: payload.deskripsi,
-            jamOperasional: payload.jamOperasional,
-          },
-        ]);
+      if (!payload.nama.trim()) {
+        notifications.show({
+          title: "Gagal",
+          message: "Nama jasa servis wajib diisi.",
+          color: "red",
+        });
+        return false;
+      }
 
+      if (!payload.harga || payload.harga < 0) {
+        notifications.show({
+          title: "Gagal",
+          message: "Harga jasa servis wajib diisi dan tidak boleh negatif.",
+          color: "red",
+        });
+        return false;
+      }
+
+      if (!payload.jamOperasional.trim()) {
+        notifications.show({
+          title: "Gagal",
+          message: "Jam operasional wajib diisi.",
+          color: "red",
+        });
+        return false;
+      }
+
+      setIsSubmitting(true);
+
+      const requestPayload = {
+        nama_jasa_servis: payload.nama,
+        deskripsi: payload.deskripsi,
+        harga: payload.harga,
+        jam_operasional: payload.jamOperasional,
+      };
+
+      if (currentFormType === "create") {
+        await createJasaServis(requestPayload);
+
+        notifications.show({
+          title: "Berhasil",
+          message: "Jasa servis berhasil ditambahkan.",
+          color: "green",
+        });
+
+        await fetchJasaServis();
         return true;
       }
 
-      if (!selectedJasaServis?.id) return false;
+      if (!selectedJasaServis?.id) {
+        notifications.show({
+          title: "Gagal",
+          message: "Data jasa servis yang diedit tidak ditemukan.",
+          color: "red",
+        });
+        return false;
+      }
 
-      setJasaServis((prev) =>
-        prev.map((item) =>
-          item.id === selectedJasaServis.id
-            ? {
-                ...item,
-                slug: createSlug(payload.nama),
-                nama: payload.nama,
-                harga: payload.harga,
-                deskripsi: payload.deskripsi,
-                jamOperasional: payload.jamOperasional,
-              }
-            : item
-        )
-      );
+      await updateJasaServis(selectedJasaServis.id, requestPayload);
 
+      notifications.show({
+        title: "Berhasil",
+        message: "Jasa servis berhasil diperbarui.",
+        color: "green",
+      });
+
+      await fetchJasaServis();
       return true;
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal menyimpan jasa servis.",
+        color: "red",
+      });
+
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -324,8 +389,7 @@ export default function AdminPenjualanJasaServisPage() {
   return (
     <>
       <Stack gap={18}>
-        <Group justify="flex-end" align="center">
-
+        <Group justify="flex-end">
           <Button
             radius="xl"
             onClick={handleTambahJasaServis}
@@ -338,7 +402,7 @@ export default function AdminPenjualanJasaServisPage() {
               paddingInline: 24,
             }}
           >
-            + Tambah
+            Tambah
           </Button>
         </Group>
 
@@ -346,7 +410,7 @@ export default function AdminPenjualanJasaServisPage() {
           data={tableData}
           columns={columns}
           searchable
-          isLoading={false}
+          isLoading={isLoading}
           searchPlaceholder="Search Jasa Servis...."
           showFooter={false}
           emptyText="Data jasa servis tidak ditemukan"

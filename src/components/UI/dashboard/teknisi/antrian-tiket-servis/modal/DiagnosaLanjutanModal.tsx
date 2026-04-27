@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,11 +11,7 @@ import {
   Text,
   Textarea,
 } from "@mantine/core";
-import {
-  getStatusServisColor,
-  getStatusServisLabel,
-  type TeknisiStatusServis,
-} from "@/lib/dummy/tiket-servis-teknisi.mock";
+import type { StatusServis } from "@/lib/teknisi/teknisi-tiket-servis.client";
 
 type DiagnosaLanjutanModalProps = {
   opened: boolean;
@@ -24,14 +19,52 @@ type DiagnosaLanjutanModalProps = {
   noTiket: string;
   pelanggan: string;
   perangkat: string;
-  statusSaatIni: TeknisiStatusServis;
+  statusSaatIni: StatusServis;
   initialDiagnosaLanjutan: string;
   initialCatatanTeknisi: string;
   onSave: (payload: {
     diagnosaLanjutan: string;
     catatanTeknisi: string;
-  }) => void;
+  }) => Promise<boolean> | boolean;
 };
+
+function getStatusServisLabel(status: StatusServis) {
+  switch (status) {
+    case "Belum_Diproses":
+      return "Belum Diproses";
+    case "Diproses":
+      return "Diproses";
+    case "Menunggu_Sparepart":
+      return "Menunggu Sparepart";
+    case "Selesai":
+      return "Selesai";
+    case "Diambil":
+      return "Diambil";
+    case "Dibatalkan":
+      return "Dibatalkan";
+    default:
+      return status;
+  }
+}
+
+function getStatusServisColor(status: StatusServis) {
+  switch (status) {
+    case "Belum_Diproses":
+      return "gray";
+    case "Diproses":
+      return "blue";
+    case "Menunggu_Sparepart":
+      return "yellow";
+    case "Selesai":
+      return "green";
+    case "Diambil":
+      return "teal";
+    case "Dibatalkan":
+      return "red";
+    default:
+      return "gray";
+  }
+}
 
 export default function DiagnosaLanjutanModal({
   opened,
@@ -47,6 +80,7 @@ export default function DiagnosaLanjutanModal({
   const [diagnosaLanjutan, setDiagnosaLanjutan] = useState("");
   const [catatanTeknisi, setCatatanTeknisi] = useState("");
   const [errorDiagnosa, setErrorDiagnosa] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!opened) return;
@@ -54,26 +88,35 @@ export default function DiagnosaLanjutanModal({
     setDiagnosaLanjutan(initialDiagnosaLanjutan);
     setCatatanTeknisi(initialCatatanTeknisi);
     setErrorDiagnosa("");
+    setIsSubmitting(false);
   }, [opened, initialDiagnosaLanjutan, initialCatatanTeknisi]);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!diagnosaLanjutan.trim()) {
       setErrorDiagnosa("Diagnosa lanjutan wajib diisi");
       return;
     }
 
-    onSave({
-      diagnosaLanjutan: diagnosaLanjutan.trim(),
-      catatanTeknisi: catatanTeknisi.trim(),
-    });
+    try {
+      setIsSubmitting(true);
 
-    onClose();
+      const isSuccess = await onSave({
+        diagnosaLanjutan: diagnosaLanjutan.trim(),
+        catatanTeknisi: catatanTeknisi.trim(),
+      });
+
+      if (isSuccess) {
+        onClose();
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
+      onClose={isSubmitting ? () => undefined : onClose}
       centered
       size="56rem"
       radius="xl"
@@ -166,6 +209,7 @@ export default function DiagnosaLanjutanModal({
             placeholder="Masukkan hasil pemeriksaan teknisi..."
             minRows={5}
             error={errorDiagnosa}
+            disabled={isSubmitting}
             styles={{
               input: {
                 borderRadius: 12,
@@ -184,6 +228,7 @@ export default function DiagnosaLanjutanModal({
             onChange={(event) => setCatatanTeknisi(event.currentTarget.value)}
             placeholder="Tambahkan catatan teknisi bila diperlukan..."
             minRows={4}
+            disabled={isSubmitting}
             styles={{
               input: {
                 borderRadius: 12,
@@ -197,6 +242,7 @@ export default function DiagnosaLanjutanModal({
             variant="outline"
             radius="md"
             onClick={onClose}
+            disabled={isSubmitting}
             style={{
               minWidth: 140,
               height: 46,
@@ -208,6 +254,7 @@ export default function DiagnosaLanjutanModal({
           <Button
             radius="md"
             onClick={handleSubmit}
+            loading={isSubmitting}
             style={{
               minWidth: 140,
               height: 46,

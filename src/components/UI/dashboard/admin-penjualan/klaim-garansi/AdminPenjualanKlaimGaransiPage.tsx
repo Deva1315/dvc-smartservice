@@ -15,63 +15,55 @@ import {
 import { notifications } from "@mantine/notifications";
 import {
   IconCalendarCheck,
+  IconCash,
+  IconClock,
   IconDeviceLaptop,
   IconRefresh,
   IconSearch,
   IconTicket,
   IconUser,
 } from "@tabler/icons-react";
+import {
+  cekKlaimGaransiByNomorTiket,
+  klaimGaransiByNomorTiket,
+  type KlaimGaransiApiData,
+  type StatusGaransiUi,
+} from "@/lib/admin-penjualan/admin-penjualan-garansi-servis.client";
 
-type StatusGaransi = "Aktif" | "Habis" | "Diklaim";
-
-type GaransiData = {
-  nomorTiket: string;
-  namaPelanggan: string;
-  perangkat: string;
-  tanggalServis: string;
-  periodeHari: number;
-  tanggalBerakhir: string;
-  status: StatusGaransi;
-};
-
-const dummyGaransiData: GaransiData[] = [
-  {
-    nomorTiket: "TSK-20260423-001",
-    namaPelanggan: "Anton Wijaya",
-    perangkat: "Laptop - Asus VivoBook A412U",
-    tanggalServis: "23-04-2026",
-    periodeHari: 30,
-    tanggalBerakhir: "23-05-2026",
-    status: "Aktif",
-  },
-  {
-    nomorTiket: "TSK-20260423-002",
-    namaPelanggan: "Rina Susanti",
-    perangkat: "Laptop - Lenovo Ideapad 330",
-    tanggalServis: "23-04-2026",
-    periodeHari: 30,
-    tanggalBerakhir: "23-05-2026",
-    status: "Habis",
-  },
-  {
-    nomorTiket: "TSK-20260423-003",
-    namaPelanggan: "Danu Pratama",
-    perangkat: "PC - Custom",
-    tanggalServis: "23-04-2026",
-    periodeHari: 60,
-    tanggalBerakhir: "22-06-2026",
-    status: "Diklaim",
-  },
-];
-
-function getStatusColor(status: StatusGaransi) {
-  const colors: Record<StatusGaransi, string> = {
+function getStatusColor(status: StatusGaransiUi) {
+  const colors: Record<StatusGaransiUi, string> = {
     Aktif: "green",
     Habis: "yellow",
     Diklaim: "blue",
   };
 
   return colors[status];
+}
+
+function formatDateDisplay(value: string | null | undefined) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatCurrency(value: string | number | null | undefined) {
+  const numberValue = Number(value || 0);
+
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(numberValue) ? numberValue : 0);
 }
 
 function InfoRow({
@@ -101,45 +93,81 @@ function InfoRow({
   );
 }
 
+function getClaimDisabledMessage(data: KlaimGaransiApiData | null) {
+  if (!data) {
+    return "Masukkan nomor tiket terlebih dahulu untuk mengecek garansi.";
+  }
+
+  if (data.status_display === "Habis") {
+    return "Garansi sudah habis sehingga tidak dapat diklaim.";
+  }
+
+  if (data.status_display === "Diklaim") {
+    return "Garansi ini sudah pernah diklaim.";
+  }
+
+  if (!data.can_claim) {
+    return "Garansi tidak dapat diklaim.";
+  }
+
+  return "";
+}
+
 export default function AdminPenjualanKlaimGaransiPage() {
   const [nomorTiket, setNomorTiket] = useState("");
-  const [selectedGaransi, setSelectedGaransi] = useState<GaransiData | null>(
-    null
-  );
+  const [selectedGaransi, setSelectedGaransi] =
+    useState<KlaimGaransiApiData | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
 
   const isKlaimDisabled =
-    !selectedGaransi || selectedGaransi.status !== "Aktif";
+    !selectedGaransi ||
+    selectedGaransi.status_display !== "Aktif" ||
+    !selectedGaransi.can_claim ||
+    isChecking ||
+    isClaiming;
 
-  function handleCekGaransi() {
-    setIsChecking(true);
+  const disabledMessage = getClaimDisabledMessage(selectedGaransi);
 
-    const foundGaransi = dummyGaransiData.find(
-      (item) =>
-        item.nomorTiket.toLowerCase() === nomorTiket.trim().toLowerCase()
-    );
+  async function handleCekGaransi() {
+    const trimmedNomorTiket = nomorTiket.trim();
 
-    setTimeout(() => {
-      setIsChecking(false);
+    if (!trimmedNomorTiket) {
+      notifications.show({
+        title: "Gagal",
+        message: "Nomor tiket wajib diisi.",
+        color: "red",
+      });
+      return;
+    }
 
-      if (!foundGaransi) {
-        setSelectedGaransi(null);
-        notifications.show({
-          title: "Tidak ditemukan",
-          message: "Data garansi dengan nomor tiket tersebut tidak ditemukan.",
-          color: "red",
-        });
-        return;
-      }
+    try {
+      setIsChecking(true);
 
-      setSelectedGaransi(foundGaransi);
+      const result = await cekKlaimGaransiByNomorTiket(trimmedNomorTiket);
+      const data = result.data as KlaimGaransiApiData;
+
+      setSelectedGaransi(data);
+
       notifications.show({
         title: "Berhasil",
         message: "Data garansi ditemukan.",
         color: "green",
       });
-    }, 300);
+    } catch (error) {
+      setSelectedGaransi(null);
+
+      notifications.show({
+        title: "Tidak ditemukan",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Data garansi dengan nomor tiket tersebut tidak ditemukan.",
+        color: "red",
+      });
+    } finally {
+      setIsChecking(false);
+    }
   }
 
   function handleReset() {
@@ -147,27 +175,38 @@ export default function AdminPenjualanKlaimGaransiPage() {
     setSelectedGaransi(null);
   }
 
-  function handleKlaimGaransi() {
-    if (!selectedGaransi || selectedGaransi.status !== "Aktif") {
+  async function handleKlaimGaransi() {
+    if (!selectedGaransi || isKlaimDisabled) {
       return;
     }
 
-    setIsClaiming(true);
+    try {
+      setIsClaiming(true);
 
-    setTimeout(() => {
-      setSelectedGaransi({
-        ...selectedGaransi,
-        status: "Diklaim",
-      });
+      const result = await klaimGaransiByNomorTiket(
+        selectedGaransi.nomor_tiket
+      );
+      const data = result.data as KlaimGaransiApiData;
 
-      setIsClaiming(false);
+      setSelectedGaransi(data);
 
       notifications.show({
-        title: "Berhasil",
-        message: "Garansi berhasil diklaim.",
-        color: "green",
+        title: result.success ? "Berhasil" : "Gagal",
+        message: result.message || "Garansi berhasil diklaim.",
+        color: result.success ? "green" : "red",
       });
-    }, 300);
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal melakukan klaim garansi.",
+        color: "red",
+      });
+    } finally {
+      setIsClaiming(false);
+    }
   }
 
   return (
@@ -176,9 +215,15 @@ export default function AdminPenjualanKlaimGaransiPage() {
         <TextInput
           value={nomorTiket}
           onChange={(event) => setNomorTiket(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              handleCekGaransi();
+            }
+          }}
           placeholder="Masukkan No Tiket"
           leftSection={<IconSearch size={20} color="#555555" />}
           radius="xl"
+          disabled={isChecking || isClaiming}
           style={{
             width: "70%",
             maxWidth: 720,
@@ -196,6 +241,7 @@ export default function AdminPenjualanKlaimGaransiPage() {
           radius="xl"
           leftSection={<IconRefresh size={18} stroke={2.2} />}
           loading={isChecking}
+          disabled={isClaiming}
           onClick={handleCekGaransi}
           style={{
             height: 40,
@@ -239,13 +285,13 @@ export default function AdminPenjualanKlaimGaransiPage() {
                 <InfoRow
                   icon={<IconTicket size={19} />}
                   label="No Tiket"
-                  value={selectedGaransi.nomorTiket}
+                  value={selectedGaransi.nomor_tiket}
                 />
 
                 <InfoRow
                   icon={<IconUser size={19} />}
                   label="Nama Pelanggan"
-                  value={selectedGaransi.namaPelanggan}
+                  value={selectedGaransi.nama_pelanggan}
                 />
 
                 <InfoRow
@@ -257,12 +303,26 @@ export default function AdminPenjualanKlaimGaransiPage() {
                 <InfoRow
                   icon={<IconCalendarCheck size={19} />}
                   label="Tanggal Servis"
-                  value={selectedGaransi.tanggalServis}
+                  value={formatDateDisplay(selectedGaransi.tanggal_servis)}
                 />
+
+                <InfoRow
+                  icon={<IconCash size={19} />}
+                  label="Total Pembayaran"
+                  value={formatCurrency(selectedGaransi.total_pembayaran)}
+                />
+
+                {selectedGaransi.tanggal_klaim ? (
+                  <InfoRow
+                    icon={<IconClock size={19} />}
+                    label="Tanggal Klaim"
+                    value={formatDateDisplay(selectedGaransi.tanggal_klaim)}
+                  />
+                ) : null}
               </Stack>
 
               <Badge
-                color={getStatusColor(selectedGaransi.status)}
+                color={getStatusColor(selectedGaransi.status_display)}
                 variant="filled"
                 radius="md"
                 size="lg"
@@ -270,7 +330,7 @@ export default function AdminPenjualanKlaimGaransiPage() {
                   textTransform: "none",
                 }}
               >
-                {selectedGaransi.status}
+                {selectedGaransi.status_display}
               </Badge>
             </Group>
 
@@ -284,10 +344,30 @@ export default function AdminPenjualanKlaimGaransiPage() {
                 border: "1px solid #E5E7EB",
               }}
             >
-              <Text fz={17} fw={600} c="#111111">
-                Masa Garansi {selectedGaransi.periodeHari} Hari (
-                {selectedGaransi.tanggalBerakhir})
-              </Text>
+              <Stack gap={6}>
+                <Text fz={17} fw={600} c="#111111">
+                  Masa Garansi {selectedGaransi.periode_hari} Hari (
+                  {formatDateDisplay(selectedGaransi.tanggal_akhir)})
+                </Text>
+
+                <Text fz={15} c="#6B7280">
+                  Berlaku mulai{" "}
+                  {formatDateDisplay(selectedGaransi.tanggal_mulai)} sampai{" "}
+                  {formatDateDisplay(selectedGaransi.tanggal_akhir)}
+                </Text>
+
+                {selectedGaransi.keterangan_garansi ? (
+                  <Text fz={15} c="#6B7280">
+                    Keterangan: {selectedGaransi.keterangan_garansi}
+                  </Text>
+                ) : null}
+
+                {disabledMessage && selectedGaransi.status_display !== "Aktif" ? (
+                  <Text fz={15} fw={600} c="red">
+                    {disabledMessage}
+                  </Text>
+                ) : null}
+              </Stack>
             </Box>
           </Stack>
         )}
@@ -297,6 +377,7 @@ export default function AdminPenjualanKlaimGaransiPage() {
         <Button
           radius="xl"
           onClick={handleReset}
+          disabled={isChecking || isClaiming}
           style={{
             minWidth: 160,
             height: 44,

@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActionIcon,
   Badge,
@@ -20,87 +21,39 @@ import GaransiFormModal, {
   type TiketSelesaiOption,
 } from "@/components/UI/dashboard/admin-penjualan/garansi-servis/form/GaransiFormModal";
 import GaransiDetailModal from "@/components/UI/dashboard/admin-penjualan/garansi-servis/modal/GaransiDetailModal";
-
-type StatusGaransi = "Aktif" | "Habis" | "Diklaim";
+import {
+  createAdminPenjualanGaransiServis,
+  getAdminPenjualanGaransiServis,
+  getDetailAdminPenjualanGaransiServis,
+  getGaransiServisTiketOptions,
+  type AdminPenjualanGaransiApiItem,
+  type GaransiTiketOptionApiItem,
+  type StatusGaransiUi,
+} from "@/lib/admin-penjualan/admin-penjualan-garansi-servis.client";
 
 type GaransiRow = {
   id: string;
   no: number;
   nomorTiket: string;
   namaPelanggan: string;
+  noHp: string;
   perangkat: string;
   tanggalServis: string;
+  tanggalMulai: string;
   periodeHari: number;
   tanggalBerakhir: string;
-  status: StatusGaransi;
+  status: StatusGaransiUi;
+  keteranganGaransi: string | null;
+  totalPembayaran: string | number;
+  admin: {
+    id: string;
+    nama: string;
+    email: string;
+  };
 };
 
-const tiketSelesaiOptions: TiketSelesaiOption[] = [
-  {
-    value: "TSK-20260423-001",
-    label: "TSK-20260423-001 - Anton Wijaya",
-    namaPelanggan: "Anton Wijaya",
-    perangkat: "Laptop - Asus VivoBook A412J",
-    tanggalServis: "2026-04-23",
-  },
-  {
-    value: "TSK-20260423-002",
-    label: "TSK-20260423-002 - Rina Susanti",
-    namaPelanggan: "Rina Susanti",
-    perangkat: "Laptop - Lenovo Ideapad 330",
-    tanggalServis: "2026-04-23",
-  },
-];
-
-const initialGaransiData: GaransiRow[] = [
-  {
-    id: "1",
-    no: 1,
-    nomorTiket: "TSK-20260423-001",
-    namaPelanggan: "Anton Wijaya",
-    perangkat: "Laptop - Asus VivoBook A412J",
-    tanggalServis: "23-04-2026",
-    periodeHari: 30,
-    tanggalBerakhir: "23-05-2026",
-    status: "Aktif",
-  },
-  {
-    id: "2",
-    no: 2,
-    nomorTiket: "TSK-20260423-002",
-    namaPelanggan: "Rina Susanti",
-    perangkat: "Laptop - Lenovo Ideapad 330",
-    tanggalServis: "23-04-2026",
-    periodeHari: 30,
-    tanggalBerakhir: "23-05-2026",
-    status: "Aktif",
-  },
-  {
-    id: "3",
-    no: 3,
-    nomorTiket: "TSK-20260420-004",
-    namaPelanggan: "Budi Hartono",
-    perangkat: "PC - Custom",
-    tanggalServis: "20-04-2026",
-    periodeHari: 60,
-    tanggalBerakhir: "20-06-2026",
-    status: "Habis",
-  },
-  {
-    id: "4",
-    no: 4,
-    nomorTiket: "TSK-20260418-006",
-    namaPelanggan: "Andi Saputra",
-    perangkat: "Laptop - HP Pavilion 14",
-    tanggalServis: "18-04-2026",
-    periodeHari: 60,
-    tanggalBerakhir: "18-06-2026",
-    status: "Diklaim",
-  },
-];
-
-function getStatusGaransiColor(status: StatusGaransi) {
-  const colors: Record<StatusGaransi, string> = {
+function getStatusGaransiColor(status: StatusGaransiUi) {
+  const colors: Record<StatusGaransiUi, string> = {
     Aktif: "green",
     Habis: "yellow",
     Diklaim: "blue",
@@ -109,7 +62,9 @@ function getStatusGaransiColor(status: StatusGaransi) {
   return colors[status];
 }
 
-function formatDateDisplay(value: string) {
+function formatDateDisplay(value: string | null | undefined) {
+  if (!value) return "-";
+
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -123,12 +78,67 @@ function formatDateDisplay(value: string) {
   }).format(date);
 }
 
+function formatDateInput(value: string | null | undefined) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function formatCurrency(value: string | number | null | undefined) {
+  const numberValue = Number(value || 0);
+
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(numberValue) ? numberValue : 0);
+}
+
+function mapGaransiRow(item: AdminPenjualanGaransiApiItem): GaransiRow {
+  return {
+    id: item.id,
+    no: 0,
+    nomorTiket: item.nomor_tiket,
+    namaPelanggan: item.nama_pelanggan,
+    noHp: item.no_hp,
+    perangkat: item.perangkat,
+    tanggalServis: formatDateDisplay(item.tanggal_servis),
+    tanggalMulai: formatDateDisplay(item.tanggal_mulai),
+    periodeHari: item.periode_hari,
+    tanggalBerakhir: formatDateDisplay(item.tanggal_akhir),
+    status: item.status_display,
+    keteranganGaransi: item.keterangan_garansi,
+    totalPembayaran: item.total_pembayaran,
+    admin: item.admin,
+  };
+}
+
+function mapTiketOption(item: GaransiTiketOptionApiItem): TiketSelesaiOption {
+  return {
+    value: item.value,
+    label: item.label,
+    namaPelanggan: item.nama_pelanggan || item.namaPelanggan,
+    perangkat: item.perangkat,
+    tanggalServis: formatDateInput(item.tanggal_servis || item.tanggalServis),
+  };
+}
+
 export default function AdminPenjualanGaransiServisPage() {
-    const [garansi, setGaransi] = useState<GaransiRow[]>(initialGaransiData);
-    const [openedForm, setOpenedForm] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [openedDetail, setOpenedDetail] = useState(false);
-    const [selectedGaransi, setSelectedGaransi] = useState<GaransiRow | null>(null);
+  const [garansi, setGaransi] = useState<GaransiRow[]>([]);
+  const [tiketOptions, setTiketOptions] = useState<TiketSelesaiOption[]>([]);
+  const [openedForm, setOpenedForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openedDetail, setOpenedDetail] = useState(false);
+  const [selectedGaransi, setSelectedGaransi] = useState<GaransiRow | null>(
+    null
+  );
 
   const tableData = useMemo(() => {
     return garansi.map((item, index) => ({
@@ -137,29 +147,79 @@ export default function AdminPenjualanGaransiServisPage() {
     }));
   }, [garansi]);
 
+  async function fetchGaransi() {
+    const result = await getAdminPenjualanGaransiServis({
+      page: 1,
+      limit: 100,
+    });
+
+    const data = (result.data || []) as AdminPenjualanGaransiApiItem[];
+
+    setGaransi(data.map(mapGaransiRow));
+  }
+
+  async function fetchTiketOptions() {
+    const result = await getGaransiServisTiketOptions();
+
+    const data = (result.data || []) as GaransiTiketOptionApiItem[];
+
+    setTiketOptions(data.map(mapTiketOption));
+  }
+
+  async function fetchInitialData() {
+    try {
+      setIsLoading(true);
+
+      await Promise.all([fetchGaransi(), fetchTiketOptions()]);
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data garansi servis.",
+        color: "red",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
   async function handleOpenDetail(row: GaransiRow) {
-    setSelectedGaransi(row);
-    setOpenedDetail(true);
+    try {
+      const result = await getDetailAdminPenjualanGaransiServis(row.id);
+      const detail = result.data as AdminPenjualanGaransiApiItem;
+
+      setSelectedGaransi(mapGaransiRow(detail));
+      setOpenedDetail(true);
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil detail garansi servis.",
+        color: "red",
+      });
+    }
   }
 
   async function handleSubmitGaransi(payload: GaransiFormPayload) {
     try {
       setIsSubmitting(true);
 
-      setGaransi((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          no: prev.length + 1,
-          nomorTiket: payload.nomorTiket,
-          namaPelanggan: payload.namaPelanggan,
-          perangkat: payload.perangkat,
-          tanggalServis: formatDateDisplay(payload.tanggalMulai),
-          periodeHari: payload.periodeHari,
-          tanggalBerakhir: formatDateDisplay(payload.tanggalBerakhir),
-          status: "Aktif",
-        },
-      ]);
+      await createAdminPenjualanGaransiServis({
+        nomor_tiket: payload.nomorTiket,
+        tanggal_mulai: payload.tanggalMulai,
+        tanggal_akhir: payload.tanggalBerakhir,
+        keterangan_garansi: `Garansi servis selama ${payload.periodeHari} hari`,
+      });
+
+      await Promise.all([fetchGaransi(), fetchTiketOptions()]);
 
       notifications.show({
         title: "Berhasil",
@@ -168,10 +228,11 @@ export default function AdminPenjualanGaransiServisPage() {
       });
 
       return true;
-    } catch {
+    } catch (error) {
       notifications.show({
         title: "Gagal",
-        message: "Gagal membuat garansi.",
+        message:
+          error instanceof Error ? error.message : "Gagal membuat garansi.",
         color: "red",
       });
 
@@ -274,12 +335,12 @@ export default function AdminPenjualanGaransiServisPage() {
           </Menu.Target>
 
           <Menu.Dropdown>
-           <Menu.Item
-  leftSection={<IconEye size={16} stroke={1.9} />}
-  onClick={() => handleOpenDetail(row)}
->
-  Tampil Detail
-</Menu.Item>
+            <Menu.Item
+              leftSection={<IconEye size={16} stroke={1.9} />}
+              onClick={() => handleOpenDetail(row)}
+            >
+              Tampil Detail
+            </Menu.Item>
           </Menu.Dropdown>
         </Menu>
       ),
@@ -311,17 +372,24 @@ export default function AdminPenjualanGaransiServisPage() {
           data={tableData}
           columns={columns}
           searchable
-          isLoading={false}
+          isLoading={isLoading}
           searchPlaceholder="Search No Tiket...."
           showFooter={false}
           emptyText="Data garansi tidak ditemukan"
         />
+
+        {!isLoading && tiketOptions.length === 0 ? (
+          <Text fz={14} c="dimmed">
+            Catatan: tidak ada tiket servis yang sudah dibayar dan belum memiliki
+            garansi.
+          </Text>
+        ) : null}
       </Stack>
 
       <GaransiFormModal
         opened={openedForm}
         onClose={() => setOpenedForm(false)}
-        tiketOptions={tiketSelesaiOptions}
+        tiketOptions={tiketOptions}
         onSubmit={handleSubmitGaransi}
         isSubmitting={isSubmitting}
       />
@@ -330,6 +398,7 @@ export default function AdminPenjualanGaransiServisPage() {
         opened={openedDetail}
         onClose={() => setOpenedDetail(false)}
         data={selectedGaransi}
+        formatCurrency={formatCurrency}
       />
     </>
   );

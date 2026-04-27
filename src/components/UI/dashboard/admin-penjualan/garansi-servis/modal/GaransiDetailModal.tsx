@@ -1,28 +1,37 @@
 "use client";
 
 import { Box, Badge, Modal, SimpleGrid, Stack, Text } from "@mantine/core";
-
-type StatusGaransi = "Aktif" | "Habis" | "Diklaim";
+import type { StatusGaransiUi } from "@/lib/admin-penjualan/admin-penjualan-garansi-servis.client";
 
 export type GaransiDetailData = {
   id: string;
   nomorTiket: string;
   namaPelanggan: string;
+  noHp: string;
   perangkat: string;
   tanggalServis: string;
+  tanggalMulai: string;
   periodeHari: number;
   tanggalBerakhir: string;
-  status: StatusGaransi;
+  status: StatusGaransiUi;
+  keteranganGaransi: string | null;
+  totalPembayaran: string | number;
+  admin: {
+    id: string;
+    nama: string;
+    email: string;
+  };
 };
 
 type GaransiDetailModalProps = {
   opened: boolean;
   onClose: () => void;
   data: GaransiDetailData | null;
+  formatCurrency?: (value: string | number | null | undefined) => string;
 };
 
-function getStatusGaransiColor(status: StatusGaransi) {
-  const colors: Record<StatusGaransi, string> = {
+function getStatusGaransiColor(status: StatusGaransiUi) {
+  const colors: Record<StatusGaransiUi, string> = {
     Aktif: "green",
     Habis: "yellow",
     Diklaim: "blue",
@@ -54,6 +63,7 @@ export default function GaransiDetailModal({
   opened,
   onClose,
   data,
+  formatCurrency,
 }: GaransiDetailModalProps) {
   return (
     <Modal
@@ -91,8 +101,10 @@ export default function GaransiDetailModal({
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl">
               <DetailItem label="No. Tiket" value={data.nomorTiket} />
               <DetailItem label="Nama Pelanggan" value={data.namaPelanggan} />
+              <DetailItem label="No. HP" value={data.noHp} />
               <DetailItem label="Perangkat" value={data.perangkat} />
               <DetailItem label="Tanggal Servis" value={data.tanggalServis} />
+              <DetailItem label="Tanggal Mulai" value={data.tanggalMulai} />
               <DetailItem
                 label="Masa Garansi"
                 value={`${data.periodeHari} Hari`}
@@ -101,7 +113,25 @@ export default function GaransiDetailModal({
                 label="Tanggal Berakhir"
                 value={data.tanggalBerakhir}
               />
+              <DetailItem
+                label="Total Pembayaran"
+                value={
+                  formatCurrency
+                    ? formatCurrency(data.totalPembayaran)
+                    : data.totalPembayaran
+                }
+              />
+              <DetailItem label="Dibuat Oleh" value={data.admin?.nama} />
             </SimpleGrid>
+
+            <Stack gap={6}>
+              <Text fw={700} fz={15} c="#6B7280">
+                Keterangan Garansi
+              </Text>
+              <Text fw={700} fz={18} c="#111111">
+                {data.keteranganGaransi || "-"}
+              </Text>
+            </Stack>
 
             <Stack gap={6}>
               <Text fw={700} fz={15} c="#6B7280">

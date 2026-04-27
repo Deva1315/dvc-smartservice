@@ -1,5 +1,7 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Badge,
@@ -12,10 +14,12 @@ import {
   SimpleGrid,
   Stack,
   Text,
+  Textarea,
   ThemeIcon,
   Timeline,
   Title,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import {
   IconBuildingStore,
   IconCpu,
@@ -24,28 +28,60 @@ import {
   IconPhone,
   IconUser,
 } from "@tabler/icons-react";
+import {
+  getDetailAdminPenjualanTiketServis,
+  getTeknisiAdminPenjualan,
+  verifikasiAdminPenjualanTiketServis,
+  type DetailTiketServisApiItem,
+  type TeknisiApiItem,
+} from "@/lib/admin-penjualan/admin-penjualan-tiket-servis.client";
 
-const teknisiOptions = [
-  { value: "1", label: "Made Wirawan" },
-  { value: "2", label: "Dewa Putra" },
-  { value: "3", label: "Komang Arta" },
-];
-
-const dummyDetail = {
-  nomorTiket: "TSK-20260423-001",
-  namaPelanggan: "Anton Wijaya",
-  noHp: "08123456789",
-  alamat: "Jl. Imam Bonjol No. 10, Denpasar",
-  perangkat: "Laptop - Asus VivoBook A412U",
-  processor: "Intel Core i5",
-  ram: "8GB RAM",
-  storage: "SSD 256GB",
-  keluhan: "Laptop mati total, tidak bisa dinyalakan sama sekali",
-  dropPoint: "Cabang Denpasar",
-  statusVerifikasi: "Menunggu",
-  statusServis: "Belum Diproses",
-  tanggalMasuk: "23-04-2024",
+type SelectOption = {
+  value: string;
+  label: string;
 };
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function getStatusVerifikasiColor(status: string) {
+  if (status === "Diterima") return "green";
+  if (status === "Ditolak") return "red";
+  return "yellow";
+}
+
+function getStatusServisColor(status: string) {
+  if (status === "Selesai") return "green";
+  if (status === "Diproses") return "blue";
+  if (status === "Menunggu_Sparepart") return "yellow";
+  if (status === "Diambil") return "teal";
+  if (status === "Dibatalkan") return "red";
+  return "gray";
+}
+
+function getStatusServisLabel(status: string) {
+  const labels: Record<string, string> = {
+    Belum_Diproses: "Belum Diproses",
+    Diproses: "Diproses",
+    Menunggu_Sparepart: "Menunggu Sparepart",
+    Selesai: "Selesai",
+    Diambil: "Diambil",
+    Dibatalkan: "Dibatalkan",
+  };
+
+  return labels[status] || status;
+}
 
 function InfoCard({
   title,
@@ -80,9 +116,15 @@ function InfoRow({
         {icon}
       </ThemeIcon>
 
-      <Text fz={16} fw={500}>
-        {children}
-      </Text>
+      <Box
+        style={{
+          fontSize: 16,
+          fontWeight: 500,
+          color: "#111111",
+        }}
+      >
+        {children || "-"}
+      </Box>
     </Group>
   );
 }
@@ -107,6 +149,7 @@ function StatusLine({
             backgroundColor: active ? "#E5B75D" : "#D1D5DB",
           }}
         />
+
         {active ? (
           <Badge color="yellow" variant="light" radius="xl" size="lg">
             {label}
@@ -126,7 +169,175 @@ function StatusLine({
 export default function AdminPenjualanDetailTiketServisPage() {
   const router = useRouter();
   const params = useParams();
+
   const nomorTiket = String(params.nomorTiket || "");
+  const decodedNomorTiket = decodeURIComponent(nomorTiket);
+
+  const [detail, setDetail] = useState<DetailTiketServisApiItem | null>(null);
+  const [teknisiOptions, setTeknisiOptions] = useState<SelectOption[]>([]);
+  const [selectedTeknisi, setSelectedTeknisi] = useState<string | null>(null);
+  const [alasanPenolakan, setAlasanPenolakan] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const perangkat = useMemo(() => {
+    if (!detail) return "-";
+
+    return detail.merk_perangkat
+      ? `${detail.jenis_perangkat} - ${detail.merk_perangkat}`
+      : detail.jenis_perangkat;
+  }, [detail]);
+
+  const isMenungguVerifikasi = detail?.status_verifikasi === "Menunggu";
+
+  async function fetchDetail() {
+    try {
+      setIsLoading(true);
+
+      const result = await getDetailAdminPenjualanTiketServis(decodedNomorTiket);
+      setDetail(result.data || null);
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil detail tiket servis.",
+        color: "red",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function fetchTeknisiOptions() {
+    try {
+      const result = await getTeknisiAdminPenjualan();
+
+      setTeknisiOptions(
+        (result.data || []).map((item: TeknisiApiItem) => ({
+          value: item.id,
+          label: `${item.nama} - ${item.email}`,
+        }))
+      );
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data teknisi.",
+        color: "red",
+      });
+    }
+  }
+
+  useEffect(() => {
+    fetchDetail();
+    fetchTeknisiOptions();
+  }, []);
+
+  async function handleTerimaTiket() {
+    if (!selectedTeknisi) {
+      notifications.show({
+        title: "Gagal",
+        message: "Teknisi wajib dipilih sebelum menerima tiket.",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      setIsVerifying(true);
+
+      await verifikasiAdminPenjualanTiketServis(decodedNomorTiket, {
+        status_verifikasi: "Diterima",
+        id_user: selectedTeknisi,
+      });
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Tiket berhasil diterima dan ditugaskan ke teknisi.",
+        color: "green",
+      });
+
+      await fetchDetail();
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error ? error.message : "Gagal menerima tiket servis.",
+        color: "red",
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  }
+
+  async function handleTolakTiket() {
+    if (!alasanPenolakan.trim()) {
+      notifications.show({
+        title: "Gagal",
+        message: "Alasan penolakan wajib diisi.",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      setIsVerifying(true);
+
+      await verifikasiAdminPenjualanTiketServis(decodedNomorTiket, {
+        status_verifikasi: "Ditolak",
+        alasan_penolakan: alasanPenolakan,
+      });
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Tiket servis berhasil ditolak.",
+        color: "green",
+      });
+
+      await fetchDetail();
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error ? error.message : "Gagal menolak tiket servis.",
+        color: "red",
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  }
+
+  if (isLoading && !detail) {
+    return (
+      <Text fw={700} fz={18}>
+        Memuat detail tiket servis...
+      </Text>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <Stack gap="md">
+        <Text fw={700} fz={18}>
+          Detail tiket servis tidak ditemukan.
+        </Text>
+
+        <Button
+          variant="light"
+          color="gray"
+          radius="xl"
+          w="fit-content"
+          onClick={() => router.push("/admin_penjualan/tiket-servis")}
+        >
+          Kembali
+        </Button>
+      </Stack>
+    );
+  }
 
   return (
     <Stack gap={24}>
@@ -150,54 +361,128 @@ export default function AdminPenjualanDetailTiketServisPage() {
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
             <InfoCard title="Informasi Pelanggan">
               <InfoRow icon={<IconUser size={18} />}>
-                {dummyDetail.namaPelanggan}
+                {detail.nama_cust}
               </InfoRow>
+
               <Divider />
+
               <InfoRow icon={<IconPhone size={18} />}>
-                {dummyDetail.noHp}
+                {detail.phone_cust}
               </InfoRow>
+
               <Divider />
+
               <InfoRow icon={<IconMapPin size={18} />}>
-                {dummyDetail.alamat}
+                {detail.alamat_cust || "-"}
               </InfoRow>
             </InfoCard>
 
             <InfoCard title="Informasi Perangkat">
               <InfoRow icon={<IconDeviceLaptop size={18} />}>
-                {dummyDetail.perangkat}
+                {perangkat}
               </InfoRow>
+
               <Divider />
+
               <InfoRow icon={<IconCpu size={18} />}>
-                {dummyDetail.processor}
+                <Group gap={8}>
+                  <Text span>Status Verifikasi:</Text>
+                  <Badge
+                    color={getStatusVerifikasiColor(detail.status_verifikasi)}
+                    variant="light"
+                    radius="xl"
+                  >
+                    {detail.status_verifikasi}
+                  </Badge>
+                </Group>
               </InfoRow>
+
               <Divider />
-              <InfoRow icon={<IconCpu size={18} />}>{dummyDetail.ram}</InfoRow>
-              <Divider />
+
               <InfoRow icon={<IconCpu size={18} />}>
-                {dummyDetail.storage}
+                <Group gap={8}>
+                  <Text span>Status Servis:</Text>
+                  <Badge
+                    color={getStatusServisColor(detail.status_servis)}
+                    variant="light"
+                    radius="xl"
+                  >
+                    {getStatusServisLabel(detail.status_servis)}
+                  </Badge>
+                </Group>
               </InfoRow>
             </InfoCard>
           </SimpleGrid>
 
           <InfoCard title="Keluhan">
             <Box px="lg" py={16}>
-              <Text fz={17}>• {dummyDetail.keluhan}</Text>
+              <Text fz={17}>• {detail.keluhan}</Text>
             </Box>
           </InfoCard>
+
+          {detail.diagnosa_ai && (
+            <InfoCard title="Diagnosa Awal AI">
+              <Box px="lg" py={16}>
+                <Stack gap={8}>
+                  <Text fz={16}>
+                    <Text span fw={700}>
+                      Gejala:
+                    </Text>{" "}
+                    {detail.diagnosa_ai.gejala || "-"}
+                  </Text>
+
+                  <Text fz={16}>
+                    <Text span fw={700}>
+                      Kemungkinan Penyebab:
+                    </Text>{" "}
+                    {detail.diagnosa_ai.kemungkinan_penyebab || "-"}
+                  </Text>
+
+                  <Text fz={16}>
+                    <Text span fw={700}>
+                      Solusi:
+                    </Text>{" "}
+                    {detail.diagnosa_ai.kemungkinan_solusi || "-"}
+                  </Text>
+
+                  <Text fz={16}>
+                    <Text span fw={700}>
+                      Saran Tindakan:
+                    </Text>{" "}
+                    {detail.diagnosa_ai.saran_tindakan || "-"}
+                  </Text>
+                </Stack>
+              </Box>
+            </InfoCard>
+          )}
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
             <InfoCard title="Drop Point">
               <InfoRow icon={<IconBuildingStore size={18} />}>
-                {dummyDetail.dropPoint}
+                {detail.drop_point
+                  ? `${detail.drop_point.nama_drop_point} - ${detail.drop_point.alamat}`
+                  : "Tidak melalui drop point"}
               </InfoRow>
             </InfoCard>
 
             <InfoCard title="Status Servis">
               <Stack px="lg" py="md" gap={14}>
-                <StatusLine label="Tiket Dibuat" date="23-04-2024" />
-                <StatusLine label="Menunggu Verifikasi" date="23-04-2024" />
-                <StatusLine label="Menunggu Teknisi" date="23-04-2024" />
-                <StatusLine label="Sedang Diproses" date="23-04-2024" active />
+                <StatusLine
+                  label="Tiket Dibuat"
+                  date={formatDate(detail.tanggal_masuk)}
+                />
+
+                <StatusLine
+                  label={`Verifikasi ${detail.status_verifikasi}`}
+                  date={formatDate(detail.tanggal_verifikasi)}
+                  active={detail.status_verifikasi === "Menunggu"}
+                />
+
+                <StatusLine
+                  label={getStatusServisLabel(detail.status_servis)}
+                  date={formatDate(detail.tanggal_masuk)}
+                  active={detail.status_verifikasi === "Diterima"}
+                />
               </Stack>
             </InfoCard>
           </SimpleGrid>
@@ -215,27 +500,70 @@ export default function AdminPenjualanDetailTiketServisPage() {
               </Text>
 
               <Badge color="blue" variant="light" radius="sm" size="lg">
-                {decodeURIComponent(nomorTiket)}
+                {detail.nomor_tiket}
+              </Badge>
+
+              <Text fw={700} fz={15}>
+                Status Verifikasi
+              </Text>
+
+              <Badge
+                color={getStatusVerifikasiColor(detail.status_verifikasi)}
+                variant="filled"
+                radius="md"
+                w="fit-content"
+              >
+                {detail.status_verifikasi}
               </Badge>
 
               <Select
+                label="Teknisi"
                 placeholder="Pilih Teknisi..."
                 data={teknisiOptions}
-                radius="md"
+                value={selectedTeknisi}
+                onChange={setSelectedTeknisi}
+                disabled={!isMenungguVerifikasi}
+                searchable
+              />
+
+              <Textarea
+                label="Alasan Penolakan"
+                placeholder="Isi alasan jika tiket ditolak..."
+                value={alasanPenolakan}
+                onChange={(event) =>
+                  setAlasanPenolakan(event.currentTarget.value)
+                }
+                disabled={!isMenungguVerifikasi}
+                minRows={3}
               />
 
               <Group grow>
-                <Button color="red" radius="xl">
+                <Button
+                  color="red"
+                  radius="xl"
+                  loading={isVerifying}
+                  disabled={!isMenungguVerifikasi}
+                  onClick={handleTolakTiket}
+                >
                   Tolak
                 </Button>
-                <Button color="blue" radius="xl">
+
+                <Button
+                  color="blue"
+                  radius="xl"
+                  loading={isVerifying}
+                  disabled={!isMenungguVerifikasi}
+                  onClick={handleTerimaTiket}
+                >
                   Terima Tiket
                 </Button>
               </Group>
 
-              <Button variant="subtle" color="blue" radius="xl">
-                Batalkan Servis
-              </Button>
+              {detail.status_verifikasi === "Ditolak" && (
+                <Text c="red" fw={600}>
+                  Alasan: {detail.alasan_penolakan || "-"}
+                </Text>
+              )}
             </Stack>
           </Card>
 
@@ -247,28 +575,28 @@ export default function AdminPenjualanDetailTiketServisPage() {
             </Box>
 
             <Box p="lg">
-              <Timeline active={3} bulletSize={13} lineWidth={2}>
+              <Timeline
+                active={detail.status_verifikasi === "Diterima" ? 2 : 1}
+                bulletSize={13}
+                lineWidth={2}
+              >
                 <Timeline.Item title="Tiket Dibuat">
                   <Text c="dimmed" size="sm">
-                    23-04-2024
+                    {formatDate(detail.tanggal_masuk)}
                   </Text>
                 </Timeline.Item>
 
-                <Timeline.Item title="Menunggu Verifikasi">
+                <Timeline.Item title={`Verifikasi ${detail.status_verifikasi}`}>
                   <Text c="dimmed" size="sm">
-                    23-04-2024
+                    {formatDate(detail.tanggal_verifikasi)}
                   </Text>
                 </Timeline.Item>
 
-                <Timeline.Item title="Menunggu Teknisi">
+                <Timeline.Item
+                  title={getStatusServisLabel(detail.status_servis)}
+                >
                   <Text c="dimmed" size="sm">
-                    23-04-2024
-                  </Text>
-                </Timeline.Item>
-
-                <Timeline.Item title="Sedang Diproses">
-                  <Text c="dimmed" size="sm">
-                    23-04-2024
+                    {formatDate(detail.tanggal_masuk)}
                   </Text>
                 </Timeline.Item>
               </Timeline>

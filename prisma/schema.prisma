@@ -127,6 +127,7 @@ model garansi {
   id_user            BigInt                 @db.UnsignedBigInt
   tanggal_mulai      DateTime               @db.DateTime(0)
   tanggal_akhir      DateTime               @db.DateTime(0)
+  tanggal_klaim      DateTime?              @db.DateTime(0)
   keterangan_garansi String?                @db.Text
   status_garansi     garansi_status_garansi @default(Aktif)
   tiket_servis       tiket_servis           @relation(fields: [id_tiket_servis], references: [id], onDelete: Cascade, map: "fk_garansi_tiket")
@@ -247,15 +248,18 @@ model tiket_servis {
   estimasi_waktu      DateTime?                      @db.DateTime(0)
   estimasi_biaya      Decimal                        @default(0.00) @db.Decimal(15, 2)
   guest_session_id    String?
+  id_user             BigInt?                        @db.UnsignedBigInt
   detail_tiket_servis detail_tiket_servis[]
   diagnosa_lanjutan   diagnosa_lanjutan[]
   garansi             garansi[]
   pembayaran_servis   pembayaran_servis[]
   diagnosa_ai         diagnosa_ai?                   @relation(fields: [id_diagnosa_ai], references: [id], map: "fk_tiket_servis_diagnosa_ai")
   drop_point          drop_point?                    @relation(fields: [id_drop_point], references: [id], map: "fk_tiket_servis_drop_point")
+  users               users?                         @relation(fields: [id_user], references: [id], onUpdate: Restrict, map: "fk_tiket_servis_user")
 
   @@index([id_drop_point], map: "fk_tiket_servis_drop_point")
   @@index([guest_session_id], map: "idx_tiket_servis_guest_session_id")
+  @@index([id_user], map: "fk_tiket_servis_user")
 }
 
 model transaksi_penjualan {
@@ -285,6 +289,7 @@ model users {
   pembayaran_servis   pembayaran_servis[]
   stock_mutasi        stock_mutasi[]
   stock_opname        stock_opname[]
+  tiket_servis        tiket_servis[]
   transaksi_penjualan transaksi_penjualan[]
   roles               roles                 @relation(fields: [id_roles], references: [id], map: "fk_users_roles")
 

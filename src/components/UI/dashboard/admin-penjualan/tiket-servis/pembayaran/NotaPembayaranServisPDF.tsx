@@ -13,6 +13,7 @@ export type NotaPembayaranServisData = {
   noTelepon: string;
   perangkat: string;
   metodePembayaran: string;
+  serviceTitle?: string;
   items: NotaItem[];
 };
 
@@ -34,6 +35,26 @@ function getPageHeight(itemCount: number) {
   return baseHeight + itemCount * rowHeight + safeSpace;
 }
 
+function getJenisPerangkat(perangkat: string) {
+  const normalizedPerangkat = perangkat.trim();
+
+  if (!normalizedPerangkat) {
+    return "Perangkat";
+  }
+
+  const jenisPerangkat = normalizedPerangkat.split("-")[0]?.trim();
+
+  return jenisPerangkat || normalizedPerangkat;
+}
+
+function getServiceTitle(data: NotaPembayaranServisData) {
+  if (data.serviceTitle && data.serviceTitle.trim() !== "") {
+    return data.serviceTitle.trim();
+  }
+
+  return `Servis ${getJenisPerangkat(data.perangkat)}`;
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.infoRow}>
@@ -47,27 +68,34 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 export default function NotaPembayaranServisPDF({
   data,
 }: NotaPembayaranServisPDFProps) {
-  const total = data.items.reduce((sum, item) => sum + item.harga, 0);
+  const serviceTitle = getServiceTitle(data);
+
+  const total = data.items.reduce(
+    (sum, item) => sum + item.harga * (item.qty ?? 1),
+    0
+  );
 
   return (
     <Document>
       <Page size={[390, getPageHeight(data.items.length)]} style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.title}>DVC COMPUTER</Text>
-          <Text style={styles.subtitle}>Jl. Imam Bonjol No. 10, Denpasar</Text>
-          <Text style={styles.subtitle}>08123456789</Text>
+          <Text style={styles.subtitle}>
+            Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
+          </Text>
+          <Text style={styles.subtitle}>08174762502</Text>
         </View>
 
         <View style={styles.line} />
 
-        <Text style={styles.serviceTitle}>Servis Laptop</Text>
+        <Text style={styles.serviceTitle}>{serviceTitle}</Text>
 
         <View style={styles.infoWrapper}>
           <InfoRow label="No. Tiket" value={data.nomorTiket} />
           <InfoRow label="Tanggal Bayar" value={data.tanggalBayar} />
           <InfoRow label="Nama Pelanggan" value={data.namaPelanggan} />
           <InfoRow label="No. Telepon" value={data.noTelepon} />
-          <InfoRow label="Laptop" value={data.perangkat} />
+          <InfoRow label="Perangkat" value={data.perangkat} />
           <InfoRow label="Pembayaran" value={data.metodePembayaran} />
         </View>
 
@@ -83,7 +111,9 @@ export default function NotaPembayaranServisPDF({
           <View key={index} style={styles.tableRow}>
             <Text style={styles.cellName}>{item.nama}</Text>
             <Text style={styles.cellQty}>{item.qty ?? "-"}</Text>
-            <Text style={styles.cellPrice}>{formatRupiah(item.harga)}</Text>
+            <Text style={styles.cellPrice}>
+              {formatRupiah(item.harga * (item.qty ?? 1))}
+            </Text>
           </View>
         ))}
 
@@ -95,7 +125,8 @@ export default function NotaPembayaranServisPDF({
         </View>
 
         <Text style={styles.footer}>
-          Terima kasih telah mempercayakan servis laptop Anda kepada kami.
+          Terima kasih telah mempercayakan {serviceTitle.toLowerCase()} Anda
+          kepada kami.
         </Text>
       </Page>
     </Document>
@@ -183,12 +214,12 @@ const styles = StyleSheet.create({
   bold: {
     fontWeight: 700,
   },
-totalRow: {
-  flexDirection: "row",
-  justifyContent: "flex-end",
-  marginTop: 6,
-  marginBottom: 12,
-},
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 6,
+    marginBottom: 12,
+  },
   totalLabel: {
     fontSize: 12,
     fontWeight: 700,
@@ -200,9 +231,9 @@ totalRow: {
     width: 95,
     textAlign: "right",
   },
-footer: {
-  fontSize: 10.5,
-  textAlign: "left",
-  marginTop: 6,
-},
+  footer: {
+    fontSize: 10.5,
+    textAlign: "left",
+    marginTop: 6,
+  },
 });

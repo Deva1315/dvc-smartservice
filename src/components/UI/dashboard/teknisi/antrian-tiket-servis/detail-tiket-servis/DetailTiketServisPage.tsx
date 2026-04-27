@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Box,
@@ -14,10 +15,10 @@ import {
   Stack,
   Table,
   Text,
-  TextInput,
   Title,
   UnstyledButton,
 } from "@mantine/core";
+import { DateTimePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -30,26 +31,64 @@ import {
 } from "@tabler/icons-react";
 import DiagnosaLanjutanModal from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/modal/DiagnosaLanjutanModal";
 import { formatCurrency } from "@/utils/currency-format/format-currency";
+import { getCurrentSession } from "@/lib/auth/auth.client";
 import {
-  findTeknisiTicketByNomorTiket,
-  formatDisplayDate,
-  getDropPointDisplay,
-  getPerangkatDisplay,
-  getStatusServisColor,
-  getStatusServisLabel,
-  getStatusVerifikasiColor,
-  getStatusVerifikasiLabel,
-  getTotalEstimasi,
-  getTotalJasa,
-  getTotalSparepart,
-  jasaServisMasterOptions,
-  sparepartMasterOptions,
-  statusServisOptions,
-  type TeknisiJasaServisItem,
-  type TeknisiRiwayatStatusItem,
-  type TeknisiSparepartItem,
-  type TeknisiStatusServis,
-} from "@/lib/dummy/tiket-servis-teknisi.mock";
+  getJasaServis,
+  type JasaServisApiItem,
+} from "@/lib/admin-penjualan/admin-penjualan-jasa-servis.client";
+import {
+  getSparepart,
+  type SparepartApiItem,
+} from "@/lib/admin-gudang/admin-gudang-sparepart.client";
+import {
+  createDiagnosaLanjutan,
+  getDetailTiketServis,
+  hapusJasaDariTiket,
+  hapusSparepartDariTiket,
+  tambahJasaKeTiket,
+  tambahSparepartKeTiket,
+  updateStatusTiketServis,
+  type DetailTiketServisApiItem,
+  type StatusServis,
+  type StatusVerifikasi,
+} from "@/lib/teknisi/teknisi-tiket-servis.client";
+
+type MasterOption = {
+  value: string;
+  label: string;
+  harga: number;
+  stock?: number;
+};
+
+type LoadingAction =
+  | "fetch"
+  | "status"
+  | "diagnosa"
+  | "tambah-jasa"
+  | "hapus-jasa"
+  | "tambah-sparepart"
+  | "hapus-sparepart"
+  | null;
+
+const statusServisOptions: {
+  value: StatusServis;
+  label: string;
+}[] = [
+    { value: "Belum_Diproses", label: "Belum Diproses" },
+    { value: "Diproses", label: "Diproses" },
+    { value: "Menunggu_Sparepart", label: "Menunggu Sparepart" },
+    { value: "Selesai", label: "Selesai" },
+    { value: "Dibatalkan", label: "Dibatalkan" },
+  ];
+
+const allowedNextStatus: Record<StatusServis, StatusServis[]> = {
+  Belum_Diproses: ["Diproses", "Dibatalkan"],
+  Diproses: ["Menunggu_Sparepart", "Selesai", "Dibatalkan"],
+  Menunggu_Sparepart: ["Diproses", "Selesai", "Dibatalkan"],
+  Selesai: [],
+  Diambil: [],
+  Dibatalkan: [],
+};
 
 function CardSectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -81,13 +120,7 @@ function CardBox({
   );
 }
 
-function InfoRow({
-  icon,
-  text,
-}: {
-  icon: React.ReactNode;
-  text: string;
-}) {
+function InfoRow({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
     <Group gap={10} wrap="nowrap" align="flex-start">
       <Box c="#6B7280" pt={2}>
@@ -119,9 +152,214 @@ function SimpleInfoRow({
   );
 }
 
-function getHariIniIso() {
-  const now = new Date();
-  return now.toISOString().slice(0, 10);
+function toNumber(value: string | number | null | undefined) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatDisplayDate(dateString: string | null | undefined) {
+  if (!dateString) return "-";
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function toDateValue(value: unknown): Date | null {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "string") {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    return date;
+  }
+
+  return null;
+}
+
+function toIsoDateTime(value: Date | null) {
+  if (!value) return null;
+
+  if (Number.isNaN(value.getTime())) {
+    return null;
+  }
+
+  return value.toISOString();
+}
+
+function isSameDateTime(
+  nextValue: Date | null,
+  currentValue: string | null | undefined
+) {
+  const currentDate = toDateValue(currentValue);
+
+  if (!nextValue && !currentDate) return true;
+  if (!nextValue || !currentDate) return false;
+
+  return nextValue.getTime() === currentDate.getTime();
+}
+
+function formatDisplayDateTime(dateString: string | null | undefined) {
+  if (!dateString) return "-";
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getStatusServisLabel(status: StatusServis) {
+  switch (status) {
+    case "Belum_Diproses":
+      return "Belum Diproses";
+    case "Diproses":
+      return "Diproses";
+    case "Menunggu_Sparepart":
+      return "Menunggu Sparepart";
+    case "Selesai":
+      return "Selesai";
+    case "Diambil":
+      return "Diambil";
+    case "Dibatalkan":
+      return "Dibatalkan";
+    default:
+      return status;
+  }
+}
+
+function getStatusServisColor(status: StatusServis) {
+  switch (status) {
+    case "Belum_Diproses":
+      return "gray";
+    case "Diproses":
+      return "blue";
+    case "Menunggu_Sparepart":
+      return "yellow";
+    case "Selesai":
+      return "green";
+    case "Diambil":
+      return "teal";
+    case "Dibatalkan":
+      return "red";
+    default:
+      return "gray";
+  }
+}
+
+function getStatusVerifikasiLabel(status: StatusVerifikasi) {
+  switch (status) {
+    case "Menunggu":
+      return "Menunggu";
+    case "Diterima":
+      return "Diterima";
+    case "Ditolak":
+      return "Ditolak";
+    default:
+      return status;
+  }
+}
+
+function getStatusVerifikasiColor(status: StatusVerifikasi) {
+  switch (status) {
+    case "Menunggu":
+      return "orange";
+    case "Diterima":
+      return "green";
+    case "Ditolak":
+      return "red";
+    default:
+      return "gray";
+  }
+}
+
+function getPerangkatDisplay(
+  detail: Pick<DetailTiketServisApiItem, "jenis_perangkat" | "merk_perangkat">
+) {
+  if (!detail.merk_perangkat) {
+    return detail.jenis_perangkat;
+  }
+
+  return `${detail.jenis_perangkat} - ${detail.merk_perangkat}`;
+}
+
+function getDropPointDisplay(detail: DetailTiketServisApiItem) {
+  if (!detail.drop_point) {
+    return "Tidak melalui drop point";
+  }
+
+  if (detail.id_drop_point) {
+    return `${detail.id_drop_point} - ${detail.drop_point.nama_drop_point}`;
+  }
+
+  return detail.drop_point.nama_drop_point;
+}
+
+function getReferensiSolusiAwal(detail: DetailTiketServisApiItem) {
+  const diagnosaAi = detail.diagnosa_ai;
+
+  if (!diagnosaAi) {
+    return "-";
+  }
+
+  const items = [
+    diagnosaAi.kemungkinan_penyebab
+      ? `Kemungkinan penyebab: ${diagnosaAi.kemungkinan_penyebab}`
+      : "",
+    diagnosaAi.kemungkinan_solusi
+      ? `Solusi awal: ${diagnosaAi.kemungkinan_solusi}`
+      : "",
+    diagnosaAi.saran_tindakan
+      ? `Saran tindakan: ${diagnosaAi.saran_tindakan}`
+      : "",
+  ].filter(Boolean);
+
+  if (items.length > 0) {
+    return items.join("\n");
+  }
+
+  return diagnosaAi.gejala || "-";
+}
+
+function mapJasaMasterOptions(data: JasaServisApiItem[]): MasterOption[] {
+  return data.map((item) => ({
+    value: item.id,
+    label: item.nama_jasa_servis,
+    harga: toNumber(item.harga),
+  }));
+}
+
+function mapSparepartMasterOptions(data: SparepartApiItem[]): MasterOption[] {
+  return data.map((item) => ({
+    value: item.id,
+    label: item.nama_sparepart,
+    harga: toNumber(item.harga),
+    stock: toNumber(item.stock),
+  }));
 }
 
 export default function DetailTiketServisPage() {
@@ -130,36 +368,423 @@ export default function DetailTiketServisPage() {
 
   const nomorTiketParam =
     typeof params?.id === "string" ? decodeURIComponent(params.id) : "";
+  const [estimasiWaktu, setEstimasiWaktu] = useState<Date | null>(null);
 
-  const ticket = useMemo(
-    () => findTeknisiTicketByNomorTiket(nomorTiketParam),
-    [nomorTiketParam]
-  );
-
-  const [statusServis, setStatusServis] = useState<TeknisiStatusServis>(
-    ticket?.statusServis ?? "Belum_Diproses"
-  );
-  const [estimasiWaktu, setEstimasiWaktu] = useState(
-    ticket?.estimasiWaktu ?? ""
-  );
-  const [diagnosaLanjutan, setDiagnosaLanjutan] = useState(
-    ticket?.diagnosaLanjutan ?? ""
-  );
-  const [catatanTeknisi, setCatatanTeknisi] = useState(
-    ticket?.catatanTeknisi ?? ""
-  );
-  const [jasaServis, setJasaServis] = useState<TeknisiJasaServisItem[]>(
-    ticket?.jasaServis ?? []
-  );
-  const [sparepartDigunakan, setSparepartDigunakan] = useState<
-    TeknisiSparepartItem[]
-  >(ticket?.sparepartDigunakan ?? []);
-  const [riwayatStatus, setRiwayatStatus] = useState<TeknisiRiwayatStatusItem[]>(
-    ticket?.riwayatStatus ?? []
-  );
+  const [detail, setDetail] = useState<DetailTiketServisApiItem | null>(null);
+  const [statusServis, setStatusServis] = useState<StatusServis | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [jasaMasterOptions, setJasaMasterOptions] = useState<MasterOption[]>([]);
+  const [sparepartMasterOptions, setSparepartMasterOptions] = useState<
+    MasterOption[]
+  >([]);
   const [openedDiagnosaModal, setOpenedDiagnosaModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingAction, setLoadingAction] = useState<LoadingAction>(null);
 
-  if (!ticket) {
+  async function fetchDetail() {
+    const result = await getDetailTiketServis(nomorTiketParam);
+    const nextDetail = result.data as DetailTiketServisApiItem;
+
+    setDetail(nextDetail);
+    setStatusServis(nextDetail.status_servis);
+    setEstimasiWaktu(toDateValue(nextDetail.estimasi_waktu));
+    return nextDetail;
+  }
+
+  async function fetchInitialData() {
+    if (!nomorTiketParam) return;
+
+    try {
+      setIsLoading(true);
+      setLoadingAction("fetch");
+
+      const [detailResult, jasaResult, sparepartResult, sessionResult] =
+        await Promise.all([
+          getDetailTiketServis(nomorTiketParam),
+          getJasaServis(),
+          getSparepart(),
+          getCurrentSession().catch(() => null),
+        ]);
+
+      const nextDetail = detailResult.data as DetailTiketServisApiItem;
+
+      setDetail(nextDetail);
+      setStatusServis(nextDetail.status_servis);
+      setEstimasiWaktu(toDateValue(nextDetail.estimasi_waktu));
+      setJasaMasterOptions(mapJasaMasterOptions(jasaResult.data || []));
+      setSparepartMasterOptions(
+        mapSparepartMasterOptions(sparepartResult.data || [])
+      );
+
+      if (sessionResult?.success && sessionResult.authenticated) {
+        setCurrentUserId(sessionResult.user.id);
+      }
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal memuat detail tiket servis.",
+        color: "red",
+      });
+
+      setDetail(null);
+    } finally {
+      setIsLoading(false);
+      setLoadingAction(null);
+    }
+  }
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [nomorTiketParam]);
+
+  const jasaServis = useMemo(() => {
+    return (
+      detail?.detail_tiket_servis.filter((item) => item.id_jasa_servis) || []
+    );
+  }, [detail]);
+
+  const sparepartDigunakan = useMemo(() => {
+    return (
+      detail?.detail_tiket_servis.filter((item) => item.id_sparepart) || []
+    );
+  }, [detail]);
+
+  const totalJasa = useMemo(() => {
+    return jasaServis.reduce((total, item) => {
+      const subtotal = toNumber(item.subtotal);
+
+      if (subtotal > 0) {
+        return total + subtotal;
+      }
+
+      return total + toNumber(item.jumlah) * toNumber(item.harga);
+    }, 0);
+  }, [jasaServis]);
+
+  const totalSparepart = useMemo(() => {
+    return sparepartDigunakan.reduce((total, item) => {
+      const subtotal = toNumber(item.subtotal);
+
+      if (subtotal > 0) {
+        return total + subtotal;
+      }
+
+      return total + toNumber(item.jumlah) * toNumber(item.harga);
+    }, 0);
+  }, [sparepartDigunakan]);
+
+  const totalEstimasi = useMemo(() => {
+    if (!detail) return 0;
+
+    if (detail.estimasi_biaya !== null && detail.estimasi_biaya !== undefined) {
+      return toNumber(detail.estimasi_biaya);
+    }
+
+    return totalJasa + totalSparepart;
+  }, [detail, totalJasa, totalSparepart]);
+
+  const latestDiagnosa = detail?.diagnosa_lanjutan?.[0] || null;
+  const dropPointDisplay = detail ? getDropPointDisplay(detail) : "-";
+  const perangkatDisplay = detail ? getPerangkatDisplay(detail) : "-";
+
+  const isStatusEditable =
+    detail?.status_verifikasi === "Diterima" &&
+    detail.status_servis !== "Selesai" &&
+    detail.status_servis !== "Diambil" &&
+    detail.status_servis !== "Dibatalkan";
+
+  const canModifyDetail =
+    detail?.status_verifikasi === "Diterima" &&
+    (detail.status_servis === "Diproses" ||
+      detail.status_servis === "Menunggu_Sparepart");
+
+  const currentAllowedStatusOptions = useMemo(() => {
+    if (!detail) return statusServisOptions;
+
+    const nextStatuses = allowedNextStatus[detail.status_servis] || [];
+
+    return statusServisOptions.filter(
+      (item) =>
+        item.value === detail.status_servis || nextStatuses.includes(item.value)
+    );
+  }, [detail]);
+
+  async function handleUpdateStatus() {
+    if (!detail || !statusServis) return;
+
+    if (!isStatusEditable) {
+      notifications.show({
+        title: "Gagal",
+        message: "Status servis hanya bisa diubah jika tiket masih aktif.",
+        color: "red",
+      });
+      return;
+    }
+
+    const isStatusChanged = statusServis !== detail.status_servis;
+    const isEstimasiChanged = !isSameDateTime(
+      estimasiWaktu,
+      detail.estimasi_waktu
+    );
+
+    if (!isStatusChanged && !isEstimasiChanged) {
+      notifications.show({
+        title: "Gagal",
+        message: "Tidak ada perubahan status atau estimasi waktu.",
+        color: "red",
+      });
+      return;
+    }
+
+    const estimasiWaktuIso = toIsoDateTime(estimasiWaktu);
+
+    if (estimasiWaktu && !estimasiWaktuIso) {
+      notifications.show({
+        title: "Gagal",
+        message: "Estimasi waktu harus berupa tanggal dan jam yang valid.",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      setLoadingAction("status");
+
+      await updateStatusTiketServis(nomorTiketParam, {
+        status_servis: statusServis,
+        estimasi_waktu: statusServis === "Dibatalkan" ? null : estimasiWaktuIso,
+      });
+
+      await fetchDetail();
+
+      notifications.show({
+        title: "Berhasil",
+        message:
+          statusServis === "Dibatalkan"
+            ? "Tiket berhasil dibatalkan dan stok sparepart dikembalikan."
+            : "Status dan estimasi waktu servis berhasil diperbarui.",
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal memperbarui status dan estimasi waktu tiket servis.",
+        color: "red",
+      });
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function handleSaveDiagnosa(payload: {
+    diagnosaLanjutan: string;
+    catatanTeknisi: string;
+  }) {
+    if (!currentUserId) {
+      notifications.show({
+        title: "Gagal",
+        message: "Session teknisi tidak ditemukan. Silakan login ulang.",
+        color: "red",
+      });
+      return false;
+    }
+
+    try {
+      setLoadingAction("diagnosa");
+
+      await createDiagnosaLanjutan(nomorTiketParam, {
+        id_user: currentUserId,
+        hasil_diagnosa: payload.diagnosaLanjutan,
+        catatan_teknisi: payload.catatanTeknisi || null,
+      });
+
+      await fetchDetail();
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Diagnosa lanjutan teknisi berhasil disimpan.",
+        color: "green",
+      });
+
+      return true;
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal menyimpan diagnosa lanjutan.",
+        color: "red",
+      });
+
+      return false;
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function handleTambahJasa(itemId: string) {
+    if (!canModifyDetail) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          "Jasa hanya bisa ditambahkan saat status servis Diproses atau Menunggu Sparepart.",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      setLoadingAction("tambah-jasa");
+
+      await tambahJasaKeTiket(nomorTiketParam, {
+        id_jasa_servis: itemId,
+        jumlah: 1,
+      });
+
+      await fetchDetail();
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Jasa servis berhasil ditambahkan.",
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal menambahkan jasa servis.",
+        color: "red",
+      });
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function handleTambahSparepart(itemId: string) {
+    if (!canModifyDetail) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          "Sparepart hanya bisa ditambahkan saat status servis Diproses atau Menunggu Sparepart.",
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      setLoadingAction("tambah-sparepart");
+
+      await tambahSparepartKeTiket(nomorTiketParam, {
+        id_sparepart: itemId,
+        jumlah: 1,
+      });
+
+      await fetchDetail();
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Sparepart berhasil ditambahkan ke tiket.",
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal menambahkan sparepart ke tiket.",
+        color: "red",
+      });
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function handleHapusJasa(detailId: string) {
+    try {
+      setLoadingAction("hapus-jasa");
+
+      await hapusJasaDariTiket(nomorTiketParam, detailId);
+      await fetchDetail();
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Jasa servis berhasil dihapus dari tiket.",
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal menghapus jasa servis.",
+        color: "red",
+      });
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function handleHapusSparepart(detailId: string) {
+    try {
+      setLoadingAction("hapus-sparepart");
+
+      await hapusSparepartDariTiket(nomorTiketParam, detailId);
+      await fetchDetail();
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Sparepart berhasil dihapus dan stok dikembalikan.",
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal menghapus sparepart.",
+        color: "red",
+      });
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Stack gap={18}>
+        <Title order={1} fw={800}>
+          Detail Tiket Servis
+        </Title>
+
+        <Paper
+          radius="xl"
+          p="xl"
+          style={{
+            border: "1px solid #ECECF3",
+            backgroundColor: "#FFFFFF",
+          }}
+        >
+          <Text fw={700} fz={18}>
+            Memuat detail tiket servis...
+          </Text>
+        </Paper>
+      </Stack>
+    );
+  }
+
+  if (!detail) {
     return (
       <Stack gap={18}>
         <Title order={1} fw={800}>
@@ -193,156 +818,23 @@ export default function DetailTiketServisPage() {
     );
   }
 
-  const totalJasa = getTotalJasa(jasaServis);
-  const totalSparepart = getTotalSparepart(sparepartDigunakan);
-  const totalEstimasi = getTotalEstimasi(jasaServis, sparepartDigunakan);
-  const dropPointDisplay = getDropPointDisplay(ticket);
-
-  const isStatusEditable = ticket.statusVerifikasi === "Diterima";
-
-  function handleUpdateStatus() {
-    if (!isStatusEditable) {
-      notifications.show({
-        title: "Gagal",
-        message: "Status servis hanya bisa diubah jika tiket sudah diterima.",
-        color: "red",
-      });
-      return;
-    }
-
-    setRiwayatStatus((prev) => {
-      const nextLabel = getStatusServisLabel(statusServis);
-
-      const existsSameLast =
-        prev.length > 0 && prev[prev.length - 1]?.label === nextLabel;
-
-      const resetPrev = prev.map((item) => ({
-        ...item,
-        highlighted: false,
-      }));
-
-      if (existsSameLast) {
-        return resetPrev.map((item, index) =>
-          index === resetPrev.length - 1
-            ? { ...item, highlighted: true }
-            : item
-        );
-      }
-
-      return [
-        ...resetPrev,
-        {
-          id: crypto.randomUUID(),
-          label: nextLabel,
-          date: getHariIniIso(),
-          highlighted: true,
-        },
-      ];
-    });
-
-    notifications.show({
-      title: "Berhasil",
-      message: "Status tiket servis berhasil diperbarui.",
-      color: "green",
-    });
-  }
-
-  function handleSaveDiagnosa(payload: {
-    diagnosaLanjutan: string;
-    catatanTeknisi: string;
-  }) {
-    setDiagnosaLanjutan(payload.diagnosaLanjutan);
-    setCatatanTeknisi(payload.catatanTeknisi);
-
-    notifications.show({
-      title: "Berhasil",
-      message: "Diagnosa lanjutan teknisi berhasil disimpan.",
-      color: "green",
-    });
-  }
-
-  function handleTambahJasa(itemId: string) {
-    const found = jasaServisMasterOptions.find((item) => item.value === itemId);
-    if (!found) return;
-
-    setJasaServis((prev) => {
-      const existing = prev.find((item) => item.idJasaServis === found.value);
-
-      if (existing) {
-        return prev.map((item) =>
-          item.idJasaServis === found.value
-            ? { ...item, qty: item.qty + 1 }
-            : item
-        );
-      }
-
-      return [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          idJasaServis: found.value,
-          nama: found.label,
-          qty: 1,
-          harga: found.harga,
-        },
-      ];
-    });
-
-    notifications.show({
-      title: "Berhasil",
-      message: "Jasa servis berhasil ditambahkan.",
-      color: "green",
-    });
-  }
-
-  function handleTambahSparepart(itemId: string) {
-    const found = sparepartMasterOptions.find((item) => item.value === itemId);
-    if (!found) return;
-
-    setSparepartDigunakan((prev) => {
-      const existing = prev.find((item) => item.idSparepart === found.value);
-
-      if (existing) {
-        return prev.map((item) =>
-          item.idSparepart === found.value
-            ? { ...item, qty: item.qty + 1 }
-            : item
-        );
-      }
-
-      return [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          idSparepart: found.value,
-          nama: found.label,
-          qty: 1,
-          harga: found.harga,
-        },
-      ];
-    });
-
-    notifications.show({
-      title: "Berhasil",
-      message: "Sparepart berhasil ditambahkan ke tiket.",
-      color: "green",
-    });
-  }
-
-  function handleHapusJasa(idItem: string) {
-    setJasaServis((prev) => prev.filter((item) => item.id !== idItem));
-  }
-
-  function handleHapusSparepart(idItem: string) {
-    setSparepartDigunakan((prev) => prev.filter((item) => item.id !== idItem));
-  }
-
   return (
     <>
       <Stack gap={18}>
-        <Title order={1} fw={800} c="#000000">
-          Detail Tiket Servis
-        </Title>
+        <Group justify="space-between" align="center">
+          <Title order={1} fw={800} c="#000000">
+            Detail Tiket Servis
+          </Title>
+
+          <Button
+            variant="light"
+            color="gray"
+            radius="xl"
+            onClick={() => router.push("/teknisi/antrian-tiket-servis")}
+          >
+            Kembali
+          </Button>
+        </Group>
 
         <Box
           p="md"
@@ -359,17 +851,14 @@ export default function DetailTiketServisPage() {
                   <CardSectionTitle>Informasi Pelanggan</CardSectionTitle>
                   <Divider color="#ECECF3" />
 
-                  <InfoRow
-                    icon={<IconUser size={22} />}
-                    text={ticket.namaCust}
-                  />
+                  <InfoRow icon={<IconUser size={22} />} text={detail.nama_cust} />
                   <InfoRow
                     icon={<IconPhone size={22} />}
-                    text={ticket.phoneCust}
+                    text={detail.phone_cust}
                   />
                   <InfoRow
                     icon={<IconMapPin size={22} />}
-                    text={ticket.alamatCust}
+                    text={detail.alamat_cust || "-"}
                   />
                 </Stack>
               </CardBox>
@@ -383,25 +872,22 @@ export default function DetailTiketServisPage() {
 
                   <InfoRow
                     icon={<IconDeviceLaptop size={22} />}
-                    text={getPerangkatDisplay(ticket)}
+                    text={perangkatDisplay}
                   />
 
                   <SimpleInfoRow
                     label="Jenis Perangkat"
-                    value={ticket.jenisPerangkat}
+                    value={detail.jenis_perangkat}
                   />
                   <SimpleInfoRow
                     label="Merk Perangkat"
-                    value={ticket.merkPerangkat}
+                    value={detail.merk_perangkat}
                   />
                   <SimpleInfoRow
                     label="Sumber Tiket"
-                    value={ticket.sumberTiket}
+                    value={detail.sumber_tiket}
                   />
-                  <SimpleInfoRow
-                    label="Drop Point"
-                    value={dropPointDisplay || "-"}
-                  />
+                  <SimpleInfoRow label="Drop Point" value={dropPointDisplay} />
                 </Stack>
               </CardBox>
             </Grid.Col>
@@ -414,12 +900,10 @@ export default function DetailTiketServisPage() {
                   <Select
                     value={statusServis}
                     onChange={(value) =>
-                      setStatusServis(
-                        (value as TeknisiStatusServis) ?? "Belum_Diproses"
-                      )
+                      setStatusServis((value as StatusServis) || null)
                     }
-                    data={statusServisOptions}
-                    disabled={!isStatusEditable}
+                    data={currentAllowedStatusOptions}
+                    disabled={!isStatusEditable || loadingAction !== null}
                     styles={{
                       input: {
                         height: 44,
@@ -428,14 +912,21 @@ export default function DetailTiketServisPage() {
                     }}
                   />
 
-                  <TextInput
+                  <DateTimePicker
                     value={estimasiWaktu}
-                    onChange={(event) =>
-                      setEstimasiWaktu(event.currentTarget.value)
-                    }
-                    placeholder="Estimasi waktu pengerjaan"
+                    onChange={(value) => setEstimasiWaktu(toDateValue(value))}
+                    placeholder="Pilih estimasi selesai"
+                    valueFormat="DD/MM/YYYY HH:mm"
+                    clearable
                     leftSection={<IconCalendarMonth size={18} />}
-                    disabled={!isStatusEditable}
+                    disabled={!isStatusEditable || loadingAction !== null}
+                    timePickerProps={{
+                      withDropdown: true,
+                      format: "24h",
+                      popoverProps: {
+                        withinPortal: false,
+                      },
+                    }}
                     styles={{
                       input: {
                         height: 44,
@@ -445,13 +936,14 @@ export default function DetailTiketServisPage() {
                   />
 
                   <Badge
-                    color={getStatusVerifikasiColor(ticket.statusVerifikasi)}
+                    color={getStatusVerifikasiColor(detail.status_verifikasi)}
                     variant="light"
                     radius="xl"
                     size="lg"
                     w="fit-content"
                   >
-                    Verifikasi: {getStatusVerifikasiLabel(ticket.statusVerifikasi)}
+                    Verifikasi:{" "}
+                    {getStatusVerifikasiLabel(detail.status_verifikasi)}
                   </Badge>
 
                   <Divider color="#E8DCC5" />
@@ -459,7 +951,8 @@ export default function DetailTiketServisPage() {
                   <Button
                     radius="md"
                     onClick={handleUpdateStatus}
-                    disabled={!isStatusEditable}
+                    disabled={!isStatusEditable || !statusServis || loadingAction !== null}
+                    loading={loadingAction === "status"}
                     style={{
                       backgroundColor: "#FFFFFF",
                       color: "#224B8F",
@@ -467,7 +960,7 @@ export default function DetailTiketServisPage() {
                       height: 44,
                     }}
                   >
-                    Ubah Status
+                    Simpan Perubahan
                   </Button>
                 </Stack>
               </CardBox>
@@ -479,7 +972,7 @@ export default function DetailTiketServisPage() {
                   <CardSectionTitle>Keluhan Pelanggan</CardSectionTitle>
                   <Divider color="#ECECF3" />
                   <Text fz={17} c="#4B5563">
-                    • {ticket.keluhan}
+                    • {detail.keluhan}
                   </Text>
                 </Stack>
               </CardBox>
@@ -491,34 +984,56 @@ export default function DetailTiketServisPage() {
                   <CardSectionTitle>Riwayat Status</CardSectionTitle>
                   <Divider color="#ECECF3" />
 
-                  {riwayatStatus.map((item) => (
-                    <Group key={item.id} justify="space-between" align="center">
-                      <Group gap={10} wrap="nowrap">
-                        <Text c="#9CA3AF" fz={22}>
-                          •
-                        </Text>
-
-                        {item.highlighted ? (
-                          <Badge
-                            color={getStatusServisColor(statusServis)}
-                            variant="light"
-                            radius="xl"
-                            size="lg"
-                          >
-                            {item.label}
-                          </Badge>
-                        ) : (
-                          <Text fz={16} c="#4B5563">
-                            {item.label}
-                          </Text>
-                        )}
-                      </Group>
-
-                      <Text fz={14} c="#6B7280">
-                        {formatDisplayDate(item.date)}
+                  <Group justify="space-between" align="center">
+                    <Group gap={10} wrap="nowrap">
+                      <Text c="#9CA3AF" fz={22}>
+                        •
+                      </Text>
+                      <Text fz={16} c="#4B5563">
+                        Tiket Dibuat
                       </Text>
                     </Group>
-                  ))}
+
+                    <Text fz={14} c="#6B7280">
+                      {formatDisplayDate(detail.tanggal_masuk)}
+                    </Text>
+                  </Group>
+
+                  <Group justify="space-between" align="center">
+                    <Group gap={10} wrap="nowrap">
+                      <Text c="#9CA3AF" fz={22}>
+                        •
+                      </Text>
+                      <Text fz={16} c="#4B5563">
+                        Verifikasi {detail.status_verifikasi}
+                      </Text>
+                    </Group>
+
+                    <Text fz={14} c="#6B7280">
+                      {formatDisplayDate(detail.tanggal_verifikasi)}
+                    </Text>
+                  </Group>
+
+                  <Group justify="space-between" align="center">
+                    <Group gap={10} wrap="nowrap">
+                      <Text c="#9CA3AF" fz={22}>
+                        •
+                      </Text>
+
+                      <Badge
+                        color={getStatusServisColor(detail.status_servis)}
+                        variant="light"
+                        radius="xl"
+                        size="lg"
+                      >
+                        {getStatusServisLabel(detail.status_servis)}
+                      </Badge>
+                    </Group>
+
+                    <Text fz={14} c="#6B7280">
+                      {formatDisplayDate(detail.tanggal_masuk)}
+                    </Text>
+                  </Group>
                 </Stack>
               </CardBox>
             </Grid.Col>
@@ -528,8 +1043,8 @@ export default function DetailTiketServisPage() {
                 <Stack gap={12}>
                   <CardSectionTitle>Referensi Solusi Awal</CardSectionTitle>
                   <Divider color="#ECECF3" />
-                  <Text fz={17} c="#4B5563">
-                    • {ticket.referensiSolusiAwal || "-"}
+                  <Text fz={17} c="#4B5563" style={{ whiteSpace: "pre-line" }}>
+                    • {getReferensiSolusiAwal(detail)}
                   </Text>
                 </Stack>
               </CardBox>
@@ -544,29 +1059,36 @@ export default function DetailTiketServisPage() {
                       size="xs"
                       radius="md"
                       onClick={() => setOpenedDiagnosaModal(true)}
+                      disabled={!canModifyDetail || loadingAction !== null}
                       style={{
                         backgroundColor: "#0D4CB5",
                       }}
                     >
-                      {diagnosaLanjutan ? "Edit" : "Isi Diagnosa"}
+                      {latestDiagnosa ? "Edit" : "Isi Diagnosa"}
                     </Button>
                   </Group>
 
                   <Divider color="#ECECF3" />
 
-                  {diagnosaLanjutan ? (
+                  {latestDiagnosa ? (
                     <Stack gap={10}>
                       <Text fw={700} fz={17} c="#224B8F">
                         Diagnosa Teknisi
                       </Text>
 
                       <Text fz={16} c="#4B5563">
-                        {diagnosaLanjutan}
+                        {latestDiagnosa.hasil_diagnosa}
                       </Text>
 
-                      {catatanTeknisi ? (
+                      {latestDiagnosa.catatan_teknisi ? (
                         <Text fz={15} c="#6B7280">
-                          Catatan: {catatanTeknisi}
+                          Catatan: {latestDiagnosa.catatan_teknisi}
+                        </Text>
+                      ) : null}
+
+                      {latestDiagnosa.users?.nama ? (
+                        <Text fz={14} c="#6B7280">
+                          Teknisi: {latestDiagnosa.users.nama}
                         </Text>
                       ) : null}
                     </Stack>
@@ -585,12 +1107,14 @@ export default function DetailTiketServisPage() {
                   <Group justify="space-between" align="center">
                     <CardSectionTitle>Sparepart Digunakan</CardSectionTitle>
 
-                    <Menu shadow="md" width={240} withinPortal={false}>
+                    <Menu shadow="md" width={280} withinPortal={false}>
                       <Menu.Target>
                         <Button
                           size="xs"
                           radius="md"
                           leftSection={<IconPlus size={14} />}
+                          disabled={!canModifyDetail || loadingAction !== null}
+                          loading={loadingAction === "tambah-sparepart"}
                           style={{
                             backgroundColor: "#0D4CB5",
                           }}
@@ -600,14 +1124,30 @@ export default function DetailTiketServisPage() {
                       </Menu.Target>
 
                       <Menu.Dropdown>
-                        {sparepartMasterOptions.map((item) => (
-                          <Menu.Item
-                            key={item.value}
-                            onClick={() => handleTambahSparepart(item.value)}
-                          >
-                            {item.label}
-                          </Menu.Item>
-                        ))}
+                        {sparepartMasterOptions.length > 0 ? (
+                          sparepartMasterOptions.map((item) => (
+                            <Menu.Item
+                              key={item.value}
+                              onClick={() => handleTambahSparepart(item.value)}
+                              disabled={(item.stock ?? 0) <= 0}
+                            >
+                              <Stack gap={2}>
+                                <Text fz={14}>{item.label}</Text>
+                                <Text fz={12} c="dimmed">
+                                  Stok: {item.stock ?? 0} •{" "}
+                                  {formatCurrency(item.harga, {
+                                    locale: "id-ID",
+                                    prefix: "Rp ",
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  })}
+                                </Text>
+                              </Stack>
+                            </Menu.Item>
+                          ))
+                        ) : (
+                          <Menu.Item disabled>Belum ada data sparepart</Menu.Item>
+                        )}
                       </Menu.Dropdown>
                     </Menu>
                   </Group>
@@ -616,42 +1156,51 @@ export default function DetailTiketServisPage() {
 
                   {sparepartDigunakan.length > 0 ? (
                     <Stack gap={10}>
-                      {sparepartDigunakan.map((item) => (
-                        <Group
-                          key={item.id}
-                          justify="space-between"
-                          align="center"
-                          wrap="nowrap"
-                        >
-                          <Stack gap={2} style={{ minWidth: 0 }}>
-                            <Text fw={600} fz={16} c="#4B5563">
-                              {item.nama}
-                            </Text>
-                            <Text fz={14} c="#6B7280">
-                              Qty {item.qty}
-                            </Text>
-                          </Stack>
+                      {sparepartDigunakan.map((item) => {
+                        const qty = toNumber(item.jumlah);
+                        const harga = toNumber(item.harga);
+                        const subtotal = toNumber(item.subtotal) || qty * harga;
 
-                          <Group gap={8} wrap="nowrap">
-                            <Text fz={16} c="#4B5563">
-                              {formatCurrency(item.qty * item.harga, {
-                                locale: "id-ID",
-                                prefix: "Rp ",
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0,
-                              })}
-                            </Text>
-
-                            <UnstyledButton
-                              onClick={() => handleHapusSparepart(item.id)}
-                            >
-                              <Text c="#D32F2F" fw={700}>
-                                ×
+                        return (
+                          <Group
+                            key={item.id}
+                            justify="space-between"
+                            align="center"
+                            wrap="nowrap"
+                          >
+                            <Stack gap={2} style={{ minWidth: 0 }}>
+                              <Text fw={600} fz={16} c="#4B5563">
+                                {item.sparepart?.nama_sparepart || "Sparepart"}
                               </Text>
-                            </UnstyledButton>
+                              <Text fz={14} c="#6B7280">
+                                Qty {qty}
+                              </Text>
+                            </Stack>
+
+                            <Group gap={8} wrap="nowrap">
+                              <Text fz={16} c="#4B5563">
+                                {formatCurrency(subtotal, {
+                                  locale: "id-ID",
+                                  prefix: "Rp ",
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0,
+                                })}
+                              </Text>
+
+                              <UnstyledButton
+                                disabled={
+                                  !canModifyDetail || loadingAction !== null
+                                }
+                                onClick={() => handleHapusSparepart(item.id)}
+                              >
+                                <Text c="#D32F2F" fw={700}>
+                                  ×
+                                </Text>
+                              </UnstyledButton>
+                            </Group>
                           </Group>
-                        </Group>
-                      ))}
+                        );
+                      })}
                     </Stack>
                   ) : (
                     <Text fz={16} c="#9CA3AF">
@@ -700,9 +1249,9 @@ export default function DetailTiketServisPage() {
                     <Text fz={16} c="#4B5563">
                       Estimasi Waktu
                     </Text>
-                    <Text fz={16} c="#4B5563">
-                      {estimasiWaktu || "-"}
-                    </Text>
+<Text fz={16} c="#4B5563">
+  {formatDisplayDateTime(detail.estimasi_waktu)}
+</Text>
                   </Group>
 
                   <Divider color="#ECECF3" />
@@ -730,12 +1279,14 @@ export default function DetailTiketServisPage() {
                   <Group justify="space-between" align="center">
                     <CardSectionTitle>Jasa Servis</CardSectionTitle>
 
-                    <Menu shadow="md" width={280} withinPortal={false}>
+                    <Menu shadow="md" width={300} withinPortal={false}>
                       <Menu.Target>
                         <Button
                           size="xs"
                           radius="md"
                           leftSection={<IconPlus size={14} />}
+                          disabled={!canModifyDetail || loadingAction !== null}
+                          loading={loadingAction === "tambah-jasa"}
                           style={{
                             backgroundColor: "#0D4CB5",
                           }}
@@ -745,14 +1296,30 @@ export default function DetailTiketServisPage() {
                       </Menu.Target>
 
                       <Menu.Dropdown>
-                        {jasaServisMasterOptions.map((item) => (
-                          <Menu.Item
-                            key={item.value}
-                            onClick={() => handleTambahJasa(item.value)}
-                          >
-                            {item.label}
+                        {jasaMasterOptions.length > 0 ? (
+                          jasaMasterOptions.map((item) => (
+                            <Menu.Item
+                              key={item.value}
+                              onClick={() => handleTambahJasa(item.value)}
+                            >
+                              <Stack gap={2}>
+                                <Text fz={14}>{item.label}</Text>
+                                <Text fz={12} c="dimmed">
+                                  {formatCurrency(item.harga, {
+                                    locale: "id-ID",
+                                    prefix: "Rp ",
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  })}
+                                </Text>
+                              </Stack>
+                            </Menu.Item>
+                          ))
+                        ) : (
+                          <Menu.Item disabled>
+                            Belum ada data jasa servis
                           </Menu.Item>
-                        ))}
+                        )}
                       </Menu.Dropdown>
                     </Menu>
                   </Group>
@@ -784,49 +1351,60 @@ export default function DetailTiketServisPage() {
 
                       <Table.Tbody>
                         {jasaServis.length > 0 ? (
-                          jasaServis.map((item) => (
-                            <Table.Tr key={item.id}>
-                              <Table.Td>
-                                <Text fz={16} c="#4B5563">
-                                  {item.nama}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td>
-                                <Text fz={16} c="#4B5563">
-                                  {item.qty}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td>
-                                <Text fz={16} c="#4B5563">
-                                  {formatCurrency(item.harga, {
-                                    locale: "id-ID",
-                                    prefix: "Rp ",
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0,
-                                  })}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td>
-                                <Text fw={700} fz={16} c="#2B2B2B">
-                                  {formatCurrency(item.qty * item.harga, {
-                                    locale: "id-ID",
-                                    prefix: "Rp ",
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0,
-                                  })}
-                                </Text>
-                              </Table.Td>
-                              <Table.Td>
-                                <UnstyledButton
-                                  onClick={() => handleHapusJasa(item.id)}
-                                >
-                                  <Text c="#D32F2F" fw={700}>
-                                    ×
+                          jasaServis.map((item) => {
+                            const qty = toNumber(item.jumlah);
+                            const harga = toNumber(item.harga);
+                            const subtotal =
+                              toNumber(item.subtotal) || qty * harga;
+
+                            return (
+                              <Table.Tr key={item.id}>
+                                <Table.Td>
+                                  <Text fz={16} c="#4B5563">
+                                    {item.jasa_servis?.nama_jasa_servis ||
+                                      "Jasa servis"}
                                   </Text>
-                                </UnstyledButton>
-                              </Table.Td>
-                            </Table.Tr>
-                          ))
+                                </Table.Td>
+                                <Table.Td>
+                                  <Text fz={16} c="#4B5563">
+                                    {qty}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Text fz={16} c="#4B5563">
+                                    {formatCurrency(harga, {
+                                      locale: "id-ID",
+                                      prefix: "Rp ",
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    })}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Text fw={700} fz={16} c="#2B2B2B">
+                                    {formatCurrency(subtotal, {
+                                      locale: "id-ID",
+                                      prefix: "Rp ",
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    })}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                  <UnstyledButton
+                                    disabled={
+                                      !canModifyDetail || loadingAction !== null
+                                    }
+                                    onClick={() => handleHapusJasa(item.id)}
+                                  >
+                                    <Text c="#D32F2F" fw={700}>
+                                      ×
+                                    </Text>
+                                  </UnstyledButton>
+                                </Table.Td>
+                              </Table.Tr>
+                            );
+                          })
                         ) : (
                           <Table.Tr>
                             <Table.Td colSpan={5}>
@@ -849,12 +1427,12 @@ export default function DetailTiketServisPage() {
       <DiagnosaLanjutanModal
         opened={openedDiagnosaModal}
         onClose={() => setOpenedDiagnosaModal(false)}
-        noTiket={ticket.nomorTiket}
-        pelanggan={ticket.namaCust}
-        perangkat={getPerangkatDisplay(ticket)}
-        statusSaatIni={statusServis}
-        initialDiagnosaLanjutan={diagnosaLanjutan}
-        initialCatatanTeknisi={catatanTeknisi}
+        noTiket={detail.nomor_tiket}
+        pelanggan={detail.nama_cust}
+        perangkat={perangkatDisplay}
+        statusSaatIni={detail.status_servis}
+        initialDiagnosaLanjutan={latestDiagnosa?.hasil_diagnosa || ""}
+        initialCatatanTeknisi={latestDiagnosa?.catatan_teknisi || ""}
         onSave={handleSaveDiagnosa}
       />
     </>
