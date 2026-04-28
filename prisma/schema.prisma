@@ -263,14 +263,18 @@ model tiket_servis {
 }
 
 model transaksi_penjualan {
-  id                BigInt                               @id @default(autoincrement()) @db.UnsignedBigInt
-  id_user           BigInt                               @db.UnsignedBigInt
-  tanggal_transaksi DateTime                             @db.DateTime(0)
-  total_transaksi   Decimal                              @default(0.00) @db.Decimal(15, 2)
-  metode_transaksi  String                               @db.VarChar(50)
-  status_transaksi  transaksi_penjualan_status_transaksi @default(Belum_Bayar)
-  detail_transaksi  detail_transaksi[]
-  users             users                                @relation(fields: [id_user], references: [id], map: "fk_transaksi_penjualan_user")
+  id                 BigInt                               @id @default(autoincrement()) @db.UnsignedBigInt
+  id_user            BigInt                               @db.UnsignedBigInt
+  tanggal_transaksi  DateTime                             @db.DateTime(0)
+  subtotal_transaksi Decimal                              @default(0.00) @db.Decimal(15, 2)
+  diskon_transaksi   Decimal                              @default(0.00) @db.Decimal(15, 2)
+  total_transaksi    Decimal                              @default(0.00) @db.Decimal(15, 2)
+  nominal_bayar      Decimal                              @default(0.00) @db.Decimal(15, 2)
+  kembalian          Decimal                              @default(0.00) @db.Decimal(15, 2)
+  metode_transaksi   String                               @db.VarChar(50)
+  status_transaksi   transaksi_penjualan_status_transaksi @default(Belum_Bayar)
+  detail_transaksi   detail_transaksi[]
+  users              users                                @relation(fields: [id_user], references: [id], map: "fk_transaksi_penjualan_user")
 
   @@index([id_user], map: "fk_transaksi_penjualan_user")
 }

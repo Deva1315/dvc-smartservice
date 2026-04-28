@@ -26,7 +26,7 @@ import PegawaiFormModal, {
   type PegawaiFormInitialData,
   type PegawaiFormPayload,
   type PegawaiRoleOption,
-} from "@/components/UI/dashboard/owner/form/PegawaiFormModal";
+} from "@/components/UI/dashboard/owner/kelola-pegawai/form/PegawaiFormModal";
 import {
   createOwnerPegawaiRequest,
   deleteOwnerPegawaiRequest,

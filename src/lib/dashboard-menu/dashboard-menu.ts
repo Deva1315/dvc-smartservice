@@ -87,11 +87,6 @@ const DASHBOARD_MENU: Record<DashboardRoleKey, DashboardMenuItem[]> = {
           href: "/owner/laporan/stock-sparepart",
         },
         {
-          key: "laporan-perangkat-servis-belum-diambil",
-          label: "Laporan Perangkat Servis Belum Diambil",
-          href: "/owner/laporan/perangkat-servis-belum-diambil",
-        },
-        {
           key: "laporan-pendapatan-gabungan",
           label: "Laporan Pendapatan Gabungan",
           href: "/owner/laporan/pendapatan-gabungan",

@@ -25,10 +25,10 @@ import CustomTable, {
 import DropPointFormModal, {
   type DropPointFormInitialData,
   type DropPointFormPayload,
-} from "@/components/UI/dashboard/owner/form/DropPointFormModal";
+} from "@/components/UI/dashboard/owner/drop-point/form/DropPointFormModal";
 import DropPointDetailModal, {
   type OwnerDropPointDetailRow,
-} from "@/components/UI/dashboard/owner/modal/DropPointDetailModal";
+} from "@/components/UI/dashboard/owner/drop-point/modal/DropPointDetailModal";
 import {
   createOwnerDropPointRequest,
   deleteOwnerDropPointRequest,

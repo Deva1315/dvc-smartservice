@@ -1,0 +1,589 @@
+import { NextRequest, NextResponse } from "next/server";
+import {
+  Prisma,
+  transaksi_penjualan_status_transaksi,
+} from "@/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
+import { getAuthSession } from "@/lib/auth/get-auth-session";
+
+export const runtime = "nodejs";
+
+function serializeData(data: unknown) {
+  return JSON.parse(
+    JSON.stringify(data, (_, value) => {
+      if (typeof value === "bigint") {
+        return value.toString();
+      }
+
+      if (
+        value &&
+        typeof value === "object" &&
+        value.constructor?.name === "Decimal"
+      ) {
+        return value.toString();
+      }
+
+      return value;
+    })
+  );
+}
+
+function normalizeRole(roleName: string) {
+  return roleName.toLowerCase().replace(/\s+/g, "_");
+}
+
+async function requireAdminPenjualanSession() {
+  const session = await getAuthSession();
+
+  if (!session) {
+    throw new Error("Unauthorized. Silakan login terlebih dahulu.");
+  }
+
+  const role = normalizeRole(session.roleName);
+
+  if (role !== "admin_penjualan" && role !== "owner") {
+    throw new Error(
+      "Forbidden. Hanya Admin Penjualan atau Owner yang dapat mengakses POS."
+    );
+  }
+
+  return session;
+}
+
+function parseRequiredBigInt(value: unknown, fieldName: string) {
+  if (value === undefined || value === null || value === "") {
+    throw new Error(`${fieldName} wajib diisi`);
+  }
+
+  const stringValue = String(value);
+
+  if (!/^\d+$/.test(stringValue)) {
+    throw new Error(`${fieldName} harus berupa angka`);
+  }
+
+  return BigInt(stringValue);
+}
+
+function parseNumber(value: unknown, fieldName: string) {
+  if (value === undefined || value === null || value === "") {
+    return 0;
+  }
+
+  const normalizedValue =
+    typeof value === "string"
+      ? value.replace(/\./g, "").replace(",", ".")
+      : value;
+
+  const numberValue = Number(normalizedValue);
+
+  if (!Number.isFinite(numberValue) || numberValue < 0) {
+    throw new Error(`${fieldName} harus berupa angka valid dan tidak negatif`);
+  }
+
+  return numberValue;
+}
+
+function parsePositiveInteger(value: string | null, fallback: number) {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function normalizeMetodeTransaksi(value: unknown) {
+  const metode = typeof value === "string" ? value.trim() : "";
+
+  if (!metode) {
+    throw new Error("Metode pembayaran wajib dipilih");
+  }
+
+  const allowed = ["Cash", "Transfer", "QRIS", "Debit"];
+
+  if (!allowed.includes(metode)) {
+    throw new Error("Metode pembayaran tidak valid");
+  }
+
+  return metode;
+}
+
+function toNumber(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toDecimal(value: number) {
+  return new Prisma.Decimal(value.toFixed(2));
+}
+
+function formatDateCode(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}${month}${day}`;
+}
+
+function buildNomorTransaksi(id: bigint | string, tanggal: Date) {
+  return `INV-${formatDateCode(tanggal)}-${String(id).padStart(4, "0")}`;
+}
+
+type DetailItemPayload = {
+  id_barang?: string | number | bigint | null;
+  jumlah?: string | number | bigint | null;
+  qty?: string | number | bigint | null;
+};
+
+type NormalizedItem = {
+  id_barang: bigint;
+  jumlah: bigint;
+};
+
+function normalizeDetailItems(rawItems: unknown) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    throw new Error("Detail barang wajib diisi minimal 1 item");
+  }
+
+  const itemMap = new Map<string, NormalizedItem>();
+
+  for (const rawItem of rawItems) {
+    const item = rawItem as DetailItemPayload;
+
+    const idBarang = parseRequiredBigInt(item.id_barang, "Barang");
+    const jumlah = parseRequiredBigInt(
+      item.jumlah ?? item.qty,
+      "Jumlah barang"
+    );
+
+    if (jumlah <= BigInt(0)) {
+      throw new Error("Jumlah barang harus lebih dari 0");
+    }
+
+    const key = idBarang.toString();
+    const existing = itemMap.get(key);
+
+    if (existing) {
+      itemMap.set(key, {
+        id_barang: idBarang,
+        jumlah: existing.jumlah + jumlah,
+      });
+    } else {
+      itemMap.set(key, {
+        id_barang: idBarang,
+        jumlah,
+      });
+    }
+  }
+
+  return Array.from(itemMap.values());
+}
+
+type TransaksiWithRelations = Prisma.transaksi_penjualanGetPayload<{
+  include: {
+    users: {
+      select: {
+        id: true;
+        nama: true;
+        email: true;
+      };
+    };
+    detail_transaksi: {
+      include: {
+        barang: {
+          include: {
+            kategori_barang: true;
+          };
+        };
+      };
+    };
+  };
+}>;
+
+function buildTransaksiResponse(transaksi: TransaksiWithRelations) {
+  const subtotalFromDetail = transaksi.detail_transaksi.reduce((total, item) => {
+    return total + toNumber(item.sub_total);
+  }, 0);
+
+  const subtotalTransaksi = toNumber(transaksi.subtotal_transaksi);
+  const diskonTransaksi = toNumber(transaksi.diskon_transaksi);
+  const totalTransaksi = toNumber(transaksi.total_transaksi);
+  const nominalBayar = toNumber(transaksi.nominal_bayar);
+  const kembalian = toNumber(transaksi.kembalian);
+
+  return {
+    id: transaksi.id,
+    nomor_transaksi: buildNomorTransaksi(
+      transaksi.id,
+      transaksi.tanggal_transaksi
+    ),
+    id_user: transaksi.id_user,
+    tanggal_transaksi: transaksi.tanggal_transaksi,
+
+    subtotal_transaksi: transaksi.subtotal_transaksi,
+    diskon_transaksi: transaksi.diskon_transaksi,
+    total_transaksi: transaksi.total_transaksi,
+    nominal_bayar: transaksi.nominal_bayar,
+    kembalian: transaksi.kembalian,
+
+    metode_transaksi: transaksi.metode_transaksi,
+    status_transaksi: transaksi.status_transaksi,
+
+    subtotal: subtotalTransaksi || subtotalFromDetail,
+    diskon: diskonTransaksi,
+    total: totalTransaksi,
+    nominal_bayar_number: nominalBayar,
+    kembalian_number: kembalian,
+
+    admin: {
+      id: transaksi.users.id,
+      nama: transaksi.users.nama,
+      email: transaksi.users.email,
+    },
+
+    detail_transaksi: transaksi.detail_transaksi.map((item) => ({
+      id: item.id,
+      id_transaksi: item.id_transaksi,
+      id_barang: item.id_barang,
+      jumlah: item.jumlah,
+      harga_satuan: item.harga_satuan,
+      sub_total: item.sub_total,
+      barang: item.barang,
+    })),
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireAdminPenjualanSession();
+
+    const { searchParams } = new URL(request.url);
+
+    const search = searchParams.get("search")?.trim() || "";
+    const page = parsePositiveInteger(searchParams.get("page"), 1);
+    const limit = parsePositiveInteger(searchParams.get("limit"), 10);
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.transaksi_penjualanWhereInput = search
+      ? {
+          OR: [
+            {
+              metode_transaksi: {
+                contains: search,
+              },
+            },
+            {
+              users: {
+                nama: {
+                  contains: search,
+                },
+              },
+            },
+            {
+              detail_transaksi: {
+                some: {
+                  barang: {
+                    OR: [
+                      {
+                        nama_barang: {
+                          contains: search,
+                        },
+                      },
+                      {
+                        kode_barang: {
+                          contains: search,
+                        },
+                      },
+                      {
+                        merk_barang: {
+                          contains: search,
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {};
+
+    const [transaksi, total] = await Promise.all([
+      prisma.transaksi_penjualan.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          id: "desc",
+        },
+        include: {
+          users: {
+            select: {
+              id: true,
+              nama: true,
+              email: true,
+            },
+          },
+          detail_transaksi: {
+            include: {
+              barang: {
+                include: {
+                  kategori_barang: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.transaksi_penjualan.count({
+        where,
+      }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      message: "Data transaksi POS berhasil diambil",
+      data: serializeData(transaksi.map((item) => buildTransaksiResponse(item))),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("GET POS TRANSAKSI ERROR:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal mengambil data transaksi POS";
+
+    const status = message.includes("Unauthorized")
+      ? 401
+      : message.includes("Forbidden")
+      ? 403
+      : 500;
+
+    return NextResponse.json(
+      {
+        success: false,
+        message,
+      },
+      { status }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await requireAdminPenjualanSession();
+    const body = await request.json();
+
+    const metodeTransaksi = normalizeMetodeTransaksi(
+      body.metode_transaksi ?? body.metodePembayaran
+    );
+
+    const diskon = parseNumber(
+      body.diskon_transaksi ?? body.diskon,
+      "Diskon"
+    );
+
+    const nominalBayarInput = parseNumber(
+      body.nominal_bayar ?? body.nominalBayar,
+      "Nominal bayar"
+    );
+
+    const detailItems = normalizeDetailItems(
+      body.detail_items ?? body.items ?? body.cart
+    );
+
+    const result = await prisma.$transaction(async (tx) => {
+      const itemTransaksi: {
+        id_barang: bigint;
+        jumlah: bigint;
+        harga_satuan: number;
+        sub_total: number;
+      }[] = [];
+
+      let subtotalTransaksi = 0;
+
+      for (const item of detailItems) {
+        const barang = await tx.barang.findUnique({
+          where: {
+            id: item.id_barang,
+          },
+        });
+
+        if (!barang) {
+          throw new Error("Barang tidak ditemukan");
+        }
+
+        if (barang.stock < item.jumlah) {
+          throw new Error(
+            `Stok barang ${barang.nama_barang} tidak mencukupi. Stok tersedia: ${barang.stock.toString()}`
+          );
+        }
+
+        const hargaSatuan = toNumber(barang.harga);
+        const jumlahNumber = Number(item.jumlah);
+        const subTotal = hargaSatuan * jumlahNumber;
+
+        subtotalTransaksi += subTotal;
+
+        itemTransaksi.push({
+          id_barang: item.id_barang,
+          jumlah: item.jumlah,
+          harga_satuan: hargaSatuan,
+          sub_total: subTotal,
+        });
+      }
+
+      if (diskon > subtotalTransaksi) {
+        throw new Error("Diskon tidak boleh melebihi subtotal transaksi");
+      }
+
+      const totalTransaksi = Math.max(subtotalTransaksi - diskon, 0);
+
+      if (metodeTransaksi === "Cash" && nominalBayarInput < totalTransaksi) {
+        throw new Error("Nominal bayar belum mencukupi total transaksi");
+      }
+
+      const nominalBayar =
+        metodeTransaksi === "Cash" ? nominalBayarInput : totalTransaksi;
+
+      const kembalian =
+        metodeTransaksi === "Cash"
+          ? Math.max(nominalBayar - totalTransaksi, 0)
+          : 0;
+
+      const transaksi = await tx.transaksi_penjualan.create({
+        data: {
+          id_user: BigInt(session.id),
+          tanggal_transaksi: new Date(),
+          subtotal_transaksi: toDecimal(subtotalTransaksi),
+          diskon_transaksi: toDecimal(diskon),
+          total_transaksi: toDecimal(totalTransaksi),
+          nominal_bayar: toDecimal(nominalBayar),
+          kembalian: toDecimal(kembalian),
+          metode_transaksi: metodeTransaksi,
+          status_transaksi: transaksi_penjualan_status_transaksi.Dibayar,
+        },
+      });
+
+      const nomorTransaksi = buildNomorTransaksi(
+        transaksi.id,
+        transaksi.tanggal_transaksi
+      );
+
+      const stockMutasi = await tx.stock_mutasi.create({
+        data: {
+          id_user: BigInt(session.id),
+          id_supplier: null,
+          jenis_mutasi: "Barang Keluar",
+          tanggal_mutasi: transaksi.tanggal_transaksi,
+          keterangan: `Sumber: POS Penjualan\nNo. Transaksi: ${nomorTransaksi}`,
+        },
+      });
+
+      for (const item of itemTransaksi) {
+        await tx.detail_transaksi.create({
+          data: {
+            id_transaksi: transaksi.id,
+            id_barang: item.id_barang,
+            jumlah: item.jumlah,
+            harga_satuan: toDecimal(item.harga_satuan),
+            sub_total: toDecimal(item.sub_total),
+          },
+        });
+
+        await tx.detail_stock_mutasi.create({
+          data: {
+            id_stock_mutasi: stockMutasi.id,
+            id_barang: item.id_barang,
+            id_sparepart: null,
+            jumlah: item.jumlah,
+          },
+        });
+
+        await tx.barang.update({
+          where: {
+            id: item.id_barang,
+          },
+          data: {
+            stock: {
+              decrement: item.jumlah,
+            },
+          },
+        });
+      }
+
+      const transaksiLengkap = await tx.transaksi_penjualan.findUnique({
+        where: {
+          id: transaksi.id,
+        },
+        include: {
+          users: {
+            select: {
+              id: true,
+              nama: true,
+              email: true,
+            },
+          },
+          detail_transaksi: {
+            include: {
+              barang: {
+                include: {
+                  kategori_barang: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!transaksiLengkap) {
+        throw new Error("Gagal mengambil data transaksi terbaru");
+      }
+
+      return buildTransaksiResponse(transaksiLengkap);
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Transaksi POS berhasil disimpan",
+        data: serializeData(result),
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("POST POS TRANSAKSI ERROR:", error);
+
+    const message =
+      error instanceof Error ? error.message : "Gagal menyimpan transaksi POS";
+
+    const status = message.includes("Unauthorized")
+      ? 401
+      : message.includes("Forbidden")
+      ? 403
+      : message.includes("tidak ditemukan")
+      ? 404
+      : message.includes("wajib") ||
+        message.includes("harus") ||
+        message.includes("tidak boleh") ||
+        message.includes("mencukupi") ||
+        message.includes("Stok")
+      ? 400
+      : 500;
+
+    return NextResponse.json(
+      {
+        success: false,
+        message,
+      },
+      { status }
+    );
+  }
+}

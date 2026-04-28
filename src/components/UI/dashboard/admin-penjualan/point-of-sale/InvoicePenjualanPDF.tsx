@@ -63,8 +63,10 @@ export default function InvoicePenjualanPDF({ data }: InvoicePenjualanPDFProps) 
       <Page size={[390, getPageHeight(data.items.length)]} style={styles.page}>
         <View style={styles.header}>
           <Text style={styles.title}>DVC COMPUTER</Text>
-          <Text style={styles.subtitle}>Jl. Imam Bonjol No. 10, Denpasar</Text>
-          <Text style={styles.subtitle}>08123456789</Text>
+          <Text style={styles.subtitle}>
+            Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
+          </Text>
+          <Text style={styles.subtitle}>08174762502</Text>
         </View>
 
         <View style={styles.grayLine} />

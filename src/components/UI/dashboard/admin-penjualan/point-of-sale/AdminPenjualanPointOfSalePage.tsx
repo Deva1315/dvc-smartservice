@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ActionIcon,
   Badge,
@@ -22,6 +22,14 @@ import { IconPlus, IconSearch, IconTrash } from "@tabler/icons-react";
 import InvoicePenjualanPDF, {
   type InvoicePenjualanData,
 } from "@/components/UI/dashboard/admin-penjualan/point-of-sale/InvoicePenjualanPDF";
+import { getCurrentSession } from "@/lib/auth/auth.client";
+import {
+  getPOSBarang,
+  simpanPOSTransaksi,
+  type POSBarangApiItem,
+  type POSMetodePembayaran,
+  type POSTransaksiApiItem,
+} from "@/lib/admin-penjualan/admin-penjualan-point-of-sale.client";
 
 type Barang = {
   id: string;
@@ -35,99 +43,180 @@ type CartItem = Barang & {
   qty: number;
 };
 
-const dummyBarang: Barang[] = [
-  {
-    id: "1",
-    nama: "Monitor Samsung 24 inch",
-    kode: "MON-001",
-    harga: 1750000,
-    stok: 5,
-  },
-  {
-    id: "2",
-    nama: "Laptop Acer Aspire 5",
-    kode: "LAP-002",
-    harga: 7200000,
-    stok: 8,
-  },
-  {
-    id: "3",
-    nama: "HP Xiaomi Redmi Note 12",
-    kode: "HP-003",
-    harga: 3400000,
-    stok: 12,
-  },
-  {
-    id: "4",
-    nama: "Hard Disk Eksternal Seagate 1TB",
-    kode: "HDD-004",
-    harga: 850000,
-    stok: 7,
-  },
-];
-
 function formatRupiah(value: number) {
   return new Intl.NumberFormat("id-ID", {
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(Number.isFinite(value) ? value : 0);
 }
 
 function formatRupiahPrefix(value: number) {
   return `Rp ${formatRupiah(value)}`;
 }
 
-function generateNomorTransaksi() {
-  return "INV-20260424-001";
+function toNumber(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function numberInputToNumber(value: number | string) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatDateDisplay(value: string | Date | null | undefined) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function mapBarangApiToBarang(item: POSBarangApiItem): Barang {
+  return {
+    id: String(item.id),
+    nama: item.nama_barang,
+    kode: item.kode_barang,
+    harga: toNumber(item.harga),
+    stok: toNumber(item.stock),
+  };
+}
+
+function mapTransaksiToInvoiceData(
+  transaksi: POSTransaksiApiItem
+): InvoicePenjualanData {
+  return {
+    nomorTransaksi: transaksi.nomor_transaksi,
+    tanggal: formatDateDisplay(transaksi.tanggal_transaksi),
+    admin: transaksi.admin?.nama || "-",
+    metodePembayaran: transaksi.metode_transaksi,
+    items: transaksi.detail_transaksi.map((item) => ({
+      nama: item.barang?.nama_barang || "Barang",
+      qty: toNumber(item.jumlah),
+      harga: toNumber(item.harga_satuan),
+    })),
+    diskon: toNumber(transaksi.diskon_transaksi),
+    nominalBayar: toNumber(transaksi.nominal_bayar),
+  };
+}
+
+function EmptyTableRow({
+  colSpan,
+  children,
+}: {
+  colSpan: number;
+  children: ReactNode;
+}) {
+  return (
+    <Table.Tr>
+      <Table.Td colSpan={colSpan}>
+        <Text ta="center" c="dimmed" py="md">
+          {children}
+        </Text>
+      </Table.Td>
+    </Table.Tr>
+  );
 }
 
 export default function AdminPenjualanPointOfSalePage() {
   const [search, setSearch] = useState("");
+  const [barangList, setBarangList] = useState<Barang[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [metodePembayaran, setMetodePembayaran] = useState<"Cash" | "Transfer">(
-    "Cash"
-  );
+  const [metodePembayaran, setMetodePembayaran] =
+    useState<POSMetodePembayaran>("Cash");
   const [diskon, setDiskon] = useState<number | string>(0);
   const [nominalBayar, setNominalBayar] = useState<number | string>(0);
-
-  const nomorTransaksi = generateNomorTransaksi();
+  const [adminName, setAdminName] = useState("-");
+  const [isLoadingBarang, setIsLoadingBarang] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lastInvoiceData, setLastInvoiceData] =
+    useState<InvoicePenjualanData | null>(null);
 
   const filteredBarang = useMemo(() => {
     const keyword = search.toLowerCase().trim();
 
-    if (!keyword) return dummyBarang;
+    if (!keyword) return barangList;
 
-    return dummyBarang.filter(
+    return barangList.filter(
       (item) =>
         item.nama.toLowerCase().includes(keyword) ||
         item.kode.toLowerCase().includes(keyword)
     );
-  }, [search]);
+  }, [barangList, search]);
 
   const subtotal = useMemo(() => {
     return cart.reduce((total, item) => total + item.harga * item.qty, 0);
   }, [cart]);
 
-  const diskonNumber = Number(diskon || 0);
+  const diskonNumber = numberInputToNumber(diskon);
   const total = Math.max(subtotal - diskonNumber, 0);
-  const nominalBayarNumber = Number(nominalBayar || 0);
+  const nominalBayarNumber =
+    metodePembayaran === "Cash" ? numberInputToNumber(nominalBayar) : total;
   const kembalian =
     metodePembayaran === "Cash" ? Math.max(nominalBayarNumber - total, 0) : 0;
 
-  const invoiceData: InvoicePenjualanData = {
-    nomorTransaksi,
-    tanggal: "24-04-2026",
-    admin: "Admin Penjualan",
-    metodePembayaran,
-    items: cart.map((item) => ({
-      nama: item.nama,
-      qty: item.qty,
-      harga: item.harga,
-    })),
-    diskon: diskonNumber,
-    nominalBayar: nominalBayarNumber,
-  };
+  const nomorTransaksiPreview =
+    lastInvoiceData?.nomorTransaksi || "Otomatis setelah bayar";
+
+  const tanggalPreview =
+    lastInvoiceData?.tanggal || formatDateDisplay(new Date());
+
+  const adminPreview = lastInvoiceData?.admin || adminName;
+
+  async function fetchBarang() {
+    try {
+      setIsLoadingBarang(true);
+
+      const result = await getPOSBarang({
+        limit: 100,
+      });
+
+      const data = (result.data || []) as POSBarangApiItem[];
+
+      setBarangList(data.map(mapBarangApiToBarang));
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data barang POS.",
+        color: "red",
+      });
+    } finally {
+      setIsLoadingBarang(false);
+    }
+  }
+
+  async function fetchSession() {
+    const result = await getCurrentSession().catch(() => null);
+
+    if (result?.success && result.authenticated) {
+      setAdminName(result.user.nama);
+    }
+  }
+
+  useEffect(() => {
+    fetchBarang();
+    fetchSession();
+  }, []);
+
+  function clearLastInvoice() {
+    if (lastInvoiceData) {
+      setLastInvoiceData(null);
+    }
+  }
 
   function handleTambahBarang(barang: Barang) {
+    clearLastInvoice();
+
     if (barang.stok <= 0) {
       notifications.show({
         title: "Stok habis",
@@ -160,11 +249,20 @@ export default function AdminPenjualanPointOfSalePage() {
   }
 
   function handleChangeQty(id: string, value: number | string) {
-    const nextQty = typeof value === "number" ? value : 1;
+    clearLastInvoice();
+
+    const nextQty = typeof value === "number" ? value : Number(value || 1);
 
     setCart((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
+
+        if (!Number.isFinite(nextQty) || nextQty <= 0) {
+          return {
+            ...item,
+            qty: 1,
+          };
+        }
 
         if (nextQty > item.stok) {
           notifications.show({
@@ -185,6 +283,7 @@ export default function AdminPenjualanPointOfSalePage() {
   }
 
   function handleHapusItem(id: string) {
+    clearLastInvoice();
     setCart((prev) => prev.filter((item) => item.id !== id));
   }
 
@@ -193,6 +292,28 @@ export default function AdminPenjualanPointOfSalePage() {
     setDiskon(0);
     setNominalBayar(0);
     setMetodePembayaran("Cash");
+    setLastInvoiceData(null);
+  }
+
+  function handleChangeDiskon(value: number | string) {
+    clearLastInvoice();
+    setDiskon(value);
+  }
+
+  function handleChangeNominalBayar(value: number | string) {
+    clearLastInvoice();
+    setNominalBayar(value);
+  }
+
+  function handleChangeMetodePembayaran(value: string) {
+    clearLastInvoice();
+    const nextMetode = value as POSMetodePembayaran;
+
+    setMetodePembayaran(nextMetode);
+
+    if (nextMetode !== "Cash") {
+      setNominalBayar(0);
+    }
   }
 
   function validateTransaksi() {
@@ -226,18 +347,55 @@ export default function AdminPenjualanPointOfSalePage() {
     return true;
   }
 
-  function handleBayar() {
+  async function handleBayar() {
     const isValid = validateTransaksi();
 
     if (!isValid) {
       return;
     }
 
-    notifications.show({
-      title: "Berhasil",
-      message: "Transaksi POS berhasil diproses dan invoice dibuat.",
-      color: "green",
-    });
+    try {
+      setIsSubmitting(true);
+
+      const result = await simpanPOSTransaksi({
+        metode_transaksi: metodePembayaran,
+        diskon_transaksi: diskonNumber,
+        nominal_bayar: nominalBayarNumber,
+        detail_items: cart.map((item) => ({
+          id_barang: item.id,
+          jumlah: item.qty,
+        })),
+      });
+
+      const transaksi = result.data as POSTransaksiApiItem;
+      const invoiceData = mapTransaksiToInvoiceData(transaksi);
+
+      setLastInvoiceData(invoiceData);
+      setCart([]);
+      setDiskon(0);
+      setNominalBayar(0);
+      setMetodePembayaran("Cash");
+
+      await fetchBarang();
+
+      notifications.show({
+        title: "Berhasil",
+        message:
+          "Transaksi POS berhasil disimpan. Invoice sudah siap dicetak.",
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal menyimpan transaksi POS.",
+        color: "red",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -277,34 +435,43 @@ export default function AdminPenjualanPointOfSalePage() {
               </Table.Thead>
 
               <Table.Tbody>
-                {filteredBarang.map((item) => (
-                  <Table.Tr key={item.id}>
-                    <Table.Td>
-                      <Text fw={600}>{item.nama}</Text>
-                    </Table.Td>
-                    <Table.Td>{item.kode}</Table.Td>
-                    <Table.Td>{formatRupiah(item.harga)}</Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={item.stok > 0 ? "green" : "red"}
-                        variant="light"
-                      >
-                        {item.stok}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Button
-                        size="xs"
-                        color="green"
-                        radius="md"
-                        leftSection={<IconPlus size={14} />}
-                        onClick={() => handleTambahBarang(item)}
-                      >
-                        Tambah
-                      </Button>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
+                {isLoadingBarang ? (
+                  <EmptyTableRow colSpan={5}>Memuat data barang...</EmptyTableRow>
+                ) : filteredBarang.length === 0 ? (
+                  <EmptyTableRow colSpan={5}>
+                    Data barang tidak ditemukan
+                  </EmptyTableRow>
+                ) : (
+                  filteredBarang.map((item) => (
+                    <Table.Tr key={item.id}>
+                      <Table.Td>
+                        <Text fw={600}>{item.nama}</Text>
+                      </Table.Td>
+                      <Table.Td>{item.kode}</Table.Td>
+                      <Table.Td>{formatRupiah(item.harga)}</Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={item.stok > 0 ? "green" : "red"}
+                          variant="light"
+                        >
+                          {item.stok}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Button
+                          size="xs"
+                          color="green"
+                          radius="md"
+                          leftSection={<IconPlus size={14} />}
+                          onClick={() => handleTambahBarang(item)}
+                          disabled={item.stok <= 0 || isSubmitting}
+                        >
+                          Tambah
+                        </Button>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))
+                )}
               </Table.Tbody>
             </Table>
           </Card>
@@ -324,13 +491,9 @@ export default function AdminPenjualanPointOfSalePage() {
 
               <Table.Tbody>
                 {cart.length === 0 ? (
-                  <Table.Tr>
-                    <Table.Td colSpan={6}>
-                      <Text ta="center" c="dimmed" py="md">
-                        Belum ada barang di transaksi
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
+                  <EmptyTableRow colSpan={6}>
+                    Belum ada barang di transaksi
+                  </EmptyTableRow>
                 ) : (
                   cart.map((item) => (
                     <Table.Tr key={item.id}>
@@ -347,6 +510,7 @@ export default function AdminPenjualanPointOfSalePage() {
                           max={item.stok}
                           allowDecimal={false}
                           w={80}
+                          disabled={isSubmitting}
                         />
                       </Table.Td>
                       <Table.Td>{formatRupiah(item.harga * item.qty)}</Table.Td>
@@ -355,6 +519,7 @@ export default function AdminPenjualanPointOfSalePage() {
                           color="red"
                           variant="subtle"
                           onClick={() => handleHapusItem(item.id)}
+                          disabled={isSubmitting}
                         >
                           <IconTrash size={18} />
                         </ActionIcon>
@@ -386,9 +551,15 @@ export default function AdminPenjualanPointOfSalePage() {
             </Box>
 
             <Stack gap={8} p="md">
-              <Text fz={15}>NO. TRANSAKSI: {nomorTransaksi}</Text>
-              <Text fz={15}>TANGGAL: 24-04-2026</Text>
-              <Text fz={15}>ADMIN: Admin Penjualan</Text>
+              <Text fz={15}>NO. TRANSAKSI: {nomorTransaksiPreview}</Text>
+              <Text fz={15}>TANGGAL: {tanggalPreview}</Text>
+              <Text fz={15}>ADMIN: {adminPreview}</Text>
+
+              {lastInvoiceData ? (
+                <Badge color="green" variant="light" w="fit-content">
+                  Invoice terakhir siap dicetak
+                </Badge>
+              ) : null}
             </Stack>
 
             <Divider />
@@ -435,13 +606,14 @@ export default function AdminPenjualanPointOfSalePage() {
                 <Text>Diskon:</Text>
                 <NumberInput
                   value={diskon}
-                  onChange={setDiskon}
+                  onChange={handleChangeDiskon}
                   min={0}
                   max={subtotal}
                   allowDecimal={false}
                   thousandSeparator="."
                   decimalSeparator=","
                   w={160}
+                  disabled={isSubmitting || cart.length === 0}
                 />
               </Group>
 
@@ -462,26 +634,35 @@ export default function AdminPenjualanPointOfSalePage() {
 
               <Radio.Group
                 value={metodePembayaran}
-                onChange={(value) =>
-                  setMetodePembayaran(value as "Cash" | "Transfer")
-                }
+                onChange={handleChangeMetodePembayaran}
               >
                 <Group>
-                  <Radio value="Cash" label="Cash" />
-                  <Radio value="Transfer" label="Transfer" />
+                  <Radio value="Cash" label="Cash" disabled={isSubmitting} />
+                  {/* <Radio
+                    value="Transfer"
+                    label="Transfer"
+                    disabled={isSubmitting}
+                  /> */}
                 </Group>
               </Radio.Group>
 
               <Group justify="space-between" align="center">
                 <Text>Nominal Bayar</Text>
                 <NumberInput
-                  value={nominalBayar}
-                  onChange={setNominalBayar}
+                  value={
+                    metodePembayaran === "Cash" ? nominalBayar : total || 0
+                  }
+                  onChange={handleChangeNominalBayar}
                   min={0}
                   allowDecimal={false}
                   thousandSeparator="."
                   decimalSeparator=","
                   w={170}
+                  disabled={
+                    isSubmitting ||
+                    cart.length === 0 ||
+                    metodePembayaran !== "Cash"
+                  }
                 />
               </Group>
 
@@ -500,39 +681,53 @@ export default function AdminPenjualanPointOfSalePage() {
               fw={800}
               fz={18}
               onClick={handleBatal}
+              disabled={isSubmitting}
             >
               Batal
             </Button>
 
-            <Box style={{ flex: 1 }}>
-              <PDFDownloadLink
-                document={<InvoicePenjualanPDF data={invoiceData} />}
-                fileName={`invoice-penjualan-${invoiceData.nomorTransaksi}.pdf`}
-                style={{
-                  textDecoration: "none",
-                  width: "100%",
-                  display: "block",
-                }}
-              >
-                {({ loading }) => (
-                  <Button
-                    radius="xl"
-                    h={44}
-                    fw={800}
-                    fz={18}
-                    fullWidth
-                    disabled={loading || cart.length === 0}
-                    onClick={handleBayar}
-                    style={{
-                      backgroundColor: "#0D4CB5",
-                    }}
-                  >
-                    {loading ? "Membuat Invoice..." : "Bayar"}
-                  </Button>
-                )}
-              </PDFDownloadLink>
-            </Box>
+            <Button
+              radius="xl"
+              h={44}
+              fw={800}
+              fz={18}
+              fullWidth
+              loading={isSubmitting}
+              disabled={cart.length === 0 || isSubmitting}
+              onClick={handleBayar}
+              style={{
+                backgroundColor: "#0D4CB5",
+              }}
+            >
+              Bayar
+            </Button>
           </Group>
+
+          {lastInvoiceData ? (
+            <PDFDownloadLink
+              document={<InvoicePenjualanPDF data={lastInvoiceData} />}
+              fileName={`invoice-penjualan-${lastInvoiceData.nomorTransaksi}.pdf`}
+              style={{
+                textDecoration: "none",
+                width: "100%",
+                display: "block",
+              }}
+            >
+              {({ loading }) => (
+                <Button
+                  radius="xl"
+                  h={44}
+                  fw={800}
+                  fz={18}
+                  fullWidth
+                  variant="outline"
+                  disabled={loading}
+                >
+                  {loading ? "Membuat Invoice..." : "Cetak Invoice Terakhir"}
+                </Button>
+              )}
+            </PDFDownloadLink>
+          ) : null}
         </Stack>
       </Box>
     </Group>

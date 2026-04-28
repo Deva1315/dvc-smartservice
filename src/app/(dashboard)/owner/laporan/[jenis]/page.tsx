@@ -3,7 +3,6 @@ import OwnerLaporanPenjualanPage from "@/components/UI/dashboard/owner/laporan/O
 import OwnerLaporanServisPage from "@/components/UI/dashboard/owner/laporan/OwnerLaporanServisPage";
 import OwnerLaporanStockBarangPage from "@/components/UI/dashboard/owner/laporan/OwnerLaporanStockBarangPage";
 import OwnerLaporanStockSparepartPage from "@/components/UI/dashboard/owner/laporan/OwnerLaporanStockSparepartPage";
-import OwnerLaporanPerangkatServisBelumDiambilPage from "@/components/UI/dashboard/owner/laporan/OwnerLaporanPerangkatServisBelumDiambilPage";
 import OwnerLaporanPendapatanGabunganPage from "@/components/UI/dashboard/owner/laporan/OwnerLaporanPendapatanGabunganPage";
 
 type PageProps = {
@@ -29,10 +28,6 @@ export default async function Page({ params }: PageProps) {
 
   if (jenis === "stock-sparepart") {
     return <OwnerLaporanStockSparepartPage />;
-  }
-
-  if (jenis === "perangkat-servis-belum-diambil") {
-    return <OwnerLaporanPerangkatServisBelumDiambilPage />;
   }
 
   if (jenis === "pendapatan-gabungan") {
