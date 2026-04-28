@@ -13,6 +13,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import type { FormType } from "@/types/form-types";
+import FormFieldLabel from "@/components/UI/common/form/FormFieldLabel";
 
 export type KategoriBarangFormInitialData = {
   id: string;
@@ -55,20 +56,6 @@ function getModalTitle(formType: FormType) {
 
 function getSubmitLabel(formType: FormType) {
   return formType === "create" ? "Simpan" : "Update";
-}
-
-function Label({
-  text,
-  required = false,
-}: {
-  text: string;
-  required?: boolean;
-}) {
-  return (
-    <Text fw={700} c="#6B7280" size="lg">
-      {text} {required ? <span style={{ color: "red" }}>*</span> : null}
-    </Text>
-  );
 }
 
 export default function KategoriBarangFormModal({
@@ -191,7 +178,7 @@ export default function KategoriBarangFormModal({
         <form onSubmit={handleSubmit}>
           <Stack gap={28}>
             <Stack gap={8}>
-              <Label text="Nama" required />
+              <FormFieldLabel label="Nama" required size="lg" color="#6B7280" />
               <TextInput
                 value={form.nama}
                 onChange={(event) =>
@@ -213,7 +200,7 @@ export default function KategoriBarangFormModal({
             </Stack>
 
             <Stack gap={8}>
-              <Label text="Deskripsi" />
+              <FormFieldLabel label="Deskripsi" size="lg" color="#6B7280" />
               <Textarea
                 value={form.deskripsi}
                 onChange={(event) =>

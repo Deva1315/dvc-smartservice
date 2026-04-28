@@ -1,30 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Button,
-  Group,
-  Image,
-  Menu,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { Button, Group, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import {
-  IconDotsVertical,
-  IconEdit,
-  IconEye,
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
 import CustomTable, {
   type TableColumn,
 } from "@/components/table/custom-table-search/CustomTableSearch";
+import RowActionMenu from "@/components/UI/common/actions/RowActionMenu";
+import StockBadge from "@/components/UI/common/badges/StockBadge";
+import TableImagePreview from "@/components/UI/common/data-display/TableImagePreview";
 import SparepartFormModal, {
   type SparepartFormInitialData,
   type SparepartFormPayload,
@@ -60,12 +47,6 @@ type SupplierOption = {
   value: string;
   label: string;
 };
-
-function getStockBadgeColor(stok: number) {
-  if (stok <= 0) return "red";
-  if (stok <= 5) return "yellow";
-  return "green";
-}
 
 function mapSparepart(data: SparepartApiItem[]): SparepartRow[] {
   return data.map((item) => ({
@@ -291,33 +272,15 @@ export default function AdminGudangSparepartPage() {
       width: "12%",
       render: (row) => (
         <Group justify="center">
-          <Box
-            style={{
-              width: 88,
-              height: 58,
-              borderRadius: 10,
-              overflow: "hidden",
-              backgroundColor: "#F3F6FB",
-              border: "1px solid #E8EEF7",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {row.foto ? (
-              <Image
-                src={row.foto}
-                alt={row.nama}
-                w="100%"
-                h="100%"
-                fit="cover"
-              />
-            ) : (
-              <Text size="xs" c="dimmed">
-                Tidak ada foto
-              </Text>
-            )}
-          </Box>
+          <TableImagePreview
+            src={row.foto}
+            alt={row.nama}
+            width={88}
+            height={58}
+            radius={10}
+            emptyText="Tidak ada foto"
+            fit="cover"
+          />
         </Group>
       ),
     },
@@ -361,19 +324,12 @@ export default function AdminGudangSparepartPage() {
       width: "10%",
       align: "center",
       render: (row) => (
-        <Badge
-          color={getStockBadgeColor(row.stok)}
-          variant="light"
+        <StockBadge
+          value={row.stok}
+          label={String(row.stok)}
+          showValue={false}
           radius="sm"
-          styles={{
-            label: {
-              fontSize: 13,
-              fontWeight: 700,
-            },
-          }}
-        >
-          {row.stok}
-        </Badge>
+        />
       ),
     },
     {
@@ -398,48 +354,28 @@ export default function AdminGudangSparepartPage() {
       width: "12%",
       align: "center",
       render: (row) => (
-        <Menu
-          shadow="md"
-          width={180}
-          position="bottom-end"
-          withinPortal={false}
-        >
-          <Menu.Target>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              radius="xl"
-              aria-label={`Aksi untuk ${row.nama}`}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <IconDotsVertical size={20} stroke={2} />
-            </ActionIcon>
-          </Menu.Target>
-
-          <Menu.Dropdown>
-            <Menu.Item
-              leftSection={<IconEye size={16} stroke={1.9} />}
-              onClick={() => handleOpenDetailSparepart(row)}
-            >
-              Tampil
-            </Menu.Item>
-
-            <Menu.Item
-              leftSection={<IconEdit size={16} stroke={1.9} />}
-              onClick={() => handleOpenEditSparepart(row)}
-            >
-              Edit
-            </Menu.Item>
-
-            <Menu.Item
-              color="red"
-              leftSection={<IconTrash size={16} stroke={1.9} />}
-              onClick={() => handleDeleteSparepart(row)}
-            >
-              Delete
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+        <RowActionMenu
+          label={`Aksi untuk ${row.nama}`}
+          actions={[
+            {
+              label: "Tampil",
+              iconName: "eye",
+              onClick: () => handleOpenDetailSparepart(row),
+            },
+            {
+              label: "Edit",
+              iconName: "edit",
+              onClick: () => handleOpenEditSparepart(row),
+            },
+            {
+              label: "Delete",
+              iconName: "delete",
+              color: "red",
+              dividerBefore: true,
+              onClick: () => handleDeleteSparepart(row),
+            },
+          ]}
+        />
       ),
     },
   ];

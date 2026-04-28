@@ -1,27 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ActionIcon,
-  Button,
-  Group,
-  Menu,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { Button, Group, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import {
-  IconDotsVertical,
-  IconEdit,
-  IconEye,
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
 import CustomTable, {
   type TableColumn,
 } from "@/components/table/custom-table-search/CustomTableSearch";
+import RowActionMenu from "@/components/UI/common/actions/RowActionMenu";
 import SuppliersFormModal, {
   type SuppliersFormInitialData,
   type SuppliersFormPayload,
@@ -271,48 +259,28 @@ export default function AdminGudangSuppliersPage() {
       width: "10%",
       align: "center",
       render: (row) => (
-        <Menu
-          shadow="md"
-          width={180}
-          position="bottom-end"
-          withinPortal={false}
-        >
-          <Menu.Target>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              radius="xl"
-              aria-label={`Aksi untuk ${row.nama}`}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <IconDotsVertical size={20} stroke={2} />
-            </ActionIcon>
-          </Menu.Target>
-
-          <Menu.Dropdown>
-            <Menu.Item
-              leftSection={<IconEye size={16} stroke={1.9} />}
-              onClick={() => handleOpenDetailSupplier(row)}
-            >
-              Tampil
-            </Menu.Item>
-
-            <Menu.Item
-              leftSection={<IconEdit size={16} stroke={1.9} />}
-              onClick={() => handleOpenEditSupplier(row)}
-            >
-              Edit
-            </Menu.Item>
-
-            <Menu.Item
-              color="red"
-              leftSection={<IconTrash size={16} stroke={1.9} />}
-              onClick={() => handleDeleteSupplier(row)}
-            >
-              Delete
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+        <RowActionMenu
+          label={`Aksi untuk ${row.nama}`}
+          actions={[
+            {
+              label: "Tampil",
+              iconName: "eye",
+              onClick: () => handleOpenDetailSupplier(row),
+            },
+            {
+              label: "Edit",
+              iconName: "edit",
+              onClick: () => handleOpenEditSupplier(row),
+            },
+            {
+              label: "Delete",
+              iconName: "delete",
+              color: "red",
+              dividerBefore: true,
+              onClick: () => handleDeleteSupplier(row),
+            },
+          ]}
+        />
       ),
     },
   ];

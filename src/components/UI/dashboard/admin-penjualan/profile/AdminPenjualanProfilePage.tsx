@@ -20,7 +20,6 @@ import {
   getAdminPenjualanProfileRequest,
   type AdminPenjualanProfileUser,
 } from "@/lib/admin-penjualan/admin-penjualan-profile-client";
-import { getAdminGudangProfileRequest } from "@/lib/admin-gudang/admin-gudang-profile-client";
 
 type Props = {
   user: DashboardSessionUser;

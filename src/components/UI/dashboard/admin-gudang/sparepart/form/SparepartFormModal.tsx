@@ -25,6 +25,7 @@ import {
 } from "@mantine/core";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
+import FormFieldLabel from "@/components/UI/common/form/FormFieldLabel";
 import { formatCurrency } from "@/utils/currency-format/format-currency";
 
 export type SparepartFormInitialData = {
@@ -112,20 +113,6 @@ function getFormattedHarga(value: number) {
   });
 }
 
-function Label({
-  text,
-  required = false,
-}: {
-  text: string;
-  required?: boolean;
-}) {
-  return (
-    <Text fw={700} c="#6B7280" size="lg">
-      {text} {required ? <span style={{ color: "red" }}>*</span> : null}
-    </Text>
-  );
-}
-
 export default function SparepartFormModal({
   opened,
   onClose,
@@ -174,6 +161,7 @@ export default function SparepartFormModal({
   function handleReset() {
     setForm(initialFormState);
     setErrors({});
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -216,6 +204,7 @@ export default function SparepartFormModal({
             resolve(reader.result);
             return;
           }
+
           reject(new Error("Gagal membaca file"));
         };
 
@@ -326,7 +315,12 @@ export default function SparepartFormModal({
           <Stack gap={28}>
             <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
               <Stack gap={8}>
-                <Label text="Nama" required />
+                <FormFieldLabel
+                  label="Nama"
+                  required
+                  size="lg"
+                  color="#6B7280"
+                />
                 <TextInput
                   value={form.nama}
                   onChange={(event) =>
@@ -348,7 +342,12 @@ export default function SparepartFormModal({
               </Stack>
 
               <Stack gap={8}>
-                <Label text="Harga" required />
+                <FormFieldLabel
+                  label="Harga"
+                  required
+                  size="lg"
+                  color="#6B7280"
+                />
                 <TextInput
                   value={getFormattedHarga(form.harga)}
                   onChange={(event) =>
@@ -374,7 +373,12 @@ export default function SparepartFormModal({
               </Stack>
 
               <Stack gap={8}>
-                <Label text="Kode" required />
+                <FormFieldLabel
+                  label="Kode"
+                  required
+                  size="lg"
+                  color="#6B7280"
+                />
                 <TextInput
                   value={form.kode}
                   onChange={(event) =>
@@ -396,7 +400,12 @@ export default function SparepartFormModal({
               </Stack>
 
               <Stack gap={8}>
-                <Label text="Stok" required />
+                <FormFieldLabel
+                  label="Stok"
+                  required
+                  size="lg"
+                  color="#6B7280"
+                />
                 <NumberInput
                   value={form.stok}
                   onChange={(value) =>
@@ -421,7 +430,12 @@ export default function SparepartFormModal({
               </Stack>
 
               <Stack gap={8}>
-                <Label text="Merk" required />
+                <FormFieldLabel
+                  label="Merk"
+                  required
+                  size="lg"
+                  color="#6B7280"
+                />
                 <TextInput
                   value={form.merk}
                   onChange={(event) =>
@@ -443,7 +457,12 @@ export default function SparepartFormModal({
               </Stack>
 
               <Stack gap={8} style={{ maxWidth: 360 }}>
-                <Label text="Supplier" required />
+                <FormFieldLabel
+                  label="Supplier"
+                  required
+                  size="lg"
+                  color="#6B7280"
+                />
                 <Select
                   value={form.supplier}
                   onChange={(value) => handleChange("supplier", value)}
@@ -473,7 +492,7 @@ export default function SparepartFormModal({
             </SimpleGrid>
 
             <Stack gap={8}>
-              <Label text="Deskripsi" />
+              <FormFieldLabel label="Deskripsi" size="lg" color="#6B7280" />
               <Textarea
                 value={form.deskripsi}
                 onChange={(event) =>
@@ -495,7 +514,7 @@ export default function SparepartFormModal({
             </Stack>
 
             <Stack gap={8}>
-              <Label text="Foto" />
+              <FormFieldLabel label="Foto" size="lg" color="#6B7280" />
 
               <input
                 ref={fileInputRef}

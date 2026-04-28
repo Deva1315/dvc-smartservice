@@ -9,14 +9,11 @@ import {
   Divider,
   Grid,
   Group,
-  Menu,
   Paper,
   Select,
   Stack,
-  Table,
   Text,
   Title,
-  UnstyledButton,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
@@ -26,11 +23,19 @@ import {
   IconDeviceLaptop,
   IconMapPin,
   IconPhone,
-  IconPlus,
   IconUser,
 } from "@tabler/icons-react";
 import DiagnosaLanjutanModal from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/modal/DiagnosaLanjutanModal";
-import { formatCurrency } from "@/utils/currency-format/format-currency";
+import {
+  CardBox,
+  CardSectionTitle,
+  InfoRow,
+  SimpleInfoRow,
+} from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketDetailShared";
+import TicketDiagnosaCard from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketDiagnosaCard";
+import TicketSparepartSection from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketSparepartSection";
+import TicketCostSummary from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketCostSummary";
+import TicketJasaSection from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketJasaSection";
 import { getCurrentSession } from "@/lib/auth/auth.client";
 import {
   getJasaServis,
@@ -74,12 +79,12 @@ const statusServisOptions: {
   value: StatusServis;
   label: string;
 }[] = [
-    { value: "Belum_Diproses", label: "Belum Diproses" },
-    { value: "Diproses", label: "Diproses" },
-    { value: "Menunggu_Sparepart", label: "Menunggu Sparepart" },
-    { value: "Selesai", label: "Selesai" },
-    { value: "Dibatalkan", label: "Dibatalkan" },
-  ];
+  { value: "Belum_Diproses", label: "Belum Diproses" },
+  { value: "Diproses", label: "Diproses" },
+  { value: "Menunggu_Sparepart", label: "Menunggu Sparepart" },
+  { value: "Selesai", label: "Selesai" },
+  { value: "Dibatalkan", label: "Dibatalkan" },
+];
 
 const allowedNextStatus: Record<StatusServis, StatusServis[]> = {
   Belum_Diproses: ["Diproses", "Dibatalkan"],
@@ -89,68 +94,6 @@ const allowedNextStatus: Record<StatusServis, StatusServis[]> = {
   Diambil: [],
   Dibatalkan: [],
 };
-
-function CardSectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <Text fw={700} fz={18} c="#2B2B2B">
-      {children}
-    </Text>
-  );
-}
-
-function CardBox({
-  children,
-  bg = "#F7F7FB",
-}: {
-  children: React.ReactNode;
-  bg?: string;
-}) {
-  return (
-    <Paper
-      radius="lg"
-      p="md"
-      style={{
-        backgroundColor: bg,
-        border: "1px solid #ECECF3",
-        height: "100%",
-      }}
-    >
-      {children}
-    </Paper>
-  );
-}
-
-function InfoRow({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <Group gap={10} wrap="nowrap" align="flex-start">
-      <Box c="#6B7280" pt={2}>
-        {icon}
-      </Box>
-      <Text fz={16} c="#4B5563">
-        {text}
-      </Text>
-    </Group>
-  );
-}
-
-function SimpleInfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-}) {
-  return (
-    <Group justify="space-between" align="flex-start" wrap="nowrap">
-      <Text fw={600} fz={15} c="#6B7280">
-        {label}
-      </Text>
-      <Text fz={16} c="#2B2B2B" ta="right">
-        {value || "-"}
-      </Text>
-    </Group>
-  );
-}
 
 function toNumber(value: string | number | null | undefined) {
   const parsed = Number(value ?? 0);
@@ -368,8 +311,8 @@ export default function DetailTiketServisPage() {
 
   const nomorTiketParam =
     typeof params?.id === "string" ? decodeURIComponent(params.id) : "";
-  const [estimasiWaktu, setEstimasiWaktu] = useState<Date | null>(null);
 
+  const [estimasiWaktu, setEstimasiWaktu] = useState<Date | null>(null);
   const [detail, setDetail] = useState<DetailTiketServisApiItem | null>(null);
   const [statusServis, setStatusServis] = useState<StatusServis | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -388,6 +331,7 @@ export default function DetailTiketServisPage() {
     setDetail(nextDetail);
     setStatusServis(nextDetail.status_servis);
     setEstimasiWaktu(toDateValue(nextDetail.estimasi_waktu));
+
     return nextDetail;
   }
 
@@ -951,7 +895,9 @@ export default function DetailTiketServisPage() {
                   <Button
                     radius="md"
                     onClick={handleUpdateStatus}
-                    disabled={!isStatusEditable || !statusServis || loadingAction !== null}
+                    disabled={
+                      !isStatusEditable || !statusServis || loadingAction !== null
+                    }
                     loading={loadingAction === "status"}
                     style={{
                       backgroundColor: "#FFFFFF",
@@ -1051,374 +997,43 @@ export default function DetailTiketServisPage() {
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, lg: 5 }}>
-              <CardBox>
-                <Stack gap={14}>
-                  <Group justify="space-between" align="center">
-                    <CardSectionTitle>Diagnosa Lanjutan Teknisi</CardSectionTitle>
-                    <Button
-                      size="xs"
-                      radius="md"
-                      onClick={() => setOpenedDiagnosaModal(true)}
-                      disabled={!canModifyDetail || loadingAction !== null}
-                      style={{
-                        backgroundColor: "#0D4CB5",
-                      }}
-                    >
-                      {latestDiagnosa ? "Edit" : "Isi Diagnosa"}
-                    </Button>
-                  </Group>
-
-                  <Divider color="#ECECF3" />
-
-                  {latestDiagnosa ? (
-                    <Stack gap={10}>
-                      <Text fw={700} fz={17} c="#224B8F">
-                        Diagnosa Teknisi
-                      </Text>
-
-                      <Text fz={16} c="#4B5563">
-                        {latestDiagnosa.hasil_diagnosa}
-                      </Text>
-
-                      {latestDiagnosa.catatan_teknisi ? (
-                        <Text fz={15} c="#6B7280">
-                          Catatan: {latestDiagnosa.catatan_teknisi}
-                        </Text>
-                      ) : null}
-
-                      {latestDiagnosa.users?.nama ? (
-                        <Text fz={14} c="#6B7280">
-                          Teknisi: {latestDiagnosa.users.nama}
-                        </Text>
-                      ) : null}
-                    </Stack>
-                  ) : (
-                    <Text fz={16} c="#9CA3AF">
-                      Belum ada diagnosa lanjutan teknisi.
-                    </Text>
-                  )}
-                </Stack>
-              </CardBox>
+              <TicketDiagnosaCard
+                latestDiagnosa={latestDiagnosa}
+                canModifyDetail={canModifyDetail}
+                loadingAction={loadingAction}
+                onOpenDiagnosaModal={() => setOpenedDiagnosaModal(true)}
+              />
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, lg: 4 }}>
-              <CardBox>
-                <Stack gap={14}>
-                  <Group justify="space-between" align="center">
-                    <CardSectionTitle>Sparepart Digunakan</CardSectionTitle>
-
-                    <Menu shadow="md" width={280} withinPortal={false}>
-                      <Menu.Target>
-                        <Button
-                          size="xs"
-                          radius="md"
-                          leftSection={<IconPlus size={14} />}
-                          disabled={!canModifyDetail || loadingAction !== null}
-                          loading={loadingAction === "tambah-sparepart"}
-                          style={{
-                            backgroundColor: "#0D4CB5",
-                          }}
-                        >
-                          Tambah
-                        </Button>
-                      </Menu.Target>
-
-                      <Menu.Dropdown>
-                        {sparepartMasterOptions.length > 0 ? (
-                          sparepartMasterOptions.map((item) => (
-                            <Menu.Item
-                              key={item.value}
-                              onClick={() => handleTambahSparepart(item.value)}
-                              disabled={(item.stock ?? 0) <= 0}
-                            >
-                              <Stack gap={2}>
-                                <Text fz={14}>{item.label}</Text>
-                                <Text fz={12} c="dimmed">
-                                  Stok: {item.stock ?? 0} •{" "}
-                                  {formatCurrency(item.harga, {
-                                    locale: "id-ID",
-                                    prefix: "Rp ",
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0,
-                                  })}
-                                </Text>
-                              </Stack>
-                            </Menu.Item>
-                          ))
-                        ) : (
-                          <Menu.Item disabled>Belum ada data sparepart</Menu.Item>
-                        )}
-                      </Menu.Dropdown>
-                    </Menu>
-                  </Group>
-
-                  <Divider color="#ECECF3" />
-
-                  {sparepartDigunakan.length > 0 ? (
-                    <Stack gap={10}>
-                      {sparepartDigunakan.map((item) => {
-                        const qty = toNumber(item.jumlah);
-                        const harga = toNumber(item.harga);
-                        const subtotal = toNumber(item.subtotal) || qty * harga;
-
-                        return (
-                          <Group
-                            key={item.id}
-                            justify="space-between"
-                            align="center"
-                            wrap="nowrap"
-                          >
-                            <Stack gap={2} style={{ minWidth: 0 }}>
-                              <Text fw={600} fz={16} c="#4B5563">
-                                {item.sparepart?.nama_sparepart || "Sparepart"}
-                              </Text>
-                              <Text fz={14} c="#6B7280">
-                                Qty {qty}
-                              </Text>
-                            </Stack>
-
-                            <Group gap={8} wrap="nowrap">
-                              <Text fz={16} c="#4B5563">
-                                {formatCurrency(subtotal, {
-                                  locale: "id-ID",
-                                  prefix: "Rp ",
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 0,
-                                })}
-                              </Text>
-
-                              <UnstyledButton
-                                disabled={
-                                  !canModifyDetail || loadingAction !== null
-                                }
-                                onClick={() => handleHapusSparepart(item.id)}
-                              >
-                                <Text c="#D32F2F" fw={700}>
-                                  ×
-                                </Text>
-                              </UnstyledButton>
-                            </Group>
-                          </Group>
-                        );
-                      })}
-                    </Stack>
-                  ) : (
-                    <Text fz={16} c="#9CA3AF">
-                      Belum ada sparepart yang digunakan.
-                    </Text>
-                  )}
-                </Stack>
-              </CardBox>
+              <TicketSparepartSection
+                sparepartMasterOptions={sparepartMasterOptions}
+                sparepartDigunakan={sparepartDigunakan}
+                canModifyDetail={canModifyDetail}
+                loadingAction={loadingAction}
+                onTambahSparepart={handleTambahSparepart}
+                onHapusSparepart={handleHapusSparepart}
+              />
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, lg: 3 }}>
-              <CardBox>
-                <Stack gap={12}>
-                  <CardSectionTitle>Estimasi Biaya</CardSectionTitle>
-                  <Divider color="#ECECF3" />
-
-                  <Group justify="space-between">
-                    <Text fz={16} c="#4B5563">
-                      Jasa
-                    </Text>
-                    <Text fz={16} c="#4B5563">
-                      {formatCurrency(totalJasa, {
-                        locale: "id-ID",
-                        prefix: "Rp ",
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      })}
-                    </Text>
-                  </Group>
-
-                  <Group justify="space-between">
-                    <Text fz={16} c="#4B5563">
-                      Total Sparepart
-                    </Text>
-                    <Text fz={16} c="#4B5563">
-                      {formatCurrency(totalSparepart, {
-                        locale: "id-ID",
-                        prefix: "Rp ",
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      })}
-                    </Text>
-                  </Group>
-
-                  <Group justify="space-between">
-                    <Text fz={16} c="#4B5563">
-                      Estimasi Waktu
-                    </Text>
-<Text fz={16} c="#4B5563">
-  {formatDisplayDateTime(detail.estimasi_waktu)}
-</Text>
-                  </Group>
-
-                  <Divider color="#ECECF3" />
-
-                  <Group justify="space-between">
-                    <Text fw={800} fz={18} c="#2B2B2B">
-                      Total Estimasi
-                    </Text>
-                    <Text fw={800} fz={18} c="#2B2B2B">
-                      {formatCurrency(totalEstimasi, {
-                        locale: "id-ID",
-                        prefix: "Rp ",
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      })}
-                    </Text>
-                  </Group>
-                </Stack>
-              </CardBox>
+              <TicketCostSummary
+                totalJasa={totalJasa}
+                totalSparepart={totalSparepart}
+                estimasiWaktuText={formatDisplayDateTime(detail.estimasi_waktu)}
+                totalEstimasi={totalEstimasi}
+              />
             </Grid.Col>
 
             <Grid.Col span={12}>
-              <CardBox>
-                <Stack gap={14}>
-                  <Group justify="space-between" align="center">
-                    <CardSectionTitle>Jasa Servis</CardSectionTitle>
-
-                    <Menu shadow="md" width={300} withinPortal={false}>
-                      <Menu.Target>
-                        <Button
-                          size="xs"
-                          radius="md"
-                          leftSection={<IconPlus size={14} />}
-                          disabled={!canModifyDetail || loadingAction !== null}
-                          loading={loadingAction === "tambah-jasa"}
-                          style={{
-                            backgroundColor: "#0D4CB5",
-                          }}
-                        >
-                          Tambah Jasa
-                        </Button>
-                      </Menu.Target>
-
-                      <Menu.Dropdown>
-                        {jasaMasterOptions.length > 0 ? (
-                          jasaMasterOptions.map((item) => (
-                            <Menu.Item
-                              key={item.value}
-                              onClick={() => handleTambahJasa(item.value)}
-                            >
-                              <Stack gap={2}>
-                                <Text fz={14}>{item.label}</Text>
-                                <Text fz={12} c="dimmed">
-                                  {formatCurrency(item.harga, {
-                                    locale: "id-ID",
-                                    prefix: "Rp ",
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0,
-                                  })}
-                                </Text>
-                              </Stack>
-                            </Menu.Item>
-                          ))
-                        ) : (
-                          <Menu.Item disabled>
-                            Belum ada data jasa servis
-                          </Menu.Item>
-                        )}
-                      </Menu.Dropdown>
-                    </Menu>
-                  </Group>
-
-                  <Divider color="#ECECF3" />
-
-                  <Box
-                    style={{
-                      border: "1px solid #ECECF3",
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      backgroundColor: "#FFFFFF",
-                    }}
-                  >
-                    <Table
-                      horizontalSpacing="md"
-                      verticalSpacing="md"
-                      highlightOnHover={false}
-                    >
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Nama Jasa</Table.Th>
-                          <Table.Th>Qty</Table.Th>
-                          <Table.Th>Harga</Table.Th>
-                          <Table.Th>Total</Table.Th>
-                          <Table.Th>Aksi</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-
-                      <Table.Tbody>
-                        {jasaServis.length > 0 ? (
-                          jasaServis.map((item) => {
-                            const qty = toNumber(item.jumlah);
-                            const harga = toNumber(item.harga);
-                            const subtotal =
-                              toNumber(item.subtotal) || qty * harga;
-
-                            return (
-                              <Table.Tr key={item.id}>
-                                <Table.Td>
-                                  <Text fz={16} c="#4B5563">
-                                    {item.jasa_servis?.nama_jasa_servis ||
-                                      "Jasa servis"}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td>
-                                  <Text fz={16} c="#4B5563">
-                                    {qty}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td>
-                                  <Text fz={16} c="#4B5563">
-                                    {formatCurrency(harga, {
-                                      locale: "id-ID",
-                                      prefix: "Rp ",
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 0,
-                                    })}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td>
-                                  <Text fw={700} fz={16} c="#2B2B2B">
-                                    {formatCurrency(subtotal, {
-                                      locale: "id-ID",
-                                      prefix: "Rp ",
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 0,
-                                    })}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td>
-                                  <UnstyledButton
-                                    disabled={
-                                      !canModifyDetail || loadingAction !== null
-                                    }
-                                    onClick={() => handleHapusJasa(item.id)}
-                                  >
-                                    <Text c="#D32F2F" fw={700}>
-                                      ×
-                                    </Text>
-                                  </UnstyledButton>
-                                </Table.Td>
-                              </Table.Tr>
-                            );
-                          })
-                        ) : (
-                          <Table.Tr>
-                            <Table.Td colSpan={5}>
-                              <Text ta="center" c="#9CA3AF">
-                                Belum ada jasa servis.
-                              </Text>
-                            </Table.Td>
-                          </Table.Tr>
-                        )}
-                      </Table.Tbody>
-                    </Table>
-                  </Box>
-                </Stack>
-              </CardBox>
+              <TicketJasaSection
+                jasaMasterOptions={jasaMasterOptions}
+                jasaServis={jasaServis}
+                canModifyDetail={canModifyDetail}
+                loadingAction={loadingAction}
+                onTambahJasa={handleTambahJasa}
+                onHapusJasa={handleHapusJasa}
+              />
             </Grid.Col>
           </Grid>
         </Box>

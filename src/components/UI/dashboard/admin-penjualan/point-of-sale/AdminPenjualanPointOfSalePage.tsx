@@ -1,27 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Button,
-  Card,
-  Divider,
-  Group,
-  NumberInput,
-  Radio,
-  Stack,
-  Table,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { useEffect, useMemo, useState } from "react";
+import { Box, Group, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { PDFDownloadLink } from "@react-pdf/renderer";
-import { IconPlus, IconSearch, IconTrash } from "@tabler/icons-react";
-import InvoicePenjualanPDF, {
-  type InvoicePenjualanData,
-} from "@/components/UI/dashboard/admin-penjualan/point-of-sale/InvoicePenjualanPDF";
+import PosProductTable from "@/components/UI/dashboard/admin-penjualan/point-of-sale/components/PosProductTable";
+import PosCartTable from "@/components/UI/dashboard/admin-penjualan/point-of-sale/components/PosCartTable";
+import PosCheckoutPanel from "@/components/UI/dashboard/admin-penjualan/point-of-sale/components/PosCheckoutPanel";
+import type { InvoicePenjualanData } from "@/components/UI/dashboard/admin-penjualan/point-of-sale/InvoicePenjualanPDF";
 import { getCurrentSession } from "@/lib/auth/auth.client";
 import {
   getPOSBarang,
@@ -107,24 +92,6 @@ function mapTransaksiToInvoiceData(
   };
 }
 
-function EmptyTableRow({
-  colSpan,
-  children,
-}: {
-  colSpan: number;
-  children: ReactNode;
-}) {
-  return (
-    <Table.Tr>
-      <Table.Td colSpan={colSpan}>
-        <Text ta="center" c="dimmed" py="md">
-          {children}
-        </Text>
-      </Table.Td>
-    </Table.Tr>
-  );
-}
-
 export default function AdminPenjualanPointOfSalePage() {
   const [search, setSearch] = useState("");
   const [barangList, setBarangList] = useState<Barang[]>([]);
@@ -179,7 +146,6 @@ export default function AdminPenjualanPointOfSalePage() {
       });
 
       const data = (result.data || []) as POSBarangApiItem[];
-
       setBarangList(data.map(mapBarangApiToBarang));
     } catch (error) {
       notifications.show({
@@ -307,8 +273,8 @@ export default function AdminPenjualanPointOfSalePage() {
 
   function handleChangeMetodePembayaran(value: string) {
     clearLastInvoice();
-    const nextMetode = value as POSMetodePembayaran;
 
+    const nextMetode = value as POSMetodePembayaran;
     setMetodePembayaran(nextMetode);
 
     if (nextMetode !== "Cash") {
@@ -407,329 +373,47 @@ export default function AdminPenjualanPointOfSalePage() {
         }}
       >
         <Stack gap={26}>
-          <TextInput
-            value={search}
-            onChange={(event) => setSearch(event.currentTarget.value)}
-            placeholder="Cari nama barang atau kode barang..."
-            leftSection={<IconSearch size={20} color="#555555" />}
-            radius="xl"
-            styles={{
-              input: {
-                height: 58,
-                fontSize: 16,
-                backgroundColor: "#FFFFFF",
-              },
-            }}
+          <PosProductTable
+            search={search}
+            onSearchChange={setSearch}
+            data={filteredBarang}
+            isLoading={isLoadingBarang}
+            isSubmitting={isSubmitting}
+            formatRupiah={formatRupiah}
+            onTambahBarang={handleTambahBarang}
           />
 
-          <Card radius="lg" withBorder p={0} style={{ overflow: "hidden" }}>
-            <Table horizontalSpacing="md" verticalSpacing="md">
-              <Table.Thead bg="#ECECF2">
-                <Table.Tr>
-                  <Table.Th>Nama Barang</Table.Th>
-                  <Table.Th>Kode</Table.Th>
-                  <Table.Th>Harga</Table.Th>
-                  <Table.Th>Stok</Table.Th>
-                  <Table.Th>Aksi</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-
-              <Table.Tbody>
-                {isLoadingBarang ? (
-                  <EmptyTableRow colSpan={5}>Memuat data barang...</EmptyTableRow>
-                ) : filteredBarang.length === 0 ? (
-                  <EmptyTableRow colSpan={5}>
-                    Data barang tidak ditemukan
-                  </EmptyTableRow>
-                ) : (
-                  filteredBarang.map((item) => (
-                    <Table.Tr key={item.id}>
-                      <Table.Td>
-                        <Text fw={600}>{item.nama}</Text>
-                      </Table.Td>
-                      <Table.Td>{item.kode}</Table.Td>
-                      <Table.Td>{formatRupiah(item.harga)}</Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={item.stok > 0 ? "green" : "red"}
-                          variant="light"
-                        >
-                          {item.stok}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Button
-                          size="xs"
-                          color="green"
-                          radius="md"
-                          leftSection={<IconPlus size={14} />}
-                          onClick={() => handleTambahBarang(item)}
-                          disabled={item.stok <= 0 || isSubmitting}
-                        >
-                          Tambah
-                        </Button>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))
-                )}
-              </Table.Tbody>
-            </Table>
-          </Card>
-
-          <Card radius="lg" withBorder p={0} style={{ overflow: "hidden" }}>
-            <Table horizontalSpacing="md" verticalSpacing="md">
-              <Table.Thead bg="#ECECF2">
-                <Table.Tr>
-                  <Table.Th>Nama Barang</Table.Th>
-                  <Table.Th>Kode</Table.Th>
-                  <Table.Th>Harga</Table.Th>
-                  <Table.Th>Qty</Table.Th>
-                  <Table.Th>Subtotal</Table.Th>
-                  <Table.Th>Aksi</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-
-              <Table.Tbody>
-                {cart.length === 0 ? (
-                  <EmptyTableRow colSpan={6}>
-                    Belum ada barang di transaksi
-                  </EmptyTableRow>
-                ) : (
-                  cart.map((item) => (
-                    <Table.Tr key={item.id}>
-                      <Table.Td>
-                        <Text fw={600}>{item.nama}</Text>
-                      </Table.Td>
-                      <Table.Td>{item.kode}</Table.Td>
-                      <Table.Td>{formatRupiah(item.harga)}</Table.Td>
-                      <Table.Td>
-                        <NumberInput
-                          value={item.qty}
-                          onChange={(value) => handleChangeQty(item.id, value)}
-                          min={1}
-                          max={item.stok}
-                          allowDecimal={false}
-                          w={80}
-                          disabled={isSubmitting}
-                        />
-                      </Table.Td>
-                      <Table.Td>{formatRupiah(item.harga * item.qty)}</Table.Td>
-                      <Table.Td>
-                        <ActionIcon
-                          color="red"
-                          variant="subtle"
-                          onClick={() => handleHapusItem(item.id)}
-                          disabled={isSubmitting}
-                        >
-                          <IconTrash size={18} />
-                        </ActionIcon>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))
-                )}
-              </Table.Tbody>
-            </Table>
-          </Card>
+          <PosCartTable
+            cart={cart}
+            isSubmitting={isSubmitting}
+            formatRupiah={formatRupiah}
+            onChangeQty={handleChangeQty}
+            onHapusItem={handleHapusItem}
+          />
         </Stack>
       </Box>
 
-      <Box
-        style={{
-          width: "38%",
-          backgroundColor: "#F7F7FB",
-          borderRadius: 16,
-          minHeight: 690,
-          padding: 18,
-        }}
-      >
-        <Stack gap={18}>
-          <Card radius="lg" withBorder p={0} style={{ overflow: "hidden" }}>
-            <Box px="md" py={12} bg="#ECECF2">
-              <Text fw={800} fz={20}>
-                Keranjang
-              </Text>
-            </Box>
-
-            <Stack gap={8} p="md">
-              <Text fz={15}>NO. TRANSAKSI: {nomorTransaksiPreview}</Text>
-              <Text fz={15}>TANGGAL: {tanggalPreview}</Text>
-              <Text fz={15}>ADMIN: {adminPreview}</Text>
-
-              {lastInvoiceData ? (
-                <Badge color="green" variant="light" w="fit-content">
-                  Invoice terakhir siap dicetak
-                </Badge>
-              ) : null}
-            </Stack>
-
-            <Divider />
-
-            <Table horizontalSpacing="md" verticalSpacing="sm">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Nama Barang</Table.Th>
-                  <Table.Th>Qty</Table.Th>
-                  <Table.Th>Subtotal</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-
-              <Table.Tbody>
-                {cart.length === 0 ? (
-                  <Table.Tr>
-                    <Table.Td colSpan={3}>
-                      <Text c="dimmed" ta="center">
-                        Kosong
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                ) : (
-                  cart.map((item) => (
-                    <Table.Tr key={item.id}>
-                      <Table.Td>{item.nama}</Table.Td>
-                      <Table.Td>{item.qty}</Table.Td>
-                      <Table.Td>{formatRupiah(item.harga * item.qty)}</Table.Td>
-                    </Table.Tr>
-                  ))
-                )}
-              </Table.Tbody>
-            </Table>
-
-            <Divider />
-
-            <Stack gap={10} p="md">
-              <Group justify="space-between">
-                <Text>Subtotal:</Text>
-                <Text>{formatRupiah(subtotal)}</Text>
-              </Group>
-
-              <Group justify="space-between" align="center">
-                <Text>Diskon:</Text>
-                <NumberInput
-                  value={diskon}
-                  onChange={handleChangeDiskon}
-                  min={0}
-                  max={subtotal}
-                  allowDecimal={false}
-                  thousandSeparator="."
-                  decimalSeparator=","
-                  w={160}
-                  disabled={isSubmitting || cart.length === 0}
-                />
-              </Group>
-
-              <Divider />
-
-              <Group justify="space-between">
-                <Text fw={800} fz={20}>
-                  Total:
-                </Text>
-                <Text fw={800} fz={22}>
-                  {formatRupiah(total)}
-                </Text>
-              </Group>
-
-              <Text fw={700} mt="sm">
-                Metode Pembayaran
-              </Text>
-
-              <Radio.Group
-                value={metodePembayaran}
-                onChange={handleChangeMetodePembayaran}
-              >
-                <Group>
-                  <Radio value="Cash" label="Cash" disabled={isSubmitting} />
-                  {/* <Radio
-                    value="Transfer"
-                    label="Transfer"
-                    disabled={isSubmitting}
-                  /> */}
-                </Group>
-              </Radio.Group>
-
-              <Group justify="space-between" align="center">
-                <Text>Nominal Bayar</Text>
-                <NumberInput
-                  value={
-                    metodePembayaran === "Cash" ? nominalBayar : total || 0
-                  }
-                  onChange={handleChangeNominalBayar}
-                  min={0}
-                  allowDecimal={false}
-                  thousandSeparator="."
-                  decimalSeparator=","
-                  w={170}
-                  disabled={
-                    isSubmitting ||
-                    cart.length === 0 ||
-                    metodePembayaran !== "Cash"
-                  }
-                />
-              </Group>
-
-              <Group justify="space-between">
-                <Text>Kembalian</Text>
-                <Text>{formatRupiahPrefix(kembalian)}</Text>
-              </Group>
-            </Stack>
-          </Card>
-
-          <Group grow>
-            <Button
-              radius="xl"
-              color="red"
-              h={44}
-              fw={800}
-              fz={18}
-              onClick={handleBatal}
-              disabled={isSubmitting}
-            >
-              Batal
-            </Button>
-
-            <Button
-              radius="xl"
-              h={44}
-              fw={800}
-              fz={18}
-              fullWidth
-              loading={isSubmitting}
-              disabled={cart.length === 0 || isSubmitting}
-              onClick={handleBayar}
-              style={{
-                backgroundColor: "#0D4CB5",
-              }}
-            >
-              Bayar
-            </Button>
-          </Group>
-
-          {lastInvoiceData ? (
-            <PDFDownloadLink
-              document={<InvoicePenjualanPDF data={lastInvoiceData} />}
-              fileName={`invoice-penjualan-${lastInvoiceData.nomorTransaksi}.pdf`}
-              style={{
-                textDecoration: "none",
-                width: "100%",
-                display: "block",
-              }}
-            >
-              {({ loading }) => (
-                <Button
-                  radius="xl"
-                  h={44}
-                  fw={800}
-                  fz={18}
-                  fullWidth
-                  variant="outline"
-                  disabled={loading}
-                >
-                  {loading ? "Membuat Invoice..." : "Cetak Invoice Terakhir"}
-                </Button>
-              )}
-            </PDFDownloadLink>
-          ) : null}
-        </Stack>
-      </Box>
+      <PosCheckoutPanel
+        cart={cart}
+        nomorTransaksiPreview={nomorTransaksiPreview}
+        tanggalPreview={tanggalPreview}
+        adminPreview={adminPreview}
+        lastInvoiceData={lastInvoiceData}
+        subtotal={subtotal}
+        diskon={diskon}
+        total={total}
+        metodePembayaran={metodePembayaran}
+        nominalBayar={nominalBayar}
+        kembalian={kembalian}
+        isSubmitting={isSubmitting}
+        formatRupiah={formatRupiah}
+        formatRupiahPrefix={formatRupiahPrefix}
+        onChangeDiskon={handleChangeDiskon}
+        onChangeMetodePembayaran={handleChangeMetodePembayaran}
+        onChangeNominalBayar={handleChangeNominalBayar}
+        onBatal={handleBatal}
+        onBayar={handleBayar}
+      />
     </Group>
   );
 }

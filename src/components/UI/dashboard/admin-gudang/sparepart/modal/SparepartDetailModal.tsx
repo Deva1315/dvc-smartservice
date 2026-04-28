@@ -1,6 +1,7 @@
 "use client";
 
-import { Badge, Box, Grid, Image, Modal, Stack, Text } from "@mantine/core";
+import { Box, Grid, Image, Modal, Stack, Text } from "@mantine/core";
+import StockBadge from "@/components/UI/common/badges/StockBadge";
 import { formatCurrency } from "@/utils/currency-format/format-currency";
 
 type SparepartDetailData = {
@@ -20,12 +21,6 @@ type SparepartDetailModalProps = {
   onClose: () => void;
   data: SparepartDetailData;
 };
-
-function getStockBadgeColor(stok: number) {
-  if (stok <= 0) return "red";
-  if (stok <= 5) return "yellow";
-  return "green";
-}
 
 function FieldItem({
   label,
@@ -142,14 +137,12 @@ export default function SparepartDetailModal({
                   <Text fw={700} fz={14} c="#6B7280">
                     Stok
                   </Text>
-                  <Badge
-                    color={getStockBadgeColor(data.stok)}
-                    variant="light"
+                  <StockBadge
+                    value={data.stok}
+                    label={String(data.stok)}
+                    showValue={false}
                     radius="sm"
-                    w="fit-content"
-                  >
-                    {data.stok}
-                  </Badge>
+                  />
                 </Stack>
               </Grid.Col>
 

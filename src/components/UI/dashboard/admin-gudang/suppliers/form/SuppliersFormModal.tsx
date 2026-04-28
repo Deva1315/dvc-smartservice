@@ -13,6 +13,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import type { FormType } from "@/types/form-types";
+import FormFieldLabel from "@/components/UI/common/form/FormFieldLabel";
 
 export type SuppliersFormInitialData = {
   id: string;
@@ -57,20 +58,6 @@ function getModalTitle(formType: FormType) {
 
 function getSubmitLabel(formType: FormType) {
   return formType === "create" ? "Simpan" : "Update";
-}
-
-function Label({
-  text,
-  required = false,
-}: {
-  text: string;
-  required?: boolean;
-}) {
-  return (
-    <Text fw={700} c="#6B7280" size="lg">
-      {text} {required ? <span style={{ color: "red" }}>*</span> : null}
-    </Text>
-  );
 }
 
 export default function SuppliersFormModal({
@@ -119,8 +106,13 @@ export default function SuppliersFormModal({
   function validate() {
     const nextErrors: Record<string, string> = {};
 
-    if (!form.nama.trim()) nextErrors.nama = "Nama wajib diisi";
-    if (!form.phone.trim()) nextErrors.phone = "No HP wajib diisi";
+    if (!form.nama.trim()) {
+      nextErrors.nama = "Nama wajib diisi";
+    }
+
+    if (!form.phone.trim()) {
+      nextErrors.phone = "No HP wajib diisi";
+    }
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -194,7 +186,7 @@ export default function SuppliersFormModal({
         <form onSubmit={handleSubmit}>
           <Stack gap={28}>
             <Stack gap={8}>
-              <Label text="Nama" required />
+              <FormFieldLabel label="Nama" required size="lg" color="#6B7280" />
               <TextInput
                 value={form.nama}
                 onChange={(event) =>
@@ -216,7 +208,7 @@ export default function SuppliersFormModal({
             </Stack>
 
             <Stack gap={8}>
-              <Label text="No HP" required />
+              <FormFieldLabel label="No HP" required size="lg" color="#6B7280" />
               <TextInput
                 value={form.phone}
                 onChange={(event) =>
@@ -238,7 +230,7 @@ export default function SuppliersFormModal({
             </Stack>
 
             <Stack gap={8}>
-              <Label text="Alamat" />
+              <FormFieldLabel label="Alamat" size="lg" color="#6B7280" />
               <Textarea
                 value={form.address}
                 onChange={(event) =>
