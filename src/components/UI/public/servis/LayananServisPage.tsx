@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   Anchor,
@@ -8,6 +8,8 @@ import {
   Button,
   Container,
   Group,
+  Loader,
+  Paper,
   Stack,
   Text,
   TextInput,
@@ -21,70 +23,154 @@ import {
   IconPhone,
   IconSearch,
 } from "@tabler/icons-react";
-import CustomTable, { type TableColumn } from "@/components/table/custom-table-search/CustomTableSearch";
-import { dummyJasaServis, type DummyJasaServis } from "@/lib/dummy/jasa-servis";
+import CustomTable, {
+  type TableColumn,
+} from "@/components/table/custom-table-search/CustomTableSearch";
+import {
+  getPublicJasaServisListRequest,
+  type PublicJasaServisItem,
+} from "@/lib/public/public-jasa-servis.client";
 
-function formatRupiah(value: number) {
+type LayananServisRow = Record<string, unknown> & {
+  id: string;
+  nama_jasa_servis: string;
+  deskripsi: string | null;
+  harga: string;
+  harga_sort: number;
+  jam_operasional: string | null;
+};
+
+function formatRupiah(value: string | number) {
+  const numberValue = Number(value);
+
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(Number.isFinite(numberValue) ? numberValue : 0);
+}
+
+function mapJasaServisToRow(item: PublicJasaServisItem): LayananServisRow {
+  const hargaNumber = Number(item.harga);
+
+  return {
+    id: item.id,
+    nama_jasa_servis: item.nama_jasa_servis,
+    deskripsi: item.deskripsi,
+    harga: item.harga,
+    harga_sort: Number.isFinite(hargaNumber) ? hargaNumber : 0,
+    jam_operasional: item.jam_operasional,
+  };
 }
 
 export default function LayananServisPage() {
   const [search, setSearch] = useState("");
+  const [jasaServis, setJasaServis] = useState<LayananServisRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadJasaServis() {
+      try {
+        setIsLoading(true);
+        setErrorMessage("");
+
+        const result = await getPublicJasaServisListRequest({
+          limit: 1000,
+        });
+
+        if (!isMounted) return;
+
+        if (!result.success) {
+          setJasaServis([]);
+          setErrorMessage(result.message);
+          return;
+        }
+
+        setJasaServis(result.jasaServis.map(mapJasaServisToRow));
+      } catch (error) {
+        console.error("LOAD PUBLIC JASA SERVIS ERROR:", error);
+
+        if (isMounted) {
+          setJasaServis([]);
+          setErrorMessage("Terjadi kesalahan saat memuat layanan servis.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadJasaServis();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredData = useMemo(() => {
-    return dummyJasaServis.filter((item) =>
-      item.nama_jasa_servis.toLowerCase().includes(search.trim().toLowerCase())
-    );
-  }, [search]);
+    const keyword = search.trim().toLowerCase();
 
- const columns: TableColumn<DummyJasaServis>[] = [
-  {
-    key: "nama_jasa_servis",
-    label: "Nama Jasa Servis",
-    sortable: true,
-    width: "36%",
-    render: (row) => (
-      <Text fw={500} c="#111111" fz={18}>
-        {row.nama_jasa_servis}
-      </Text>
-    ),
-  },
-  {
-    key: "deskripsi",
-    label: "Deskripsi",
-    width: "34%",
-    render: (row) => (
-      <Text c="#374151" fz={17}>
-        {row.deskripsi ?? "-"}
-      </Text>
-    ),
-  },
-  {
-    key: "harga",
-    label: "Harga",
-    sortable: true,
-    width: "15%",
-    render: (row) => (
-      <Text fw={500} c="#111111" fz={18}>
-        {formatRupiah(row.harga)}
-      </Text>
-    ),
-  },
-  {
-    key: "jam_operasional",
-    label: "Jam Operasional",
-    width: "15%",
-    render: (row) => (
-      <Text c="#374151" fz={17}>
-        {row.jam_operasional ?? "-"}
-      </Text>
-    ),
-  },
-];
+    if (!keyword) {
+      return jasaServis;
+    }
+
+    return jasaServis.filter((item) => {
+      return (
+        item.nama_jasa_servis.toLowerCase().includes(keyword) ||
+        (item.deskripsi ?? "").toLowerCase().includes(keyword) ||
+        (item.jam_operasional ?? "").toLowerCase().includes(keyword)
+      );
+    });
+  }, [search, jasaServis]);
+
+  const columns: TableColumn<LayananServisRow>[] = [
+    {
+      key: "nama_jasa_servis",
+      label: "Nama Jasa Servis",
+      sortable: true,
+      width: "36%",
+      render: (row) => (
+        <Text fw={500} c="#111111" fz={18}>
+          {row.nama_jasa_servis}
+        </Text>
+      ),
+    },
+    {
+      key: "deskripsi",
+      label: "Deskripsi",
+      width: "34%",
+      render: (row) => (
+        <Text c="#374151" fz={17}>
+          {row.deskripsi ?? "-"}
+        </Text>
+      ),
+    },
+    {
+      key: "harga_sort",
+      label: "Harga",
+      sortable: true,
+      width: "15%",
+      render: (row) => (
+        <Text fw={500} c="#111111" fz={18}>
+          {formatRupiah(row.harga)}
+        </Text>
+      ),
+    },
+    {
+      key: "jam_operasional",
+      label: "Jam Operasional",
+      width: "15%",
+      render: (row) => (
+        <Text c="#374151" fz={17}>
+          {row.jam_operasional ?? "-"}
+        </Text>
+      ),
+    },
+  ];
 
   return (
     <Box bg="#F5F5F5" mih="100vh">
@@ -134,13 +220,31 @@ export default function LayananServisPage() {
         </Container>
 
         <Box mt={36}>
-          <CustomTable
-            data={filteredData}
-            columns={columns}
-            searchable={false}
-            showFooter={false}
-            emptyText="Layanan servis tidak ditemukan"
-          />
+          {errorMessage ? (
+            <Paper radius="md" p="xl" bg="#FFFFFF" ta="center">
+              <Text fw={600} c="red">
+                {errorMessage}
+              </Text>
+            </Paper>
+          ) : (
+            <CustomTable
+              data={filteredData}
+              columns={columns}
+              isLoading={isLoading}
+              searchable={false}
+              showFooter={false}
+              emptyText="Layanan servis tidak ditemukan"
+            />
+          )}
+
+          {isLoading ? (
+            <Stack align="center" mt={18} gap={8}>
+              <Loader color="blue" size="sm" />
+              <Text size="sm" c="dimmed" fw={600}>
+                Memuat data layanan servis...
+              </Text>
+            </Stack>
+          ) : null}
         </Box>
 
         <Group justify="center" mt={36}>
@@ -195,13 +299,28 @@ export default function LayananServisPage() {
             </Group>
 
             <Group gap={14} justify="center" mt={6}>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Facebook">
+              <Anchor
+                href="#"
+                underline="never"
+                c="#111111"
+                aria-label="Facebook"
+              >
                 <IconBrandFacebook size={28} />
               </Anchor>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Instagram">
+              <Anchor
+                href="#"
+                underline="never"
+                c="#111111"
+                aria-label="Instagram"
+              >
                 <IconBrandInstagram size={28} />
               </Anchor>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Twitter">
+              <Anchor
+                href="#"
+                underline="never"
+                c="#111111"
+                aria-label="Twitter"
+              >
                 <IconBrandTwitter size={28} />
               </Anchor>
             </Group>

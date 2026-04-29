@@ -2,49 +2,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Badge,
-  Box,
-  Button,
-  Divider,
-  Grid,
-  Group,
-  Paper,
-  Select,
-  Stack,
-  Text,
-  Title,
-} from "@mantine/core";
-import { DateTimePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import { useParams, useRouter } from "next/navigation";
+import TicketDetailContent from "./components/TicketDetailContent";
 import {
-  IconCalendarMonth,
-  IconDeviceLaptop,
-  IconMapPin,
-  IconPhone,
-  IconUser,
-} from "@tabler/icons-react";
-import DiagnosaLanjutanModal from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/modal/DiagnosaLanjutanModal";
-import {
-  CardBox,
-  CardSectionTitle,
-  InfoRow,
-  SimpleInfoRow,
-} from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketDetailShared";
-import TicketDiagnosaCard from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketDiagnosaCard";
-import TicketSparepartSection from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketSparepartSection";
-import TicketCostSummary from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketCostSummary";
-import TicketJasaSection from "@/components/UI/dashboard/teknisi/antrian-tiket-servis/detail-tiket-servis/components/TicketJasaSection";
+  TicketDetailLoadingState,
+  TicketDetailNotFoundState,
+} from "./components/TicketStateView";
 import { getCurrentSession } from "@/lib/auth/auth.client";
-import {
-  getJasaServis,
-  type JasaServisApiItem,
-} from "@/lib/admin-penjualan/admin-penjualan-jasa-servis.client";
-import {
-  getSparepart,
-  type SparepartApiItem,
-} from "@/lib/admin-gudang/admin-gudang-sparepart.client";
+import { getJasaServis } from "@/lib/admin-penjualan/admin-penjualan-jasa-servis.client";
+import { getSparepart } from "@/lib/admin-gudang/admin-gudang-sparepart.client";
 import {
   createDiagnosaLanjutan,
   getDetailTiketServis,
@@ -55,255 +22,20 @@ import {
   updateStatusTiketServis,
   type DetailTiketServisApiItem,
   type StatusServis,
-  type StatusVerifikasi,
 } from "@/lib/teknisi/teknisi-tiket-servis.client";
-
-type MasterOption = {
-  value: string;
-  label: string;
-  harga: number;
-  stock?: number;
-};
-
-type LoadingAction =
-  | "fetch"
-  | "status"
-  | "diagnosa"
-  | "tambah-jasa"
-  | "hapus-jasa"
-  | "tambah-sparepart"
-  | "hapus-sparepart"
-  | null;
-
-const statusServisOptions: {
-  value: StatusServis;
-  label: string;
-}[] = [
-  { value: "Belum_Diproses", label: "Belum Diproses" },
-  { value: "Diproses", label: "Diproses" },
-  { value: "Menunggu_Sparepart", label: "Menunggu Sparepart" },
-  { value: "Selesai", label: "Selesai" },
-  { value: "Dibatalkan", label: "Dibatalkan" },
-];
-
-const allowedNextStatus: Record<StatusServis, StatusServis[]> = {
-  Belum_Diproses: ["Diproses", "Dibatalkan"],
-  Diproses: ["Menunggu_Sparepart", "Selesai", "Dibatalkan"],
-  Menunggu_Sparepart: ["Diproses", "Selesai", "Dibatalkan"],
-  Selesai: [],
-  Diambil: [],
-  Dibatalkan: [],
-};
-
-function toNumber(value: string | number | null | undefined) {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatDisplayDate(dateString: string | null | undefined) {
-  if (!dateString) return "-";
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) {
-    return dateString;
-  }
-
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
-}
-
-function toDateValue(value: unknown): Date | null {
-  if (!value) return null;
-
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-
-  if (typeof value === "string") {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return null;
-    }
-
-    return date;
-  }
-
-  return null;
-}
-
-function toIsoDateTime(value: Date | null) {
-  if (!value) return null;
-
-  if (Number.isNaN(value.getTime())) {
-    return null;
-  }
-
-  return value.toISOString();
-}
-
-function isSameDateTime(
-  nextValue: Date | null,
-  currentValue: string | null | undefined
-) {
-  const currentDate = toDateValue(currentValue);
-
-  if (!nextValue && !currentDate) return true;
-  if (!nextValue || !currentDate) return false;
-
-  return nextValue.getTime() === currentDate.getTime();
-}
-
-function formatDisplayDateTime(dateString: string | null | undefined) {
-  if (!dateString) return "-";
-
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) {
-    return dateString;
-  }
-
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function getStatusServisLabel(status: StatusServis) {
-  switch (status) {
-    case "Belum_Diproses":
-      return "Belum Diproses";
-    case "Diproses":
-      return "Diproses";
-    case "Menunggu_Sparepart":
-      return "Menunggu Sparepart";
-    case "Selesai":
-      return "Selesai";
-    case "Diambil":
-      return "Diambil";
-    case "Dibatalkan":
-      return "Dibatalkan";
-    default:
-      return status;
-  }
-}
-
-function getStatusServisColor(status: StatusServis) {
-  switch (status) {
-    case "Belum_Diproses":
-      return "gray";
-    case "Diproses":
-      return "blue";
-    case "Menunggu_Sparepart":
-      return "yellow";
-    case "Selesai":
-      return "green";
-    case "Diambil":
-      return "teal";
-    case "Dibatalkan":
-      return "red";
-    default:
-      return "gray";
-  }
-}
-
-function getStatusVerifikasiLabel(status: StatusVerifikasi) {
-  switch (status) {
-    case "Menunggu":
-      return "Menunggu";
-    case "Diterima":
-      return "Diterima";
-    case "Ditolak":
-      return "Ditolak";
-    default:
-      return status;
-  }
-}
-
-function getStatusVerifikasiColor(status: StatusVerifikasi) {
-  switch (status) {
-    case "Menunggu":
-      return "orange";
-    case "Diterima":
-      return "green";
-    case "Ditolak":
-      return "red";
-    default:
-      return "gray";
-  }
-}
-
-function getPerangkatDisplay(
-  detail: Pick<DetailTiketServisApiItem, "jenis_perangkat" | "merk_perangkat">
-) {
-  if (!detail.merk_perangkat) {
-    return detail.jenis_perangkat;
-  }
-
-  return `${detail.jenis_perangkat} - ${detail.merk_perangkat}`;
-}
-
-function getDropPointDisplay(detail: DetailTiketServisApiItem) {
-  if (!detail.drop_point) {
-    return "Tidak melalui drop point";
-  }
-
-  if (detail.id_drop_point) {
-    return `${detail.id_drop_point} - ${detail.drop_point.nama_drop_point}`;
-  }
-
-  return detail.drop_point.nama_drop_point;
-}
-
-function getReferensiSolusiAwal(detail: DetailTiketServisApiItem) {
-  const diagnosaAi = detail.diagnosa_ai;
-
-  if (!diagnosaAi) {
-    return "-";
-  }
-
-  const items = [
-    diagnosaAi.kemungkinan_penyebab
-      ? `Kemungkinan penyebab: ${diagnosaAi.kemungkinan_penyebab}`
-      : "",
-    diagnosaAi.kemungkinan_solusi
-      ? `Solusi awal: ${diagnosaAi.kemungkinan_solusi}`
-      : "",
-    diagnosaAi.saran_tindakan
-      ? `Saran tindakan: ${diagnosaAi.saran_tindakan}`
-      : "",
-  ].filter(Boolean);
-
-  if (items.length > 0) {
-    return items.join("\n");
-  }
-
-  return diagnosaAi.gejala || "-";
-}
-
-function mapJasaMasterOptions(data: JasaServisApiItem[]): MasterOption[] {
-  return data.map((item) => ({
-    value: item.id,
-    label: item.nama_jasa_servis,
-    harga: toNumber(item.harga),
-  }));
-}
-
-function mapSparepartMasterOptions(data: SparepartApiItem[]): MasterOption[] {
-  return data.map((item) => ({
-    value: item.id,
-    label: item.nama_sparepart,
-    harga: toNumber(item.harga),
-    stock: toNumber(item.stock),
-  }));
-}
+import type { LoadingAction, MasterOption } from "@/types/detail-tiket-servis-type";
+import {
+  allowedNextStatus,
+  getDropPointDisplay,
+  getPerangkatDisplay,
+  isSameDateTime,
+  mapJasaMasterOptions,
+  mapSparepartMasterOptions,
+  statusServisOptions,
+  toDateValue,
+  toIsoDateTime,
+  toNumber,
+} from "@/utils/detail-tiket-servis-teknisi/detail-tiket-servis.utils";
 
 export default function DetailTiketServisPage() {
   const params = useParams();
@@ -336,7 +68,11 @@ export default function DetailTiketServisPage() {
   }
 
   async function fetchInitialData() {
-    if (!nomorTiketParam) return;
+    if (!nomorTiketParam) {
+      setDetail(null);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -455,6 +191,10 @@ export default function DetailTiketServisPage() {
         item.value === detail.status_servis || nextStatuses.includes(item.value)
     );
   }, [detail]);
+
+  function handleBack() {
+    router.push("/teknisi/antrian-tiket-servis");
+  }
 
   async function handleUpdateStatus() {
     if (!detail || !statusServis) return;
@@ -706,350 +446,44 @@ export default function DetailTiketServisPage() {
   }
 
   if (isLoading) {
-    return (
-      <Stack gap={18}>
-        <Title order={1} fw={800}>
-          Detail Tiket Servis
-        </Title>
-
-        <Paper
-          radius="xl"
-          p="xl"
-          style={{
-            border: "1px solid #ECECF3",
-            backgroundColor: "#FFFFFF",
-          }}
-        >
-          <Text fw={700} fz={18}>
-            Memuat detail tiket servis...
-          </Text>
-        </Paper>
-      </Stack>
-    );
+    return <TicketDetailLoadingState />;
   }
 
   if (!detail) {
-    return (
-      <Stack gap={18}>
-        <Title order={1} fw={800}>
-          Detail Tiket Servis
-        </Title>
-
-        <Paper
-          radius="xl"
-          p="xl"
-          style={{
-            border: "1px solid #ECECF3",
-            backgroundColor: "#FFFFFF",
-          }}
-        >
-          <Stack gap={12} align="center">
-            <Text fw={700} fz={20}>
-              Tiket servis tidak ditemukan
-            </Text>
-            <Button
-              radius="xl"
-              onClick={() => router.push("/teknisi/antrian-tiket-servis")}
-              style={{
-                backgroundColor: "#0D4CB5",
-              }}
-            >
-              Kembali ke Antrian
-            </Button>
-          </Stack>
-        </Paper>
-      </Stack>
-    );
+    return <TicketDetailNotFoundState onBack={handleBack} />;
   }
 
   return (
-    <>
-      <Stack gap={18}>
-        <Group justify="space-between" align="center">
-          <Title order={1} fw={800} c="#000000">
-            Detail Tiket Servis
-          </Title>
-
-          <Button
-            variant="light"
-            color="gray"
-            radius="xl"
-            onClick={() => router.push("/teknisi/antrian-tiket-servis")}
-          >
-            Kembali
-          </Button>
-        </Group>
-
-        <Box
-          p="md"
-          style={{
-            backgroundColor: "#F2F2F6",
-            borderRadius: 16,
-            border: "1px solid #E8E8EF",
-          }}
-        >
-          <Grid gap="md">
-            <Grid.Col span={{ base: 12, lg: 4 }}>
-              <CardBox>
-                <Stack gap={14}>
-                  <CardSectionTitle>Informasi Pelanggan</CardSectionTitle>
-                  <Divider color="#ECECF3" />
-
-                  <InfoRow icon={<IconUser size={22} />} text={detail.nama_cust} />
-                  <InfoRow
-                    icon={<IconPhone size={22} />}
-                    text={detail.phone_cust}
-                  />
-                  <InfoRow
-                    icon={<IconMapPin size={22} />}
-                    text={detail.alamat_cust || "-"}
-                  />
-                </Stack>
-              </CardBox>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 4 }}>
-              <CardBox>
-                <Stack gap={14}>
-                  <CardSectionTitle>Informasi Perangkat</CardSectionTitle>
-                  <Divider color="#ECECF3" />
-
-                  <InfoRow
-                    icon={<IconDeviceLaptop size={22} />}
-                    text={perangkatDisplay}
-                  />
-
-                  <SimpleInfoRow
-                    label="Jenis Perangkat"
-                    value={detail.jenis_perangkat}
-                  />
-                  <SimpleInfoRow
-                    label="Merk Perangkat"
-                    value={detail.merk_perangkat}
-                  />
-                  <SimpleInfoRow
-                    label="Sumber Tiket"
-                    value={detail.sumber_tiket}
-                  />
-                  <SimpleInfoRow label="Drop Point" value={dropPointDisplay} />
-                </Stack>
-              </CardBox>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 4 }}>
-              <CardBox bg="#F7F3EB">
-                <Stack gap={16}>
-                  <CardSectionTitle>Tindakan Teknisi</CardSectionTitle>
-
-                  <Select
-                    value={statusServis}
-                    onChange={(value) =>
-                      setStatusServis((value as StatusServis) || null)
-                    }
-                    data={currentAllowedStatusOptions}
-                    disabled={!isStatusEditable || loadingAction !== null}
-                    styles={{
-                      input: {
-                        height: 44,
-                        borderRadius: 12,
-                      },
-                    }}
-                  />
-
-                  <DateTimePicker
-                    value={estimasiWaktu}
-                    onChange={(value) => setEstimasiWaktu(toDateValue(value))}
-                    placeholder="Pilih estimasi selesai"
-                    valueFormat="DD/MM/YYYY HH:mm"
-                    clearable
-                    leftSection={<IconCalendarMonth size={18} />}
-                    disabled={!isStatusEditable || loadingAction !== null}
-                    timePickerProps={{
-                      withDropdown: true,
-                      format: "24h",
-                      popoverProps: {
-                        withinPortal: false,
-                      },
-                    }}
-                    styles={{
-                      input: {
-                        height: 44,
-                        borderRadius: 12,
-                      },
-                    }}
-                  />
-
-                  <Badge
-                    color={getStatusVerifikasiColor(detail.status_verifikasi)}
-                    variant="light"
-                    radius="xl"
-                    size="lg"
-                    w="fit-content"
-                  >
-                    Verifikasi:{" "}
-                    {getStatusVerifikasiLabel(detail.status_verifikasi)}
-                  </Badge>
-
-                  <Divider color="#E8DCC5" />
-
-                  <Button
-                    radius="md"
-                    onClick={handleUpdateStatus}
-                    disabled={
-                      !isStatusEditable || !statusServis || loadingAction !== null
-                    }
-                    loading={loadingAction === "status"}
-                    style={{
-                      backgroundColor: "#FFFFFF",
-                      color: "#224B8F",
-                      border: "1px solid #DFDFE8",
-                      height: 44,
-                    }}
-                  >
-                    Simpan Perubahan
-                  </Button>
-                </Stack>
-              </CardBox>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 8 }}>
-              <CardBox>
-                <Stack gap={12}>
-                  <CardSectionTitle>Keluhan Pelanggan</CardSectionTitle>
-                  <Divider color="#ECECF3" />
-                  <Text fz={17} c="#4B5563">
-                    • {detail.keluhan}
-                  </Text>
-                </Stack>
-              </CardBox>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 4 }}>
-              <CardBox>
-                <Stack gap={12}>
-                  <CardSectionTitle>Riwayat Status</CardSectionTitle>
-                  <Divider color="#ECECF3" />
-
-                  <Group justify="space-between" align="center">
-                    <Group gap={10} wrap="nowrap">
-                      <Text c="#9CA3AF" fz={22}>
-                        •
-                      </Text>
-                      <Text fz={16} c="#4B5563">
-                        Tiket Dibuat
-                      </Text>
-                    </Group>
-
-                    <Text fz={14} c="#6B7280">
-                      {formatDisplayDate(detail.tanggal_masuk)}
-                    </Text>
-                  </Group>
-
-                  <Group justify="space-between" align="center">
-                    <Group gap={10} wrap="nowrap">
-                      <Text c="#9CA3AF" fz={22}>
-                        •
-                      </Text>
-                      <Text fz={16} c="#4B5563">
-                        Verifikasi {detail.status_verifikasi}
-                      </Text>
-                    </Group>
-
-                    <Text fz={14} c="#6B7280">
-                      {formatDisplayDate(detail.tanggal_verifikasi)}
-                    </Text>
-                  </Group>
-
-                  <Group justify="space-between" align="center">
-                    <Group gap={10} wrap="nowrap">
-                      <Text c="#9CA3AF" fz={22}>
-                        •
-                      </Text>
-
-                      <Badge
-                        color={getStatusServisColor(detail.status_servis)}
-                        variant="light"
-                        radius="xl"
-                        size="lg"
-                      >
-                        {getStatusServisLabel(detail.status_servis)}
-                      </Badge>
-                    </Group>
-
-                    <Text fz={14} c="#6B7280">
-                      {formatDisplayDate(detail.tanggal_masuk)}
-                    </Text>
-                  </Group>
-                </Stack>
-              </CardBox>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 8 }}>
-              <CardBox>
-                <Stack gap={12}>
-                  <CardSectionTitle>Referensi Solusi Awal</CardSectionTitle>
-                  <Divider color="#ECECF3" />
-                  <Text fz={17} c="#4B5563" style={{ whiteSpace: "pre-line" }}>
-                    • {getReferensiSolusiAwal(detail)}
-                  </Text>
-                </Stack>
-              </CardBox>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 5 }}>
-              <TicketDiagnosaCard
-                latestDiagnosa={latestDiagnosa}
-                canModifyDetail={canModifyDetail}
-                loadingAction={loadingAction}
-                onOpenDiagnosaModal={() => setOpenedDiagnosaModal(true)}
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 4 }}>
-              <TicketSparepartSection
-                sparepartMasterOptions={sparepartMasterOptions}
-                sparepartDigunakan={sparepartDigunakan}
-                canModifyDetail={canModifyDetail}
-                loadingAction={loadingAction}
-                onTambahSparepart={handleTambahSparepart}
-                onHapusSparepart={handleHapusSparepart}
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 3 }}>
-              <TicketCostSummary
-                totalJasa={totalJasa}
-                totalSparepart={totalSparepart}
-                estimasiWaktuText={formatDisplayDateTime(detail.estimasi_waktu)}
-                totalEstimasi={totalEstimasi}
-              />
-            </Grid.Col>
-
-            <Grid.Col span={12}>
-              <TicketJasaSection
-                jasaMasterOptions={jasaMasterOptions}
-                jasaServis={jasaServis}
-                canModifyDetail={canModifyDetail}
-                loadingAction={loadingAction}
-                onTambahJasa={handleTambahJasa}
-                onHapusJasa={handleHapusJasa}
-              />
-            </Grid.Col>
-          </Grid>
-        </Box>
-      </Stack>
-
-      <DiagnosaLanjutanModal
-        opened={openedDiagnosaModal}
-        onClose={() => setOpenedDiagnosaModal(false)}
-        noTiket={detail.nomor_tiket}
-        pelanggan={detail.nama_cust}
-        perangkat={perangkatDisplay}
-        statusSaatIni={detail.status_servis}
-        initialDiagnosaLanjutan={latestDiagnosa?.hasil_diagnosa || ""}
-        initialCatatanTeknisi={latestDiagnosa?.catatan_teknisi || ""}
-        onSave={handleSaveDiagnosa}
-      />
-    </>
+    <TicketDetailContent
+      detail={detail}
+      statusServis={statusServis}
+      estimasiWaktu={estimasiWaktu}
+      jasaMasterOptions={jasaMasterOptions}
+      sparepartMasterOptions={sparepartMasterOptions}
+      openedDiagnosaModal={openedDiagnosaModal}
+      loadingAction={loadingAction}
+      jasaServis={jasaServis}
+      sparepartDigunakan={sparepartDigunakan}
+      totalJasa={totalJasa}
+      totalSparepart={totalSparepart}
+      totalEstimasi={totalEstimasi}
+      latestDiagnosa={latestDiagnosa}
+      dropPointDisplay={dropPointDisplay}
+      perangkatDisplay={perangkatDisplay}
+      isStatusEditable={isStatusEditable}
+      canModifyDetail={canModifyDetail}
+      currentAllowedStatusOptions={currentAllowedStatusOptions}
+      onBack={handleBack}
+      onStatusServisChange={setStatusServis}
+      onEstimasiWaktuChange={setEstimasiWaktu}
+      onOpenDiagnosaModal={() => setOpenedDiagnosaModal(true)}
+      onCloseDiagnosaModal={() => setOpenedDiagnosaModal(false)}
+      onUpdateStatus={handleUpdateStatus}
+      onSaveDiagnosa={handleSaveDiagnosa}
+      onTambahJasa={handleTambahJasa}
+      onHapusJasa={handleHapusJasa}
+      onTambahSparepart={handleTambahSparepart}
+      onHapusSparepart={handleHapusSparepart}
+    />
   );
 }
