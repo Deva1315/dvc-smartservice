@@ -37,6 +37,10 @@ function parseRequiredDate(value: unknown, fieldName: string) {
   return date;
 }
 
+function getAbsoluteBigIntDifference(valueA: bigint, valueB: bigint) {
+  return valueA >= valueB ? valueA - valueB : valueB - valueA;
+}
+
 type DetailOpnamePayload = {
   tipe_item: "Barang" | "Sparepart";
   id_barang?: string | number | null;
@@ -195,9 +199,9 @@ export async function POST(request: NextRequest) {
             throw new Error("Barang tidak ditemukan");
           }
 
-          const stockSistem = barang.stock;
-          const selisih = stockFisik - stockSistem;
-          totalSelisih += selisih;
+const stockSistem = barang.stock;
+const selisih = getAbsoluteBigIntDifference(stockFisik, stockSistem);
+totalSelisih += selisih;
 
           await tx.detail_stock_opname.create({
             data: {
@@ -237,9 +241,9 @@ export async function POST(request: NextRequest) {
             throw new Error("Sparepart tidak ditemukan");
           }
 
-          const stockSistem = sparepart.stock;
-          const selisih = stockFisik - stockSistem;
-          totalSelisih += selisih;
+const stockSistem = sparepart.stock;
+const selisih = getAbsoluteBigIntDifference(stockFisik, stockSistem);
+totalSelisih += selisih;
 
           await tx.detail_stock_opname.create({
             data: {

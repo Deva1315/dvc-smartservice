@@ -88,17 +88,15 @@ function createEmptyItem(): StokOpnameDetailItem {
 }
 
 function getSelisih(stokSistem: number, stokFisik: number) {
-  return stokFisik - stokSistem;
+  return Math.abs(stokFisik - stokSistem);
 }
 
 function getSelisihText(value: number) {
-  if (value > 0) return `+${value}`;
-  return `${value}`;
+  return `${Math.abs(value)}`;
 }
 
 function getSelisihColor(value: number) {
-  if (value > 0) return "#1C7C54";
-  if (value < 0) return "#C97A32";
+  if (Math.abs(value) > 0) return "#C97A32";
   return "#111111";
 }
 

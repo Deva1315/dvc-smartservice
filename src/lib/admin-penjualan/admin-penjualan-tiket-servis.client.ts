@@ -38,6 +38,7 @@ export type AdminPenjualanTiketApiItem = {
 };
 
 export type CreateTiketServisPayload = {
+  nomor_tiket?: string;
   nama_cust: string;
   phone_cust: string;
   alamat_cust?: string | null;
@@ -46,6 +47,17 @@ export type CreateTiketServisPayload = {
   keluhan: string;
   id_drop_point?: string | null;
 };
+
+export type GetAdminPenjualanNomorTiketResponse =
+  | {
+      success: true;
+      message: string;
+      nomor_tiket: string;
+    }
+  | {
+      success: false;
+      message: string;
+    };
 
 const BASE_URL = "/api/admin-penjualan/tiket-servis";
 
@@ -80,6 +92,33 @@ export async function getAdminPenjualanTiketServis(params?: {
   }
 
   return result;
+}
+
+export async function getAdminPenjualanNomorTiketRequest(params?: {
+  tanggal_masuk?: string;
+}): Promise<GetAdminPenjualanNomorTiketResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.tanggal_masuk) {
+    searchParams.set("tanggal_masuk", params.tanggal_masuk);
+  }
+
+  const url = searchParams.toString()
+    ? `/api/admin-penjualan/tiket-servis/nomor?${searchParams.toString()}`
+    : "/api/admin-penjualan/tiket-servis/nomor";
+
+  const response = await fetch(url, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Gagal membuat nomor tiket");
+  }
+
+  return result as GetAdminPenjualanNomorTiketResponse;
 }
 
 export async function createAdminPenjualanTiketServis(
@@ -175,10 +214,10 @@ export async function getDetailAdminPenjualanTiketServis(nomorTiket: string) {
 export async function verifikasiAdminPenjualanTiketServis(
   nomorTiket: string,
   payload:
-{
-  status_verifikasi: "Diterima";
-  id_user: string;
-}
+    | {
+        status_verifikasi: "Diterima";
+        id_user: string;
+      }
     | {
         status_verifikasi: "Ditolak";
         alasan_penolakan: string;

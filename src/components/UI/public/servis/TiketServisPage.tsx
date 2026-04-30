@@ -36,6 +36,7 @@ import TiketServisFormModal, {
 import {
   createPublicTiketServisRequest,
   getPublicTiketServisListRequest,
+  getTiketServisNomorRequest,
   updatePublicTiketServisRequest,
   type PublicTicketRow,
   type PublicTicketStatusServis,
@@ -122,8 +123,8 @@ export default function TiketServisPage() {
   const [dropPointOptions, setDropPointOptions] = useState<TicketDropPointOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const nomorTiket = useMemo(() => "", []);
-  const tanggalMasuk = useMemo(() => new Date(), []);
+const [nomorTiket, setNomorTiket] = useState("");
+const tanggalMasuk = useMemo(() => new Date(), []);
 
   useEffect(() => {
     void loadInitialData();
@@ -155,23 +156,47 @@ export default function TiketServisPage() {
           color: "red",
         });
       } else {
-        setDropPointOptions(
-          dropPointResult.dropPoints.map((item) => ({
-            value: item.id,
-            label: item.nama_drop_point,
-          }))
-        );
+setDropPointOptions(
+  dropPointResult.dropPoints.map((item) => ({
+    value: item.id,
+    label: item.nama_drop_point,
+    originalLabel: item.nama_drop_point,
+    alamat: item.alamat,
+    jarakKm: null,
+    jarakLabel: null,
+  }))
+);
       }
     } finally {
       setIsLoading(false);
     }
   }
+async function prepareNomorTiket(date = new Date()) {
+  setNomorTiket("");
 
-  const handleOpenCreate = () => {
-    setFormType("create");
-    setSelectedTicket(null);
-    setOpened(true);
-  };
+  const result = await getTiketServisNomorRequest({
+    tanggal_masuk: date.toISOString(),
+  });
+
+  if (!result.success) {
+    notifications.show({
+      title: "Gagal",
+      message: result.message,
+      color: "red",
+    });
+    return;
+  }
+
+  setNomorTiket(result.nomor_tiket);
+}
+const handleOpenCreate = () => {
+  const now = new Date();
+
+  setFormType("create");
+  setSelectedTicket(null);
+  setOpened(true);
+  void prepareNomorTiket(now);
+};
 
   const handleOpenEdit = (ticket: TicketRow) => {
     setFormType("edit");
@@ -183,17 +208,18 @@ export default function TiketServisPage() {
     ticket: TicketRow,
     type: FormType
   ): Promise<boolean> {
-    const payload = {
-      tanggal_masuk: ticket.tanggal_masuk.toISOString(),
-      nama_cust: ticket.nama_cust,
-      phone_cust: ticket.phone_cust,
-      alamat_cust: ticket.alamat_cust || null,
-      jenis_perangkat: ticket.jenis_perangkat,
-      merk_perangkat: ticket.merk_perangkat || null,
-      keluhan: ticket.keluhan,
-      gunakan_drop_point: ticket.gunakan_drop_point,
-      drop_point_id: ticket.gunakan_drop_point ? ticket.drop_point_id : null,
-    };
+const payload = {
+  nomor_tiket: ticket.nomor_tiket,
+  tanggal_masuk: ticket.tanggal_masuk.toISOString(),
+  nama_cust: ticket.nama_cust,
+  phone_cust: ticket.phone_cust,
+  alamat_cust: ticket.alamat_cust || null,
+  jenis_perangkat: ticket.jenis_perangkat,
+  merk_perangkat: ticket.merk_perangkat || null,
+  keluhan: ticket.keluhan,
+  gunakan_drop_point: ticket.gunakan_drop_point,
+  drop_point_id: ticket.gunakan_drop_point ? ticket.drop_point_id : null,
+};
 
     if (type === "create") {
       const result = await createPublicTiketServisRequest(payload);

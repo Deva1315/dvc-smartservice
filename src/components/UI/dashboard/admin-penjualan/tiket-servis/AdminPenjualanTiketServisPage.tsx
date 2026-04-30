@@ -30,6 +30,7 @@ import TiketServisFormModal, {
 } from "@/components/UI/dashboard/admin-penjualan/tiket-servis/form/AdminPenjualanTiketServisFormModal";
 import {
   createAdminPenjualanTiketServis,
+  getAdminPenjualanNomorTiketRequest,
   getAdminPenjualanTiketServis,
   type AdminPenjualanTiketApiItem,
   type StatusServis,
@@ -169,6 +170,7 @@ export default function AdminPenjualanTiketServisPage() {
   const [tiketServis, setTiketServis] = useState<AdminPenjualanTiketRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [tanggalMasuk] = useState(new Date());
+  const [nomorTiket, setNomorTiket] = useState("");
 
   const tableData = useMemo(() => {
     const filtered = selectedStatusServis
@@ -205,24 +207,62 @@ export default function AdminPenjualanTiketServisPage() {
     }
   }
 
+  async function prepareNomorTiket(date = new Date()) {
+  try {
+    setNomorTiket("");
+
+    const result = await getAdminPenjualanNomorTiketRequest({
+      tanggal_masuk: date.toISOString(),
+    });
+
+    if (!result.success) {
+      notifications.show({
+        title: "Gagal",
+        message: result.message,
+        color: "red",
+      });
+      return;
+    }
+
+    setNomorTiket(result.nomor_tiket);
+  } catch (error) {
+    notifications.show({
+      title: "Gagal",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Gagal membuat nomor tiket.",
+      color: "red",
+    });
+  }
+}
+
   useEffect(() => {
     fetchTiketServis();
   }, []);
+
+  function handleOpenCreate() {
+  const now = new Date();
+
+  setOpened(true);
+  void prepareNomorTiket(now);
+}
 
   async function handleSubmitTiketServis(
     ticket: TicketRow,
     _formType: any
   ): Promise<boolean> {
     try {
-      await createAdminPenjualanTiketServis({
-        nama_cust: ticket.nama_cust,
-        phone_cust: ticket.phone_cust,
-        alamat_cust: ticket.alamat_cust || null,
-        jenis_perangkat: ticket.jenis_perangkat,
-        merk_perangkat: ticket.merk_perangkat || null,
-        keluhan: ticket.keluhan,
-        id_drop_point: ticket.gunakan_drop_point ? ticket.drop_point_id : null,
-      });
+await createAdminPenjualanTiketServis({
+  nomor_tiket: ticket.nomor_tiket,
+  nama_cust: ticket.nama_cust,
+  phone_cust: ticket.phone_cust,
+  alamat_cust: ticket.alamat_cust || null,
+  jenis_perangkat: ticket.jenis_perangkat,
+  merk_perangkat: ticket.merk_perangkat || null,
+  keluhan: ticket.keluhan,
+  id_drop_point: ticket.gunakan_drop_point ? ticket.drop_point_id : null,
+});
 
       notifications.show({
         title: "Berhasil",
@@ -412,7 +452,7 @@ export default function AdminPenjualanTiketServisPage() {
           <Button
             radius="xl"
             leftSection={<IconPlus size={18} stroke={2.2} />}
-            onClick={() => setOpened(true)}
+            onClick={handleOpenCreate}
             style={{
               height: 36,
               minWidth: 120,
@@ -454,16 +494,16 @@ export default function AdminPenjualanTiketServisPage() {
         />
       </Stack>
 
-      <TiketServisFormModal
-        opened={opened}
-        onClose={() => setOpened(false)}
-        formType="create"
-        nomorTiket=""
-        tanggalMasuk={tanggalMasuk}
-        dropPointOptions={dropPointOptions}
-        initialData={null}
-        onSubmit={handleSubmitTiketServis}
-      />
+<TiketServisFormModal
+  opened={opened}
+  onClose={() => setOpened(false)}
+  formType="create"
+  nomorTiket={nomorTiket}
+  tanggalMasuk={tanggalMasuk}
+  dropPointOptions={dropPointOptions}
+  initialData={null}
+  onSubmit={handleSubmitTiketServis}
+/>
     </>
   );
 }

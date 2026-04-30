@@ -63,8 +63,7 @@ function FieldItem({
 }
 
 function getSelisihColor(value: number) {
-  if (value > 0) return "#1C7C54";
-  if (value < 0) return "#C97A32";
+  if (Math.abs(value) > 0) return "#C97A32";
   return "#111111";
 }
 
@@ -124,22 +123,14 @@ export default function StokOpnameDetailModal({
               <Text fw={700} fz={14} c="#6B7280">
                 Selisih Stock
               </Text>
-              <Badge
-                color={
-                  data.selisihStock > 0
-                    ? "green"
-                    : data.selisihStock < 0
-                    ? "yellow"
-                    : "gray"
-                }
-                variant="light"
-                radius="sm"
-                w="fit-content"
-              >
-                {data.selisihStock > 0
-                  ? `+${data.selisihStock}`
-                  : data.selisihStock}
-              </Badge>
+<Badge
+  color={Math.abs(data.selisihStock) > 0 ? "yellow" : "gray"}
+  variant="light"
+  radius="sm"
+  w="fit-content"
+>
+  {Math.abs(data.selisihStock)}
+</Badge>
             </Stack>
 
             <Stack gap={10}>
@@ -184,7 +175,7 @@ export default function StokOpnameDetailModal({
                             fontWeight: 700,
                           }}
                         >
-                          {item.selisih > 0 ? `+${item.selisih}` : item.selisih}
+                          {Math.abs(item.selisih)}
                         </Table.Td>
                         <Table.Td>{item.keterangan || "-"}</Table.Td>
                       </Table.Tr>

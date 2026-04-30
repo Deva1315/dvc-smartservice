@@ -1,4 +1,5 @@
 export type PublicTicketStatusVerifikasi = "Menunggu" | "Diterima" | "Ditolak";
+
 export type PublicTicketStatusServis =
   | "Belum_Diproses"
   | "Diproses"
@@ -31,6 +32,17 @@ export type GetPublicTiketServisListResponse =
       success: true;
       message: string;
       tickets: PublicTicketRow[];
+    }
+  | {
+      success: false;
+      message: string;
+    };
+
+export type GetTiketServisNomorResponse =
+  | {
+      success: true;
+      message: string;
+      nomor_tiket: string;
     }
   | {
       success: false;
@@ -78,7 +90,39 @@ export async function getPublicTiketServisListRequest(): Promise<GetPublicTiketS
   return data as GetPublicTiketServisListResponse;
 }
 
+export async function getTiketServisNomorRequest(params?: {
+  tanggal_masuk?: string;
+}): Promise<GetTiketServisNomorResponse> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.tanggal_masuk) {
+    searchParams.set("tanggal_masuk", params.tanggal_masuk);
+  }
+
+  const url = searchParams.toString()
+    ? `/api/public/tiket-servis/nomor?${searchParams.toString()}`
+    : "/api/public/tiket-servis/nomor";
+
+  const response = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    return {
+      success: false,
+      message: data?.message ?? "Gagal membuat nomor tiket.",
+    };
+  }
+
+  return data as GetTiketServisNomorResponse;
+}
+
 export async function createPublicTiketServisRequest(payload: {
+  nomor_tiket?: string;
   tanggal_masuk: string;
   nama_cust: string;
   phone_cust: string;

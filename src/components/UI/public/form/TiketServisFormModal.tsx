@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -17,8 +17,10 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { IconCalendarEvent } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
+import { getNearestPublicDropPointListRequest } from "@/lib/public/public-drop-point.client";
 
 export type TicketStatusVerifikasi = "Menunggu" | "Diterima" | "Ditolak";
+
 export type TicketStatusServis =
   | "Belum Diproses"
   | "Diproses"
@@ -30,6 +32,10 @@ export type TicketStatusServis =
 export type TicketDropPointOption = {
   value: string;
   label: string;
+  originalLabel?: string;
+  alamat?: string;
+  jarakKm?: number | null;
+  jarakLabel?: string | null;
 };
 
 export type TicketRow = {
@@ -86,6 +92,7 @@ function toInputDateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 }
 
@@ -94,10 +101,54 @@ function toDate(value: string): Date {
   return new Date(year, month - 1, day);
 }
 
+function getDropPointDistanceLabel(item?: TicketDropPointOption | null) {
+  if (!item) return null;
+
+  if (item.jarakLabel) {
+    return item.jarakLabel;
+  }
+
+  if (typeof item.jarakKm === "number" && Number.isFinite(item.jarakKm)) {
+    if (item.jarakKm < 1) {
+      return `${Math.round(item.jarakKm * 1000)} m`;
+    }
+
+    return `${item.jarakKm.toFixed(1)} km`;
+  }
+
+  return null;
+}
+
+function buildDropPointLabel(item: TicketDropPointOption) {
+  const name = item.originalLabel || item.label;
+  const distanceLabel = getDropPointDistanceLabel(item);
+
+  if (!distanceLabel) {
+    return name;
+  }
+
+  return `${name} — ${distanceLabel}`;
+}
+
+function normalizeDropPointDistanceKm(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
 export default function TiketServisFormModal({
   opened,
   onClose,
   formType,
+  nomorTiket,
   tanggalMasuk,
   dropPointOptions,
   initialData = null,
@@ -108,9 +159,21 @@ export default function TiketServisFormModal({
     toInputDateString(tanggalMasuk)
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingDistance, setIsLoadingDistance] = useState(false);
+  const [distanceMessage, setDistanceMessage] = useState("");
+  const [displayDropPointOptions, setDisplayDropPointOptions] = useState<
+    TicketDropPointOption[]
+  >([]);
+
+  useEffect(() => {
+    setDisplayDropPointOptions(dropPointOptions);
+  }, [dropPointOptions]);
 
   useEffect(() => {
     if (!opened) return;
+
+    setDistanceMessage("");
+    setDisplayDropPointOptions(dropPointOptions);
 
     if (formType === "edit" && initialData) {
       setForm({
@@ -123,32 +186,128 @@ export default function TiketServisFormModal({
         gunakan_drop_point: initialData.gunakan_drop_point ? "ya" : "tidak",
         drop_point_id: initialData.drop_point_id,
       });
+
       setTanggal(toInputDateString(initialData.tanggal_masuk));
       return;
     }
 
     setForm(initialForm);
     setTanggal(toInputDateString(tanggalMasuk));
-  }, [opened, formType, initialData, tanggalMasuk]);
+  }, [opened, formType, initialData, tanggalMasuk, dropPointOptions]);
 
-  const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+  const selectDropPointData = useMemo(() => {
+    return displayDropPointOptions.map((item) => ({
+      value: item.value,
+      label: buildDropPointLabel(item),
+    }));
+  }, [displayDropPointOptions]);
+
+  const handleChange = <K extends keyof FormState>(
+    key: K,
+    value: FormState[K]
+  ) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
   };
 
-  const handleDropPointRadioChange = (value: string) => {
+  async function handleCalculateNearestDropPoint(alamatCustomer: string) {
+    const cleanAddress = alamatCustomer.trim();
+
+    if (!cleanAddress) {
+      setDisplayDropPointOptions(dropPointOptions);
+      setDistanceMessage(
+        "Isi alamat customer terlebih dahulu agar sistem dapat menghitung drop point terdekat."
+      );
+
+      setForm((prev) => ({
+        ...prev,
+        drop_point_id: null,
+      }));
+
+      return;
+    }
+
+    try {
+      setIsLoadingDistance(true);
+      setDistanceMessage("Menghitung jarak drop point dari alamat customer...");
+
+      const result = await getNearestPublicDropPointListRequest({
+        alamatCustomer: cleanAddress,
+      });
+
+      if (!result.success) {
+        setDisplayDropPointOptions(dropPointOptions);
+        setDistanceMessage(result.message);
+        return;
+      }
+
+      const nearestOptions: TicketDropPointOption[] = result.dropPoints.map(
+        (item) => {
+          const jarakKm = normalizeDropPointDistanceKm(item.jarak_km);
+          const jarakLabel = item.jarak_label ?? null;
+
+          return {
+            value: String(item.id),
+            label: jarakLabel
+              ? `${item.nama_drop_point} — ${jarakLabel}`
+              : item.nama_drop_point,
+            originalLabel: item.nama_drop_point,
+            alamat: item.alamat,
+            jarakKm,
+            jarakLabel,
+          };
+        }
+      );
+
+      setDisplayDropPointOptions(nearestOptions);
+
+      setForm((prev) => ({
+        ...prev,
+        gunakan_drop_point: "ya",
+        drop_point_id: nearestOptions[0]?.value || prev.drop_point_id,
+      }));
+
+      setDistanceMessage(
+        "Drop point berhasil diurutkan berdasarkan alamat customer."
+      );
+    } catch (error) {
+      console.error("CALCULATE NEAREST DROP POINT ERROR:", error);
+
+      setDisplayDropPointOptions(dropPointOptions);
+      setDistanceMessage(
+        "Jarak drop point gagal dihitung. Silakan pilih drop point secara manual."
+      );
+    } finally {
+      setIsLoadingDistance(false);
+    }
+  }
+
+  const handleDropPointRadioChange = async (value: string) => {
     const nextValue = value === "ya" ? "ya" : "tidak";
+
+    setDistanceMessage("");
 
     setForm((prev) => ({
       ...prev,
       gunakan_drop_point: nextValue,
       drop_point_id: nextValue === "ya" ? prev.drop_point_id : null,
     }));
+
+    if (nextValue === "ya") {
+      await handleCalculateNearestDropPoint(form.alamat_cust);
+    }
+
+    if (nextValue === "tidak") {
+      setDisplayDropPointOptions(dropPointOptions);
+    }
   };
 
   const handleReset = () => {
+    setDistanceMessage("");
+    setDisplayDropPointOptions(dropPointOptions);
+
     if (formType === "edit" && initialData) {
       setForm({
         nama_cust: initialData.nama_cust,
@@ -160,6 +319,7 @@ export default function TiketServisFormModal({
         gunakan_drop_point: initialData.gunakan_drop_point ? "ya" : "tidak",
         drop_point_id: initialData.drop_point_id,
       });
+
       setTanggal(toInputDateString(initialData.tanggal_masuk));
       return;
     }
@@ -168,8 +328,8 @@ export default function TiketServisFormModal({
     setTanggal(toInputDateString(tanggalMasuk));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
     if (
       !form.nama_cust.trim() ||
@@ -183,6 +343,16 @@ export default function TiketServisFormModal({
       return;
     }
 
+    if (formType === "create" && !nomorTiket.trim()) {
+  alert("Nomor tiket sedang disiapkan. Mohon tunggu sebentar.");
+  return;
+}
+
+    if (form.gunakan_drop_point === "ya" && !form.alamat_cust.trim()) {
+      alert("Mohon isi alamat customer untuk menghitung drop point terdekat.");
+      return;
+    }
+
     if (form.gunakan_drop_point === "ya" && !form.drop_point_id) {
       alert("Mohon pilih drop point terlebih dahulu.");
       return;
@@ -190,14 +360,20 @@ export default function TiketServisFormModal({
 
     const selectedDropPoint =
       form.gunakan_drop_point === "ya"
-        ? dropPointOptions.find((item) => item.value === form.drop_point_id)
-            ?.label ?? null
+        ? displayDropPointOptions.find(
+            (item) => item.value === form.drop_point_id
+          )?.originalLabel ??
+          dropPointOptions.find((item) => item.value === form.drop_point_id)
+            ?.label ??
+          null
         : null;
 
     const payload: TicketRow = {
       id: formType === "edit" && initialData ? initialData.id : undefined,
-      nomor_tiket:
-        formType === "edit" && initialData ? initialData.nomor_tiket : "",
+nomor_tiket:
+  formType === "edit" && initialData
+    ? initialData.nomor_tiket
+    : nomorTiket.trim(),
       tanggal_masuk: toDate(tanggal),
       nama_cust: form.nama_cust.trim(),
       phone_cust: form.phone_cust.trim(),
@@ -206,7 +382,8 @@ export default function TiketServisFormModal({
       merk_perangkat: form.merk_perangkat.trim(),
       keluhan: form.keluhan.trim(),
       gunakan_drop_point: form.gunakan_drop_point === "ya",
-      drop_point_id: form.gunakan_drop_point === "ya" ? form.drop_point_id : null,
+      drop_point_id:
+        form.gunakan_drop_point === "ya" ? form.drop_point_id : null,
       drop_point_nama: selectedDropPoint,
       status_verifikasi:
         formType === "edit" && initialData
@@ -238,8 +415,10 @@ export default function TiketServisFormModal({
 
   const submitLabel = formType === "create" ? "Simpan" : "Update";
 
-  const displayNoTiket =
-    formType === "edit" && initialData ? initialData.nomor_tiket : "";
+const displayNoTiket =
+  formType === "edit" && initialData
+    ? initialData.nomor_tiket
+    : nomorTiket || "Menyiapkan nomor tiket...";
 
   return (
     <Modal
@@ -283,6 +462,7 @@ export default function TiketServisFormModal({
                 <Text fw={700} c="#6B7280" size="lg">
                   No Tiket
                 </Text>
+
                 <TextInput
                   value={displayNoTiket}
                   placeholder="Nomor tiket akan dibuat otomatis setelah disimpan"
@@ -305,6 +485,7 @@ export default function TiketServisFormModal({
                 <Text fw={700} c="#6B7280" size="lg">
                   Tanggal Masuk
                 </Text>
+
                 <DatePickerInput
                   value={tanggal}
                   onChange={setTanggal}
@@ -338,9 +519,12 @@ export default function TiketServisFormModal({
                 <Text fw={700} c="#6B7280" size="lg">
                   Nama Customer <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <TextInput
                   value={form.nama_cust}
-                  onChange={(e) => handleChange("nama_cust", e.currentTarget.value)}
+                  onChange={(event) =>
+                    handleChange("nama_cust", event.currentTarget.value)
+                  }
                   radius={0}
                   disabled={isSubmitting}
                   styles={{
@@ -359,9 +543,12 @@ export default function TiketServisFormModal({
                 <Text fw={700} c="#6B7280" size="lg">
                   No HP <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <TextInput
                   value={form.phone_cust}
-                  onChange={(e) => handleChange("phone_cust", e.currentTarget.value)}
+                  onChange={(event) =>
+                    handleChange("phone_cust", event.currentTarget.value)
+                  }
                   radius={0}
                   disabled={isSubmitting}
                   styles={{
@@ -381,11 +568,20 @@ export default function TiketServisFormModal({
               <Text fw={700} c="#6B7280" size="lg">
                 Alamat Customer
               </Text>
+
               <TextInput
                 value={form.alamat_cust}
-                onChange={(e) => handleChange("alamat_cust", e.currentTarget.value)}
+                onChange={(event) =>
+                  handleChange("alamat_cust", event.currentTarget.value)
+                }
+                onBlur={() => {
+                  if (form.gunakan_drop_point === "ya") {
+                    handleCalculateNearestDropPoint(form.alamat_cust);
+                  }
+                }}
                 radius={0}
                 disabled={isSubmitting}
+                placeholder="Contoh: Jl. Smki No.22, Batubulan, Sukawati, Gianyar, Bali"
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
@@ -408,24 +604,88 @@ export default function TiketServisFormModal({
                 onChange={handleDropPointRadioChange}
               >
                 <Group gap="xl">
-                  <Radio value="ya" label="Ya, gunakan Drop Point" color="blue" />
+                  <Radio
+                    value="ya"
+                    label="Ya, gunakan Drop Point"
+                    color="blue"
+                  />
                   <Radio value="tidak" label="Tidak" color="blue" />
                 </Group>
               </Radio.Group>
             </Stack>
 
             {form.gunakan_drop_point === "ya" && (
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  Pilih Drop Point <span style={{ color: "red" }}>*</span>
-                </Text>
+              <Stack gap={10}>
+                <Group justify="space-between" align="center">
+                  <Text fw={700} c="#6B7280" size="lg">
+                    Pilih Drop Point <span style={{ color: "red" }}>*</span>
+                  </Text>
+
+                  {isLoadingDistance ? (
+                    <Text fz={13} fw={700} c="#0D4CB5">
+                      Menghitung jarak...
+                    </Text>
+                  ) : null}
+                </Group>
+
                 <Select
                   value={form.drop_point_id}
                   onChange={(value) => handleChange("drop_point_id", value)}
-                  data={dropPointOptions}
+                  data={selectDropPointData}
                   placeholder="Pilih drop point"
                   radius={0}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoadingDistance}
+                  searchable
+                  renderOption={({ option }) => {
+                    const item = displayDropPointOptions.find(
+                      (dropPoint) => dropPoint.value === option.value
+                    );
+
+                    const distanceLabel = getDropPointDistanceLabel(item);
+
+                    return (
+                      <Group
+                        justify="space-between"
+                        w="100%"
+                        wrap="nowrap"
+                        align="center"
+                        style={{
+                          minHeight: 56,
+                        }}
+                      >
+                        <Stack
+                          gap={2}
+                          style={{
+                            minWidth: 0,
+                            flex: 1,
+                          }}
+                        >
+                          <Text c="#111111" fw={700} fz={15} lineClamp={1}>
+                            {item?.originalLabel || option.label}
+                          </Text>
+
+                          {item?.alamat ? (
+                            <Text c="#6B7280" fz={12} lineClamp={1}>
+                              {item.alamat}
+                            </Text>
+                          ) : null}
+                        </Stack>
+
+                        <Text
+                          c={distanceLabel ? "#0D4CB5" : "#9CA3AF"}
+                          fw={900}
+                          fz={14}
+                          ta="right"
+                          style={{
+                            minWidth: 82,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {distanceLabel || "-"}
+                        </Text>
+                      </Group>
+                    );
+                  }}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
@@ -443,6 +703,25 @@ export default function TiketServisFormModal({
                     },
                   }}
                 />
+
+                {distanceMessage ? (
+                  <Text
+                    fz={13}
+                    fw={600}
+                    c={
+                      distanceMessage.toLowerCase().includes("berhasil")
+                        ? "#1C7C54"
+                        : "#C97A32"
+                    }
+                  >
+                    {distanceMessage}
+                  </Text>
+                ) : (
+                  <Text fz={13} fw={600} c="#6B7280">
+                    Sistem akan menghitung jarak berdasarkan alamat customer dan
+                    alamat drop point.
+                  </Text>
+                )}
               </Stack>
             )}
 
@@ -464,6 +743,7 @@ export default function TiketServisFormModal({
                 <Text fw={700} c="#6B7280" size="lg">
                   Jenis Perangkat <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <Select
                   value={form.jenis_perangkat}
                   onChange={(value) => handleChange("jenis_perangkat", value)}
@@ -499,10 +779,11 @@ export default function TiketServisFormModal({
                 <Text fw={700} c="#6B7280" size="lg">
                   Merk Perangkat <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <TextInput
                   value={form.merk_perangkat}
-                  onChange={(e) =>
-                    handleChange("merk_perangkat", e.currentTarget.value)
+                  onChange={(event) =>
+                    handleChange("merk_perangkat", event.currentTarget.value)
                   }
                   radius={0}
                   disabled={isSubmitting}
@@ -523,9 +804,12 @@ export default function TiketServisFormModal({
               <Text fw={700} c="#6B7280" size="lg">
                 Keluhan <span style={{ color: "red" }}>*</span>
               </Text>
+
               <Textarea
                 value={form.keluhan}
-                onChange={(e) => handleChange("keluhan", e.currentTarget.value)}
+                onChange={(event) =>
+                  handleChange("keluhan", event.currentTarget.value)
+                }
                 placeholder="Masukkan keluhan perangkat anda disini..."
                 minRows={6}
                 radius={0}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { tiket_servis_status_servis } from "@/generated/prisma/client";
+import { getAuthSession } from "@/lib/auth/get-auth-session";
 
 function serializeData(data: unknown) {
   return JSON.parse(
@@ -18,6 +19,28 @@ function serializeData(data: unknown) {
       return value;
     })
   );
+}
+
+function normalizeRole(roleName: string) {
+  return roleName.toLowerCase().replace(/\s+/g, "_");
+}
+
+async function requireTeknisiSession() {
+  const session = await getAuthSession();
+
+  if (!session) {
+    throw new Error("Unauthorized. Silakan login terlebih dahulu.");
+  }
+
+  const role = normalizeRole(session.roleName);
+
+  if (role !== "teknisi" && role !== "owner") {
+    throw new Error(
+      "Forbidden. Hanya Teknisi atau Owner yang dapat memperbarui status servis."
+    );
+  }
+
+  return session;
 }
 
 type RouteParams = {
@@ -66,30 +89,29 @@ function parseStatus(value: unknown) {
   return null;
 }
 
+function parseEstimasiWaktu(value: unknown) {
+  if (typeof value !== "string" || value.trim() === "") {
+    return null;
+  }
+
+  const parsedEstimasiWaktu = new Date(value.trim());
+
+  if (Number.isNaN(parsedEstimasiWaktu.getTime())) {
+    throw new Error("Estimasi waktu harus berupa tanggal dan waktu yang valid");
+  }
+
+  return parsedEstimasiWaktu;
+}
+
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
+    const session = await requireTeknisiSession();
+
     const { nomorTiket } = await params;
     const body = await request.json();
 
     const statusBaru = parseStatus(body.status_servis);
-
-let estimasiWaktu: Date | null = null;
-
-if (typeof body.estimasi_waktu === "string" && body.estimasi_waktu.trim() !== "") {
-  const parsedEstimasiWaktu = new Date(body.estimasi_waktu.trim());
-
-  if (Number.isNaN(parsedEstimasiWaktu.getTime())) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Estimasi waktu harus berupa tanggal dan waktu yang valid",
-      },
-      { status: 400 }
-    );
-  }
-
-  estimasiWaktu = parsedEstimasiWaktu;
-}
+    const estimasiWaktu = parseEstimasiWaktu(body.estimasi_waktu);
 
     if (!statusBaru) {
       return NextResponse.json(
@@ -137,20 +159,49 @@ if (typeof body.estimasi_waktu === "string" && body.estimasi_waktu.trim() !== ""
               not: null,
             },
           },
+          include: {
+            sparepart: true,
+          },
         });
 
-        for (const detail of detailSparepartList) {
-          if (detail.id_sparepart) {
-            await tx.sparepart.update({
-              where: {
-                id: detail.id_sparepart,
-              },
-              data: {
-                stock: {
-                  increment: detail.jumlah,
+        if (detailSparepartList.length > 0) {
+          const stockMutasi = await tx.stock_mutasi.create({
+            data: {
+              id_user: BigInt(session.id),
+              id_supplier: null,
+              jenis_mutasi: "Barang Masuk",
+              tanggal_mutasi: new Date(),
+              keterangan: [
+                "Sumber: Pembatalan Tiket Servis",
+                `No. Tiket: ${tiket.nomor_tiket}`,
+                `Pelanggan: ${tiket.nama_cust}`,
+                "Keterangan: Tiket dibatalkan sehingga sparepart yang sudah keluar dikembalikan ke stok",
+              ].join("\n"),
+            },
+          });
+
+          for (const detail of detailSparepartList) {
+            if (detail.id_sparepart) {
+              await tx.sparepart.update({
+                where: {
+                  id: detail.id_sparepart,
                 },
-              },
-            });
+                data: {
+                  stock: {
+                    increment: detail.jumlah,
+                  },
+                },
+              });
+
+              await tx.detail_stock_mutasi.create({
+                data: {
+                  id_stock_mutasi: stockMutasi.id,
+                  id_barang: null,
+                  id_sparepart: detail.id_sparepart,
+                  jumlah: detail.jumlah,
+                },
+              });
+            }
           }
         }
       }
@@ -209,22 +260,37 @@ if (typeof body.estimasi_waktu === "string" && body.estimasi_waktu.trim() !== ""
       success: true,
       message:
         statusBaru === tiket_servis_status_servis.Dibatalkan
-          ? "Tiket servis berhasil dibatalkan dan stok sparepart dikembalikan"
+          ? "Tiket servis berhasil dibatalkan, stok sparepart dikembalikan, dan tercatat sebagai Barang Masuk"
           : "Status dan estimasi waktu servis berhasil diperbarui",
       data: serializeData(result),
     });
   } catch (error) {
     console.error("PUT STATUS TEKNISI ERROR:", error);
 
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal memperbarui status servis";
+
+    const status = message.includes("Unauthorized")
+      ? 401
+      : message.includes("Forbidden")
+      ? 403
+      : message.includes("tidak ditemukan")
+      ? 404
+      : message.includes("tidak valid") ||
+        message.includes("belum diterima") ||
+        message.includes("tidak boleh") ||
+        message.includes("Estimasi waktu")
+      ? 400
+      : 500;
+
     return NextResponse.json(
       {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Gagal memperbarui status servis",
+        message,
       },
-      { status: 500 }
+      { status }
     );
   }
 }

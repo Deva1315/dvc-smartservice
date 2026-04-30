@@ -5,6 +5,12 @@ import { getAuthSession } from "@/lib/auth/get-auth-session";
 
 export const runtime = "nodejs";
 
+type RouteParams = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
 function serializeData(data: unknown) {
   return JSON.parse(
     JSON.stringify(data, (_, value) => {
@@ -24,12 +30,6 @@ function serializeData(data: unknown) {
     })
   );
 }
-
-type RouteParams = {
-  params: Promise<{
-    id: string;
-  }>;
-};
 
 function normalizeRole(roleName: string) {
   return roleName.toLowerCase().replace(/\s+/g, "_");
@@ -152,6 +152,32 @@ function buildTransaksiResponse(transaksi: TransaksiWithRelations) {
   };
 }
 
+async function findTransaksiById(idTransaksi: bigint) {
+  return prisma.transaksi_penjualan.findUnique({
+    where: {
+      id: idTransaksi,
+    },
+    include: {
+      users: {
+        select: {
+          id: true,
+          nama: true,
+          email: true,
+        },
+      },
+      detail_transaksi: {
+        include: {
+          barang: {
+            include: {
+              kategori_barang: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     await requireAdminPenjualanSession();
@@ -159,29 +185,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const idTransaksi = parseBigIntId(id);
 
-    const transaksi = await prisma.transaksi_penjualan.findUnique({
-      where: {
-        id: idTransaksi,
-      },
-      include: {
-        users: {
-          select: {
-            id: true,
-            nama: true,
-            email: true,
-          },
-        },
-        detail_transaksi: {
-          include: {
-            barang: {
-              include: {
-                kategori_barang: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const transaksi = await findTransaksiById(idTransaksi);
 
     if (!transaksi) {
       return NextResponse.json(
@@ -211,6 +215,96 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       : message.includes("Forbidden")
       ? 403
       : message.includes("tidak valid")
+      ? 400
+      : 500;
+
+    return NextResponse.json(
+      {
+        success: false,
+        message,
+      },
+      { status }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await requireAdminPenjualanSession();
+
+    const { id } = await params;
+    const idTransaksi = parseBigIntId(id);
+
+    const body = await request.json().catch(() => ({}));
+    const action = String(body.action ?? body.status ?? "cancel").trim();
+
+    if (action !== "cancel") {
+      throw new Error("Aksi transaksi tidak valid");
+    }
+
+    const transaksi = await prisma.transaksi_penjualan.findUnique({
+      where: {
+        id: idTransaksi,
+      },
+      include: {
+        detail_transaksi: true,
+      },
+    });
+
+    if (!transaksi) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Draft transaksi POS tidak ditemukan",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (transaksi.id_user !== BigInt(session.id)) {
+      throw new Error("Forbidden. Transaksi ini bukan milik sesi admin saat ini.");
+    }
+
+    if (transaksi.status_transaksi === "Dibayar") {
+      throw new Error("Transaksi yang sudah dibayar tidak dapat dibatalkan.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.detail_transaksi.deleteMany({
+        where: {
+          id_transaksi: idTransaksi,
+        },
+      });
+
+      await tx.transaksi_penjualan.delete({
+        where: {
+          id: idTransaksi,
+        },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Draft transaksi POS berhasil dihapus.",
+      data: null,
+    });
+  } catch (error) {
+    console.error("PATCH DETAIL POS TRANSAKSI ERROR:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Gagal membatalkan transaksi POS";
+
+    const status = message.includes("Unauthorized")
+      ? 401
+      : message.includes("Forbidden")
+      ? 403
+      : message.includes("tidak ditemukan")
+      ? 404
+      : message.includes("tidak valid") ||
+        message.includes("tidak dapat") ||
+        message.includes("sudah dibayar")
       ? 400
       : 500;
 

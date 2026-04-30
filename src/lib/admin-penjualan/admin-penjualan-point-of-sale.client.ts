@@ -58,6 +58,7 @@ export type POSTransaksiApiItem = {
 };
 
 export type CreatePOSTransaksiPayload = {
+  id_transaksi?: string;
   metode_transaksi: POSMetodePembayaran;
   diskon_transaksi?: number;
   nominal_bayar?: number;
@@ -127,6 +128,26 @@ export async function getPOSTransaksi(params?: {
   return result;
 }
 
+export async function buatDraftPOSTransaksi() {
+  const response = await fetch(`${BASE_URL}/transaksi`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "create_draft",
+    }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Gagal membuat draft transaksi POS");
+  }
+
+  return result;
+}
+
 export async function simpanPOSTransaksi(payload: CreatePOSTransaksiPayload) {
   const response = await fetch(`${BASE_URL}/transaksi`, {
     method: "POST",
@@ -140,6 +161,36 @@ export async function simpanPOSTransaksi(payload: CreatePOSTransaksiPayload) {
 
   if (!response.ok) {
     throw new Error(result.message || "Gagal menyimpan transaksi POS");
+  }
+
+  return result;
+}
+
+export async function bayarPOSTransaksi(
+  idTransaksi: string,
+  payload: Omit<CreatePOSTransaksiPayload, "id_transaksi">
+) {
+  return simpanPOSTransaksi({
+    ...payload,
+    id_transaksi: idTransaksi,
+  });
+}
+
+export async function batalPOSTransaksi(id: string) {
+  const response = await fetch(`${BASE_URL}/transaksi/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "cancel",
+    }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Gagal membatalkan transaksi POS");
   }
 
   return result;

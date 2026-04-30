@@ -6,6 +6,11 @@ export type PublicDropPointApiRow = {
   jam_operasional: string | null;
 };
 
+export type PublicNearestDropPointApiRow = PublicDropPointApiRow & {
+  jarak_km: number | string | null;
+  jarak_label: string | null;
+};
+
 export type GetPublicDropPointListResponse =
   | {
       success: true;
@@ -22,6 +27,17 @@ export type GetPublicDropPointDetailResponse =
       success: true;
       message: string;
       dropPoint: PublicDropPointApiRow;
+    }
+  | {
+      success: false;
+      message: string;
+    };
+
+export type GetNearestPublicDropPointListResponse =
+  | {
+      success: true;
+      message: string;
+      dropPoints: PublicNearestDropPointApiRow[];
     }
   | {
       success: false;
@@ -65,3 +81,31 @@ export async function getPublicDropPointDetailRequest(
 
   return data as GetPublicDropPointDetailResponse;
 }
+
+export async function getNearestPublicDropPointListRequest(params: {
+  alamatCustomer: string;
+}): Promise<GetNearestPublicDropPointListResponse> {
+  const searchParams = new URLSearchParams({
+    alamat_customer: params.alamatCustomer,
+  });
+
+  const response = await fetch(
+    `/api/public/drop-point/nearest?${searchParams.toString()}`,
+    {
+      method: "GET",
+      cache: "no-store",
+    }
+  );
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    return {
+      success: false,
+      message: data?.message ?? "Gagal menghitung drop point terdekat.",
+    };
+  }
+
+  return data as GetNearestPublicDropPointListResponse;
+}
+

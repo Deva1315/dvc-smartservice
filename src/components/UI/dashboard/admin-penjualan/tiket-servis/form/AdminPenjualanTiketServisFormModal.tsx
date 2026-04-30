@@ -98,6 +98,7 @@ export default function TiketServisFormModal({
   opened,
   onClose,
   formType,
+  nomorTiket,
   tanggalMasuk,
   dropPointOptions,
   initialData = null,
@@ -183,6 +184,11 @@ export default function TiketServisFormModal({
       return;
     }
 
+    if (formType === "create" && !nomorTiket.trim()) {
+  alert("Nomor tiket sedang disiapkan. Mohon tunggu sebentar.");
+  return;
+}
+
     if (form.gunakan_drop_point === "ya" && !form.drop_point_id) {
       alert("Mohon pilih drop point terlebih dahulu.");
       return;
@@ -196,8 +202,10 @@ export default function TiketServisFormModal({
 
     const payload: TicketRow = {
       id: formType === "edit" && initialData ? initialData.id : undefined,
-      nomor_tiket:
-        formType === "edit" && initialData ? initialData.nomor_tiket : "",
+nomor_tiket:
+  formType === "edit" && initialData
+    ? initialData.nomor_tiket
+    : nomorTiket.trim(),
       tanggal_masuk: toDate(tanggal),
       nama_cust: form.nama_cust.trim(),
       phone_cust: form.phone_cust.trim(),
@@ -238,8 +246,10 @@ export default function TiketServisFormModal({
 
   const submitLabel = formType === "create" ? "Simpan" : "Update";
 
-  const displayNoTiket =
-    formType === "edit" && initialData ? initialData.nomor_tiket : "";
+const displayNoTiket =
+  formType === "edit" && initialData
+    ? initialData.nomor_tiket
+    : nomorTiket || "Menyiapkan nomor tiket...";
 
   return (
     <Modal

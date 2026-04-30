@@ -27,7 +27,7 @@ type PosProductTableProps = {
   isLoading: boolean;
   isSubmitting: boolean;
   formatRupiah: (value: number) => string;
-  onTambahBarang: (barang: Barang) => void;
+  onTambahBarang: (barang: Barang) => void | Promise<void>;
 };
 
 export default function PosProductTable({

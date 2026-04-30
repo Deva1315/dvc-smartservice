@@ -62,8 +62,7 @@ function formatDisplayDate(value: string) {
 }
 
 function getSelisihColor(value: number) {
-  if (value > 0) return "green";
-  if (value < 0) return "yellow";
+  if (Math.abs(value) > 0) return "yellow";
   return "gray";
 }
 
@@ -74,7 +73,7 @@ function mapStokOpname(data: StokOpnameApiItem[]): StokOpnameRow[] {
     tanggalOpname: item.tanggal_opname,
     idUser: item.id_user,
     userName: item.users?.nama || "-",
-    selisihStock: Number(item.selisih_stock || 0),
+    selisihStock: Math.abs(Number(item.selisih_stock || 0)),
     keterangan: item.keterangan,
     items: item.detail_stock_opname.map((detail) => {
       if (detail.id_barang && detail.barang) {
@@ -84,7 +83,7 @@ function mapStokOpname(data: StokOpnameApiItem[]): StokOpnameRow[] {
           namaItem: `${detail.barang.nama_barang} - ${detail.barang.kode_barang}`,
           stokSistem: Number(detail.stock_sistem || 0),
           stokFisik: Number(detail.stock_fisik || 0),
-          selisih: Number(detail.selisih || 0),
+          selisih: Math.abs(Number(detail.selisih || 0)),
           keterangan: detail.keterangan,
         };
       }
@@ -97,7 +96,7 @@ function mapStokOpname(data: StokOpnameApiItem[]): StokOpnameRow[] {
           : "-",
         stokSistem: Number(detail.stock_sistem || 0),
         stokFisik: Number(detail.stock_fisik || 0),
-        selisih: Number(detail.selisih || 0),
+        selisih: Math.abs(Number(detail.selisih || 0)),
         keterangan: detail.keterangan,
       };
     }),
@@ -183,13 +182,13 @@ export default function StokOpnamePage() {
       width: "14%",
       align: "center",
       render: (row) => (
-        <Badge
-          color={getSelisihColor(row.selisihStock)}
-          variant="light"
-          radius="sm"
-        >
-          {row.selisihStock > 0 ? `+${row.selisihStock}` : row.selisihStock}
-        </Badge>
+<Badge
+  color={getSelisihColor(row.selisihStock)}
+  variant="light"
+  radius="sm"
+>
+  {Math.abs(row.selisihStock)}
+</Badge>
       ),
     },
     {

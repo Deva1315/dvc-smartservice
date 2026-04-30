@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Group, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import PosProductTable from "@/components/UI/dashboard/admin-penjualan/point-of-sale/components/PosProductTable";
@@ -9,8 +10,10 @@ import PosCheckoutPanel from "@/components/UI/dashboard/admin-penjualan/point-of
 import type { InvoicePenjualanData } from "@/components/UI/dashboard/admin-penjualan/point-of-sale/InvoicePenjualanPDF";
 import { getCurrentSession } from "@/lib/auth/auth.client";
 import {
+  batalPOSTransaksi,
+  bayarPOSTransaksi,
+  buatDraftPOSTransaksi,
   getPOSBarang,
-  simpanPOSTransaksi,
   type POSBarangApiItem,
   type POSMetodePembayaran,
   type POSTransaksiApiItem,
@@ -26,6 +29,12 @@ type Barang = {
 
 type CartItem = Barang & {
   qty: number;
+};
+
+type ActiveTransaksi = {
+  id: string;
+  nomor_transaksi: string;
+  tanggal_transaksi: string;
 };
 
 function formatRupiah(value: number) {
@@ -74,6 +83,16 @@ function mapBarangApiToBarang(item: POSBarangApiItem): Barang {
   };
 }
 
+function mapTransaksiToActiveTransaksi(
+  transaksi: POSTransaksiApiItem
+): ActiveTransaksi {
+  return {
+    id: String(transaksi.id),
+    nomor_transaksi: transaksi.nomor_transaksi,
+    tanggal_transaksi: String(transaksi.tanggal_transaksi),
+  };
+}
+
 function mapTransaksiToInvoiceData(
   transaksi: POSTransaksiApiItem
 ): InvoicePenjualanData {
@@ -103,8 +122,16 @@ export default function AdminPenjualanPointOfSalePage() {
   const [adminName, setAdminName] = useState("-");
   const [isLoadingBarang, setIsLoadingBarang] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreparingTransaksi, setIsPreparingTransaksi] = useState(false);
+  const [activeTransaksi, setActiveTransaksi] =
+    useState<ActiveTransaksi | null>(null);
   const [lastInvoiceData, setLastInvoiceData] =
     useState<InvoicePenjualanData | null>(null);
+
+  const hasPreparedInitialTransaksiRef = useRef(false);
+  const draftRequestRef = useRef<Promise<ActiveTransaksi> | null>(null);
+
+  const isTransactionBusy = isSubmitting || isPreparingTransaksi;
 
   const filteredBarang = useMemo(() => {
     const keyword = search.toLowerCase().trim();
@@ -130,12 +157,64 @@ export default function AdminPenjualanPointOfSalePage() {
     metodePembayaran === "Cash" ? Math.max(nominalBayarNumber - total, 0) : 0;
 
   const nomorTransaksiPreview =
-    lastInvoiceData?.nomorTransaksi || "Otomatis setelah bayar";
+    lastInvoiceData?.nomorTransaksi ||
+    activeTransaksi?.nomor_transaksi ||
+    "Menyiapkan nomor INV...";
 
   const tanggalPreview =
-    lastInvoiceData?.tanggal || formatDateDisplay(new Date());
+    lastInvoiceData?.tanggal ||
+    formatDateDisplay(activeTransaksi?.tanggal_transaksi || new Date());
 
   const adminPreview = lastInvoiceData?.admin || adminName;
+
+  async function createDraftTransaksi() {
+    if (draftRequestRef.current) {
+      return draftRequestRef.current;
+    }
+
+    const draftPromise = buatDraftPOSTransaksi()
+      .then((result) => {
+        const transaksi = result.data as POSTransaksiApiItem;
+        const nextActiveTransaksi = mapTransaksiToActiveTransaksi(transaksi);
+
+        setActiveTransaksi(nextActiveTransaksi);
+
+        return nextActiveTransaksi;
+      })
+      .finally(() => {
+        draftRequestRef.current = null;
+      });
+
+    draftRequestRef.current = draftPromise;
+
+    return draftPromise;
+  }
+
+  async function prepareInitialTransaksi(force = false) {
+    if (!force && hasPreparedInitialTransaksiRef.current) {
+      return;
+    }
+
+    try {
+      hasPreparedInitialTransaksiRef.current = true;
+      setIsPreparingTransaksi(true);
+
+      await createDraftTransaksi();
+    } catch (error) {
+      hasPreparedInitialTransaksiRef.current = false;
+
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal membuat nomor transaksi POS.",
+        color: "red",
+      });
+    } finally {
+      setIsPreparingTransaksi(false);
+    }
+  }
 
   async function fetchBarang() {
     try {
@@ -172,6 +251,7 @@ export default function AdminPenjualanPointOfSalePage() {
   useEffect(() => {
     fetchBarang();
     fetchSession();
+    prepareInitialTransaksi();
   }, []);
 
   function clearLastInvoice() {
@@ -180,7 +260,22 @@ export default function AdminPenjualanPointOfSalePage() {
     }
   }
 
-  function handleTambahBarang(barang: Barang) {
+  async function ensureDraftTransaksi() {
+    if (activeTransaksi && !lastInvoiceData) {
+      return activeTransaksi;
+    }
+
+    try {
+      setIsPreparingTransaksi(true);
+      hasPreparedInitialTransaksiRef.current = true;
+
+      return await createDraftTransaksi();
+    } finally {
+      setIsPreparingTransaksi(false);
+    }
+  }
+
+  async function handleTambahBarang(barang: Barang) {
     clearLastInvoice();
 
     if (barang.stok <= 0) {
@@ -192,26 +287,40 @@ export default function AdminPenjualanPointOfSalePage() {
       return;
     }
 
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === barang.id);
+    try {
+      await ensureDraftTransaksi();
 
-      if (existing) {
-        if (existing.qty + 1 > barang.stok) {
-          notifications.show({
-            title: "Stok tidak cukup",
-            message: "Jumlah melebihi stok barang.",
-            color: "red",
-          });
-          return prev;
+      setCart((prev) => {
+        const existing = prev.find((item) => item.id === barang.id);
+
+        if (existing) {
+          if (existing.qty + 1 > barang.stok) {
+            notifications.show({
+              title: "Stok tidak cukup",
+              message: "Jumlah melebihi stok barang.",
+              color: "red",
+            });
+
+            return prev;
+          }
+
+          return prev.map((item) =>
+            item.id === barang.id ? { ...item, qty: item.qty + 1 } : item
+          );
         }
 
-        return prev.map((item) =>
-          item.id === barang.id ? { ...item, qty: item.qty + 1 } : item
-        );
-      }
-
-      return [...prev, { ...barang, qty: 1 }];
-    });
+        return [...prev, { ...barang, qty: 1 }];
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal membuat nomor transaksi POS.",
+        color: "red",
+      });
+    }
   }
 
   function handleChangeQty(id: string, value: number | string) {
@@ -253,12 +362,47 @@ export default function AdminPenjualanPointOfSalePage() {
     setCart((prev) => prev.filter((item) => item.id !== id));
   }
 
-  function handleBatal() {
-    setCart([]);
-    setDiskon(0);
-    setNominalBayar(0);
-    setMetodePembayaran("Cash");
-    setLastInvoiceData(null);
+  async function handleBatal() {
+    const draftTransaksiId = activeTransaksi?.id;
+    const isAfterPayment = Boolean(lastInvoiceData);
+    const shouldDeleteDraft = Boolean(draftTransaksiId && !isAfterPayment);
+
+    try {
+      setIsSubmitting(true);
+
+      if (shouldDeleteDraft && draftTransaksiId) {
+        await batalPOSTransaksi(draftTransaksiId);
+      }
+
+      setCart([]);
+      setDiskon(0);
+      setNominalBayar(0);
+      setMetodePembayaran("Cash");
+      setActiveTransaksi(null);
+      setLastInvoiceData(null);
+
+      hasPreparedInitialTransaksiRef.current = false;
+      await prepareInitialTransaksi(true);
+
+      notifications.show({
+        title: isAfterPayment ? "Transaksi baru" : "Transaksi dibatalkan",
+        message: isAfterPayment
+          ? "Nomor transaksi baru berhasil dibuat."
+          : "Draft transaksi dihapus dan nomor transaksi baru berhasil dibuat.",
+        color: "green",
+      });
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal membatalkan transaksi POS.",
+        color: "red",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleChangeDiskon(value: number | string) {
@@ -289,6 +433,7 @@ export default function AdminPenjualanPointOfSalePage() {
         message: "Keranjang masih kosong.",
         color: "red",
       });
+
       return false;
     }
 
@@ -298,6 +443,7 @@ export default function AdminPenjualanPointOfSalePage() {
         message: "Diskon tidak boleh melebihi subtotal.",
         color: "red",
       });
+
       return false;
     }
 
@@ -307,6 +453,7 @@ export default function AdminPenjualanPointOfSalePage() {
         message: "Nominal bayar belum mencukupi.",
         color: "red",
       });
+
       return false;
     }
 
@@ -323,7 +470,9 @@ export default function AdminPenjualanPointOfSalePage() {
     try {
       setIsSubmitting(true);
 
-      const result = await simpanPOSTransaksi({
+      const draftTransaksi = activeTransaksi || (await ensureDraftTransaksi());
+
+      const result = await bayarPOSTransaksi(draftTransaksi.id, {
         metode_transaksi: metodePembayaran,
         diskon_transaksi: diskonNumber,
         nominal_bayar: nominalBayarNumber,
@@ -337,17 +486,18 @@ export default function AdminPenjualanPointOfSalePage() {
       const invoiceData = mapTransaksiToInvoiceData(transaksi);
 
       setLastInvoiceData(invoiceData);
+      setActiveTransaksi(null);
       setCart([]);
       setDiskon(0);
       setNominalBayar(0);
       setMetodePembayaran("Cash");
+      hasPreparedInitialTransaksiRef.current = false;
 
       await fetchBarang();
 
       notifications.show({
         title: "Berhasil",
-        message:
-          "Transaksi POS berhasil disimpan. Invoice sudah siap dicetak.",
+        message: "Transaksi POS berhasil dibayar. Invoice sudah siap dicetak.",
         color: "green",
       });
     } catch (error) {
@@ -378,14 +528,14 @@ export default function AdminPenjualanPointOfSalePage() {
             onSearchChange={setSearch}
             data={filteredBarang}
             isLoading={isLoadingBarang}
-            isSubmitting={isSubmitting}
+            isSubmitting={isTransactionBusy}
             formatRupiah={formatRupiah}
             onTambahBarang={handleTambahBarang}
           />
 
           <PosCartTable
             cart={cart}
-            isSubmitting={isSubmitting}
+            isSubmitting={isTransactionBusy}
             formatRupiah={formatRupiah}
             onChangeQty={handleChangeQty}
             onHapusItem={handleHapusItem}
@@ -405,7 +555,7 @@ export default function AdminPenjualanPointOfSalePage() {
         metodePembayaran={metodePembayaran}
         nominalBayar={nominalBayar}
         kembalian={kembalian}
-        isSubmitting={isSubmitting}
+        isSubmitting={isTransactionBusy}
         formatRupiah={formatRupiah}
         formatRupiahPrefix={formatRupiahPrefix}
         onChangeDiskon={handleChangeDiskon}
