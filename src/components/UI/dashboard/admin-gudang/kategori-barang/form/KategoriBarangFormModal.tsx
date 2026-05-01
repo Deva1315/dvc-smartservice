@@ -14,6 +14,10 @@ import {
 } from "@mantine/core";
 import type { FormType } from "@/types/form-types";
 import FormFieldLabel from "@/components/UI/common/form/FormFieldLabel";
+import {
+  kategoriBarangFormSchema,
+  validateWithZod,
+} from "@/lib/validations";
 
 export type KategoriBarangFormInitialData = {
   id: string;
@@ -85,6 +89,13 @@ export default function KategoriBarangFormModal({
     setErrors({});
   }, [opened, formType, initialData]);
 
+  function clearFieldError(field: string) {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  }
+
   function handleChange<K extends keyof KategoriBarangFormState>(
     key: K,
     value: KategoriBarangFormState[K]
@@ -93,6 +104,8 @@ export default function KategoriBarangFormModal({
       ...prev,
       [key]: value,
     }));
+
+    clearFieldError(key);
   }
 
   function handleReset() {
@@ -101,27 +114,30 @@ export default function KategoriBarangFormModal({
   }
 
   function validate() {
-    const nextErrors: Record<string, string> = {};
+    const parsed = validateWithZod(kategoriBarangFormSchema, form);
 
-    if (!form.nama.trim()) {
-      nextErrors.nama = "Nama wajib diisi";
+    if (!parsed.success) {
+      setErrors(parsed.errors);
+      return null;
     }
 
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    setErrors({});
+    return parsed.data;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!validate()) {
+    const validated = validate();
+
+    if (!validated) {
       return;
     }
 
     const success = await onSubmit(
       {
-        nama: form.nama.trim(),
-        deskripsi: form.deskripsi.trim() ? form.deskripsi.trim() : null,
+        nama: validated.nama,
+        deskripsi: validated.deskripsi ?? null,
       },
       formType
     );
@@ -179,6 +195,7 @@ export default function KategoriBarangFormModal({
           <Stack gap={28}>
             <Stack gap={8}>
               <FormFieldLabel label="Nama" required size="lg" color="#6B7280" />
+
               <TextInput
                 value={form.nama}
                 onChange={(event) =>
@@ -190,10 +207,14 @@ export default function KategoriBarangFormModal({
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.nama ? "1px solid #FA5252" : "none",
                     height: 58,
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />
@@ -201,6 +222,7 @@ export default function KategoriBarangFormModal({
 
             <Stack gap={8}>
               <FormFieldLabel label="Deskripsi" size="lg" color="#6B7280" />
+
               <Textarea
                 value={form.deskripsi}
                 onChange={(event) =>
@@ -210,12 +232,17 @@ export default function KategoriBarangFormModal({
                 minRows={10}
                 radius="md"
                 disabled={isSubmitting}
+                error={errors.deskripsi}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.deskripsi ? "1px solid #FA5252" : "none",
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />

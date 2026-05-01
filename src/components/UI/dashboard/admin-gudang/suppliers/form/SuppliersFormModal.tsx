@@ -14,18 +14,19 @@ import {
 } from "@mantine/core";
 import type { FormType } from "@/types/form-types";
 import FormFieldLabel from "@/components/UI/common/form/FormFieldLabel";
+import { suppliersFormSchema, validateWithZod } from "@/lib/validations";
 
 export type SuppliersFormInitialData = {
   id: string;
   nama: string;
   address: string | null;
-  phone: string;
+  phone: string | null;
 };
 
 export type SuppliersFormPayload = {
   nama: string;
   address: string | null;
-  phone: string;
+  phone: string | null;
 };
 
 type SuppliersFormModalProps = {
@@ -78,7 +79,7 @@ export default function SuppliersFormModal({
       setForm({
         nama: initialData.nama,
         address: initialData.address ?? "",
-        phone: initialData.phone,
+        phone: initialData.phone ?? "",
       });
       setErrors({});
       return;
@@ -88,6 +89,13 @@ export default function SuppliersFormModal({
     setErrors({});
   }, [opened, formType, initialData]);
 
+  function clearFieldError(field: string) {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  }
+
   function handleChange<K extends keyof SuppliersFormState>(
     key: K,
     value: SuppliersFormState[K]
@@ -96,6 +104,8 @@ export default function SuppliersFormModal({
       ...prev,
       [key]: value,
     }));
+
+    clearFieldError(key);
   }
 
   function handleReset() {
@@ -104,32 +114,31 @@ export default function SuppliersFormModal({
   }
 
   function validate() {
-    const nextErrors: Record<string, string> = {};
+    const parsed = validateWithZod(suppliersFormSchema, form);
 
-    if (!form.nama.trim()) {
-      nextErrors.nama = "Nama wajib diisi";
+    if (!parsed.success) {
+      setErrors(parsed.errors);
+      return null;
     }
 
-    if (!form.phone.trim()) {
-      nextErrors.phone = "No HP wajib diisi";
-    }
-
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    setErrors({});
+    return parsed.data;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!validate()) {
+    const validated = validate();
+
+    if (!validated) {
       return;
     }
 
     const success = await onSubmit(
       {
-        nama: form.nama.trim(),
-        address: form.address.trim() ? form.address.trim() : null,
-        phone: form.phone.trim(),
+        nama: validated.nama,
+        address: validated.address ?? null,
+        phone: validated.phone ?? null,
       },
       formType
     );
@@ -187,6 +196,7 @@ export default function SuppliersFormModal({
           <Stack gap={28}>
             <Stack gap={8}>
               <FormFieldLabel label="Nama" required size="lg" color="#6B7280" />
+
               <TextInput
                 value={form.nama}
                 onChange={(event) =>
@@ -198,17 +208,22 @@ export default function SuppliersFormModal({
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.nama ? "1px solid #FA5252" : "none",
                     height: 58,
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />
             </Stack>
 
             <Stack gap={8}>
-              <FormFieldLabel label="No HP" required size="lg" color="#6B7280" />
+              <FormFieldLabel label="No HP" size="lg" color="#6B7280" />
+
               <TextInput
                 value={form.phone}
                 onChange={(event) =>
@@ -217,13 +232,18 @@ export default function SuppliersFormModal({
                 radius="md"
                 disabled={isSubmitting}
                 error={errors.phone}
+                placeholder="Contoh: 081234567890"
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.phone ? "1px solid #FA5252" : "none",
                     height: 58,
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />
@@ -231,6 +251,7 @@ export default function SuppliersFormModal({
 
             <Stack gap={8}>
               <FormFieldLabel label="Alamat" size="lg" color="#6B7280" />
+
               <Textarea
                 value={form.address}
                 onChange={(event) =>
@@ -240,12 +261,17 @@ export default function SuppliersFormModal({
                 minRows={8}
                 radius="md"
                 disabled={isSubmitting}
+                error={errors.address}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.address ? "1px solid #FA5252" : "none",
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />

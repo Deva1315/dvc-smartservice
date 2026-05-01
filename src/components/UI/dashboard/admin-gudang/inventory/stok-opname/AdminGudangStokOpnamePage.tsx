@@ -182,13 +182,13 @@ export default function StokOpnamePage() {
       width: "14%",
       align: "center",
       render: (row) => (
-<Badge
-  color={getSelisihColor(row.selisihStock)}
-  variant="light"
-  radius="sm"
->
-  {Math.abs(row.selisihStock)}
-</Badge>
+        <Badge
+          color={getSelisihColor(row.selisihStock)}
+          variant="light"
+          radius="sm"
+        >
+          {Math.abs(row.selisihStock)}
+        </Badge>
       ),
     },
     {

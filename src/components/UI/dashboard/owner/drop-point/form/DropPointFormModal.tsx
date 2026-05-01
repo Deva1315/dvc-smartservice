@@ -6,12 +6,14 @@ import {
   Button,
   Group,
   Modal,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
   Textarea,
 } from "@mantine/core";
 import type { FormType } from "@/types/form-types";
+import { dropPointFormSchema, validateWithZod } from "@/lib/validations";
 
 export type DropPointFormInitialData = {
   id?: string;
@@ -61,10 +63,13 @@ export default function DropPointFormModal({
   onSubmit,
 }: DropPointFormModalProps) {
   const [form, setForm] = useState<FormState>(initialForm);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!opened) return;
+
+    setErrors({});
 
     if (formType === "edit" && initialData) {
       setForm({
@@ -79,14 +84,28 @@ export default function DropPointFormModal({
     setForm(initialForm);
   }, [opened, formType, initialData]);
 
-  const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+  const clearFieldError = (field: string) => {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  };
+
+  const handleChange = <K extends keyof FormState>(
+    key: K,
+    value: FormState[K]
+  ) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
+
+    clearFieldError(key);
   };
 
   const handleReset = () => {
+    setErrors({});
+
     if (formType === "edit" && initialData) {
       setForm({
         nama_drop_point: initialData.nama_drop_point,
@@ -103,18 +122,20 @@ export default function DropPointFormModal({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!form.nama_drop_point.trim() || !form.alamat.trim()) {
-      alert("Nama drop point dan alamat wajib diisi.");
+    const parsed = validateWithZod(dropPointFormSchema, form);
+
+    if (!parsed.success) {
+      setErrors(parsed.errors);
       return;
     }
 
+    setErrors({});
+
     const payload: DropPointFormPayload = {
-      nama_drop_point: form.nama_drop_point.trim(),
-      alamat: form.alamat.trim(),
-      phone: form.phone.trim() ? form.phone.trim() : null,
-      jam_operasional: form.jam_operasional.trim()
-        ? form.jam_operasional.trim()
-        : null,
+      nama_drop_point: parsed.data.nama_drop_point,
+      alamat: parsed.data.alamat,
+      phone: parsed.data.phone ?? null,
+      jam_operasional: parsed.data.jam_operasional ?? null,
     };
 
     try {
@@ -177,71 +198,95 @@ export default function DropPointFormModal({
         }}
       >
         <form onSubmit={handleSubmit}>
-          <Stack gap={24}>
-            <Stack gap={8}>
-              <Text fw={700} c="#6B7280" size="lg">
-                Nama Drop Point <span style={{ color: "red" }}>*</span>
-              </Text>
-              <TextInput
-                value={form.nama_drop_point}
-                onChange={(event) =>
-                  handleChange("nama_drop_point", event.currentTarget.value)
-                }
-                radius="md"
-                disabled={isSubmitting}
-                styles={{
-                  input: {
-                    backgroundColor: "#FFFFFF",
-                    border: "none",
-                    height: 58,
-                    fontSize: 18,
-                    color: "#111111",
-                  },
-                }}
-              />
-            </Stack>
+          <Stack gap={28}>
+            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+              <Stack gap={8}>
+                <Text fw={700} c="#6B7280" size="lg">
+                  Nama Drop Point <span style={{ color: "red" }}>*</span>
+                </Text>
+
+                <TextInput
+                  value={form.nama_drop_point}
+                  onChange={(event) =>
+                    handleChange("nama_drop_point", event.currentTarget.value)
+                  }
+                  radius="md"
+                  disabled={isSubmitting}
+                  error={errors.nama_drop_point}
+                  styles={{
+                    input: {
+                      backgroundColor: "#FFFFFF",
+                      border: errors.nama_drop_point
+                        ? "1px solid #FA5252"
+                        : "none",
+                      height: 58,
+                      fontSize: 18,
+                      color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
+                    },
+                  }}
+                />
+              </Stack>
+
+              <Stack gap={8}>
+                <Text fw={700} c="#6B7280" size="lg">
+                  No HP
+                </Text>
+
+                <TextInput
+                  value={form.phone}
+                  onChange={(event) =>
+                    handleChange("phone", event.currentTarget.value)
+                  }
+                  radius="md"
+                  disabled={isSubmitting}
+                  error={errors.phone}
+                  placeholder="Contoh: 081234567890"
+                  styles={{
+                    input: {
+                      backgroundColor: "#FFFFFF",
+                      border: errors.phone ? "1px solid #FA5252" : "none",
+                      height: 58,
+                      fontSize: 18,
+                      color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
+                    },
+                  }}
+                />
+              </Stack>
+            </SimpleGrid>
 
             <Stack gap={8}>
               <Text fw={700} c="#6B7280" size="lg">
                 Alamat <span style={{ color: "red" }}>*</span>
               </Text>
+
               <Textarea
                 value={form.alamat}
                 onChange={(event) =>
                   handleChange("alamat", event.currentTarget.value)
                 }
-                minRows={4}
+                placeholder="Masukkan alamat drop point..."
+                minRows={6}
                 radius="md"
                 disabled={isSubmitting}
+                error={errors.alamat}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.alamat ? "1px solid #FA5252" : "none",
                     fontSize: 18,
                     color: "#111111",
                   },
-                }}
-              />
-            </Stack>
-
-            <Stack gap={8}>
-              <Text fw={700} c="#6B7280" size="lg">
-                Phone
-              </Text>
-              <TextInput
-                value={form.phone}
-                onChange={(event) =>
-                  handleChange("phone", event.currentTarget.value)
-                }
-                radius="md"
-                disabled={isSubmitting}
-                styles={{
-                  input: {
-                    backgroundColor: "#FFFFFF",
-                    border: "none",
-                    height: 58,
-                    fontSize: 18,
-                    color: "#111111",
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />
@@ -251,21 +296,29 @@ export default function DropPointFormModal({
               <Text fw={700} c="#6B7280" size="lg">
                 Jam Operasional
               </Text>
+
               <Textarea
                 value={form.jam_operasional}
                 onChange={(event) =>
                   handleChange("jam_operasional", event.currentTarget.value)
                 }
-                placeholder={"Contoh:\nSen-Jum: 08:00-17:00\nSab: 08:00-14:00"}
+                placeholder="Contoh: Senin - Sabtu, 08.00 - 17.00"
                 minRows={4}
                 radius="md"
                 disabled={isSubmitting}
+                error={errors.jam_operasional}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.jam_operasional
+                      ? "1px solid #FA5252"
+                      : "none",
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />

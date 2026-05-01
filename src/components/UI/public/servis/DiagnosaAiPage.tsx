@@ -25,7 +25,6 @@ import {
   IconMapPin,
   IconPhone,
   IconPhotoPlus,
-  IconRefresh,
   IconSend,
   IconX,
 } from "@tabler/icons-react";
@@ -173,22 +172,6 @@ export default function DiagnosaAiPage() {
     } finally {
       inputElement.value = "";
     }
-  };
-
-  const handleResetChat = () => {
-    setPrompt("");
-    setSelectedImage(null);
-    setMessages([]);
-    setHistory([]);
-    setDiagnosaAiId(null);
-    setSnapshot(null);
-
-    notifications.show({
-      color: "blue",
-      title: "Percakapan direset",
-      message: "Kamu bisa memulai diagnosa baru.",
-      autoClose: 2200,
-    });
   };
 
   const handleSend = async () => {
@@ -526,16 +509,6 @@ export default function DiagnosaAiPage() {
             />
 
             <Group justify="space-between" align="center">
-              <Button
-                variant="light"
-                color="gray"
-                leftSection={<IconRefresh size={18} />}
-                onClick={handleResetChat}
-                disabled={loading || messages.length === 0}
-                radius="md"
-              >
-                Reset Chat
-              </Button>
 
               <Button
                 component="a"

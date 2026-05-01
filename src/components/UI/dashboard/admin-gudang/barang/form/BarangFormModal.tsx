@@ -20,6 +20,7 @@ import {
 import { IconPlus, IconX } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
 import { formatCurrency } from "@/utils/currency-format/format-currency";
+import { barangFormSchema, validateWithZod } from "@/lib/validations";
 
 export type BarangFormInitialData = {
   id: string;
@@ -156,6 +157,13 @@ export default function BarangFormModal({
     setErrors({});
   }, [opened, formType, initialData]);
 
+  function clearFieldError(field: string) {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  }
+
   function handleChange<K extends keyof BarangFormState>(
     key: K,
     value: BarangFormState[K]
@@ -164,28 +172,29 @@ export default function BarangFormModal({
       ...prev,
       [key]: value,
     }));
+
+    clearFieldError(key);
   }
 
   function handleReset() {
     setForm(initialFormState);
     setErrors({});
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }
 
   function validate() {
-    const nextErrors: Record<string, string> = {};
+    const parsed = validateWithZod(barangFormSchema, form);
 
-    if (!form.nama.trim()) nextErrors.nama = "Nama wajib diisi";
-    if (!form.kode.trim()) nextErrors.kode = "Kode wajib diisi";
-    if (!form.merk.trim()) nextErrors.merk = "Merk wajib diisi";
-    if (!form.kategori) nextErrors.kategori = "Kategori wajib dipilih";
-    if (!form.harga || form.harga <= 0) nextErrors.harga = "Harga wajib valid";
-    if (form.stok < 0) nextErrors.stok = "Stok tidak boleh negatif";
+    if (!parsed.success) {
+      setErrors(parsed.errors);
+      return null;
+    }
 
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    setErrors({});
+    return parsed.data;
   }
 
   async function handleFileChange(
@@ -213,6 +222,7 @@ export default function BarangFormModal({
             resolve(reader.result);
             return;
           }
+
           reject(new Error("Gagal membaca file"));
         };
 
@@ -224,6 +234,8 @@ export default function BarangFormModal({
         ...prev,
         fotoBase64: previewUrl,
       }));
+
+      clearFieldError("fotoBase64");
     } catch {
       alert("Gagal membaca file gambar.");
       inputElement.value = "";
@@ -240,6 +252,8 @@ export default function BarangFormModal({
       fotoBase64: null,
     }));
 
+    clearFieldError("fotoBase64");
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -248,21 +262,23 @@ export default function BarangFormModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!validate()) {
+    const validated = validate();
+
+    if (!validated) {
       return;
     }
 
     try {
       const success = await onSubmit(
         {
-          nama: form.nama.trim(),
-          kode: form.kode.trim(),
-          merk: form.merk.trim(),
-          stok: form.stok,
-          harga: form.harga,
-          kategori: form.kategori ?? "",
-          deskripsi: form.deskripsi.trim() ? form.deskripsi.trim() : null,
-          fotoBase64: form.fotoBase64,
+          nama: validated.nama,
+          kode: validated.kode,
+          merk: validated.merk,
+          stok: validated.stok,
+          harga: validated.harga,
+          kategori: validated.kategori,
+          deskripsi: validated.deskripsi ?? null,
+          fotoBase64: validated.fotoBase64 ?? null,
         },
         formType
       );
@@ -324,6 +340,7 @@ export default function BarangFormModal({
             <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
               <Stack gap={8}>
                 <Label text="Nama" required />
+
                 <TextInput
                   value={form.nama}
                   onChange={(event) =>
@@ -335,10 +352,14 @@ export default function BarangFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.nama ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -346,6 +367,7 @@ export default function BarangFormModal({
 
               <Stack gap={8}>
                 <Label text="Harga" required />
+
                 <TextInput
                   value={getFormattedHarga(form.harga)}
                   onChange={(event) =>
@@ -361,10 +383,14 @@ export default function BarangFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.harga ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -372,6 +398,7 @@ export default function BarangFormModal({
 
               <Stack gap={8}>
                 <Label text="Kode" required />
+
                 <TextInput
                   value={form.kode}
                   onChange={(event) =>
@@ -383,10 +410,14 @@ export default function BarangFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.kode ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -394,6 +425,7 @@ export default function BarangFormModal({
 
               <Stack gap={8}>
                 <Label text="Stok" required />
+
                 <NumberInput
                   value={form.stok}
                   onChange={(value) =>
@@ -408,10 +440,14 @@ export default function BarangFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.stok ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -419,6 +455,7 @@ export default function BarangFormModal({
 
               <Stack gap={8}>
                 <Label text="Merk" required />
+
                 <TextInput
                   value={form.merk}
                   onChange={(event) =>
@@ -430,10 +467,14 @@ export default function BarangFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.merk ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -441,6 +482,7 @@ export default function BarangFormModal({
 
               <Stack gap={8} style={{ maxWidth: 360 }}>
                 <Label text="Kategori" required />
+
                 <Select
                   value={form.kategori}
                   onChange={(value) => handleChange("kategori", value)}
@@ -452,7 +494,7 @@ export default function BarangFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.kategori ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
@@ -464,6 +506,10 @@ export default function BarangFormModal({
                       color: "#111111",
                       fontSize: 16,
                     },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
+                    },
                   }}
                 />
               </Stack>
@@ -471,6 +517,7 @@ export default function BarangFormModal({
 
             <Stack gap={8}>
               <Label text="Deskripsi" />
+
               <Textarea
                 value={form.deskripsi}
                 onChange={(event) =>
@@ -480,13 +527,18 @@ export default function BarangFormModal({
                 minRows={7}
                 radius="md"
                 disabled={isSubmitting}
+                error={errors.deskripsi}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.deskripsi ? "1px solid #FA5252" : "none",
                     fontSize: 18,
                     color: "#111111",
                   },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
+                    },
                 }}
               />
             </Stack>
@@ -553,6 +605,7 @@ export default function BarangFormModal({
                 ) : (
                   <Stack align="center" gap={6}>
                     <IconPlus size={72} stroke={1.6} color="#EAEAEA" />
+
                     <Text c="#B0B0B0" size="sm">
                       Klik untuk upload foto barang
                     </Text>

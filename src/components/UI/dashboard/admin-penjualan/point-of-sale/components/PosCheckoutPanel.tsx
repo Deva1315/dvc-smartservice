@@ -43,6 +43,7 @@ type PosCheckoutPanelProps = {
   nominalBayar: number | string;
   kembalian: number;
   isSubmitting: boolean;
+  errors?: Record<string, string>;
   formatRupiah: (value: number) => string;
   formatRupiahPrefix: (value: number) => string;
   onChangeNamaCustomer: (value: string) => void;
@@ -67,6 +68,7 @@ export default function PosCheckoutPanel({
   nominalBayar,
   kembalian,
   isSubmitting,
+  errors = {},
   formatRupiah,
   formatRupiahPrefix,
   onChangeNamaCustomer,
@@ -110,6 +112,7 @@ export default function PosCheckoutPanel({
               }
               maxLength={150}
               disabled={isSubmitting || isTransactionFinished}
+              error={errors.namaCustomer}
             />
 
             {lastInvoiceData ? (
@@ -151,6 +154,12 @@ export default function PosCheckoutPanel({
             </Table.Tbody>
           </Table>
 
+          {errors.cartLength ? (
+            <Text c="red" fz={13} fw={600} px="md" pb="sm">
+              {errors.cartLength}
+            </Text>
+          ) : null}
+
           <Divider />
 
           <Stack gap={10} p="md">
@@ -173,6 +182,7 @@ export default function PosCheckoutPanel({
                 disabled={
                   isSubmitting || cart.length === 0 || isTransactionFinished
                 }
+                error={errors.diskon}
               />
             </Group>
 
@@ -194,6 +204,7 @@ export default function PosCheckoutPanel({
             <Radio.Group
               value={metodePembayaran}
               onChange={onChangeMetodePembayaran}
+              error={errors.metodePembayaran}
             >
               <Group>
                 <Radio
@@ -220,6 +231,7 @@ export default function PosCheckoutPanel({
                   metodePembayaran !== "Cash" ||
                   isTransactionFinished
                 }
+                error={errors.nominalBayar}
               />
             </Group>
 

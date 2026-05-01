@@ -18,10 +18,7 @@ import {
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
-import {
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import {
   createBarangKeluar,
   type InventoryDetailPayload,
@@ -34,6 +31,7 @@ import {
   getSparepart,
   type SparepartApiItem,
 } from "@/lib/admin-gudang/admin-gudang-sparepart.client";
+import { barangKeluarFormSchema, validateWithZod } from "@/lib/validations";
 
 type DetailItem = {
   id: string;
@@ -63,12 +61,27 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({
+  children,
+  required = false,
+}: {
+  children: React.ReactNode;
+  required?: boolean;
+}) {
   return (
     <Text fw={700} fz={16} c="#111111">
-      {children}
+      {children} {required ? <span style={{ color: "red" }}>*</span> : null}
     </Text>
   );
+}
+
+function createEmptyDetailItem(): DetailItem {
+  return {
+    id: crypto.randomUUID(),
+    tipeItem: "Barang",
+    namaItem: null,
+    jumlah: 1,
+  };
 }
 
 export default function AdminGudangBarangKeluarPage() {
@@ -78,15 +91,12 @@ export default function AdminGudangBarangKeluarPage() {
   const [tujuan, setTujuan] = useState<string | null>(null);
   const [keterangan, setKeterangan] = useState("");
   const [detailItems, setDetailItems] = useState<DetailItem[]>([
-    {
-      id: crypto.randomUUID(),
-      tipeItem: "Barang",
-      namaItem: null,
-      jumlah: 1,
-    },
+    createEmptyDetailItem(),
   ]);
+
   const [barangOptions, setBarangOptions] = useState<SelectOption[]>([]);
   const [sparepartOptions, setSparepartOptions] = useState<SelectOption[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function fetchOptions() {
@@ -129,20 +139,46 @@ export default function AdminGudangBarangKeluarPage() {
     return tipeItem === "Barang" ? barangOptions : sparepartOptions;
   }
 
-  function handleAddItem() {
-    setDetailItems((prev) => [
+  function clearFieldError(field: string) {
+    setErrors((prev) => ({
       ...prev,
-      {
-        id: crypto.randomUUID(),
-        tipeItem: "Barang",
-        namaItem: null,
-        jumlah: 1,
-      },
-    ]);
+      [field]: "",
+    }));
+  }
+
+  function clearDetailItemError(index: number, field: keyof DetailItem) {
+    setErrors((prev) => ({
+      ...prev,
+      [`detailItems.${index}.${field}`]: "",
+    }));
+  }
+
+  function getDetailItemError(index: number, field: keyof DetailItem) {
+    return errors[`detailItems.${index}.${field}`];
+  }
+
+  function handleAddItem() {
+    setDetailItems((prev) => [...prev, createEmptyDetailItem()]);
+    clearFieldError("detailItems");
   }
 
   function handleDeleteItem(id: string) {
-    setDetailItems((prev) => prev.filter((item) => item.id !== id));
+    setDetailItems((prev) => {
+      const nextItems = prev.filter((item) => item.id !== id);
+      return nextItems.length > 0 ? nextItems : [createEmptyDetailItem()];
+    });
+
+    setErrors((prev) => {
+      const nextErrors = { ...prev };
+
+      Object.keys(nextErrors).forEach((key) => {
+        if (key.startsWith("detailItems")) {
+          delete nextErrors[key];
+        }
+      });
+
+      return nextErrors;
+    });
   }
 
   function handleChangeItem(
@@ -151,8 +187,11 @@ export default function AdminGudangBarangKeluarPage() {
     value: string | number | null
   ) {
     setDetailItems((prev) =>
-      prev.map((item) => {
+      prev.map((item, index) => {
         if (item.id !== id) return item;
+
+        clearDetailItemError(index, field);
+        clearFieldError("detailItems");
 
         if (field === "tipeItem") {
           return {
@@ -181,53 +220,58 @@ export default function AdminGudangBarangKeluarPage() {
     );
   }
 
+  function validateForm() {
+    const parsed = validateWithZod(barangKeluarFormSchema, {
+      tanggalKeluar,
+      tujuan,
+      keterangan,
+      detailItems,
+    });
+
+    if (!parsed.success) {
+      setErrors(parsed.errors);
+
+      notifications.show({
+        title: "Validasi gagal",
+        message: parsed.message,
+        color: "red",
+      });
+
+      return null;
+    }
+
+    setErrors({});
+    return parsed.data;
+  }
+
   async function handleSimpan() {
+    const validated = validateForm();
+
+    if (!validated) {
+      return;
+    }
+
     try {
-      if (!tanggalKeluar) {
-        notifications.show({
-          title: "Gagal",
-          message: "Tanggal keluar wajib diisi.",
-          color: "red",
-        });
-        return;
-      }
-
-      if (!tujuan) {
-        notifications.show({
-          title: "Gagal",
-          message: "Tujuan wajib dipilih.",
-          color: "red",
-        });
-        return;
-      }
-
-      const invalidItem = detailItems.some(
-        (item) => !item.namaItem || item.jumlah <= 0
-      );
-
-      if (invalidItem) {
-        notifications.show({
-          title: "Gagal",
-          message: "Semua item wajib dipilih dan jumlah harus lebih dari 0.",
-          color: "red",
-        });
-        return;
-      }
-
       setIsSubmitting(true);
 
-      const detailPayload: InventoryDetailPayload[] = detailItems.map((item) => ({
-        tipe_item: item.tipeItem,
-        id_barang: item.tipeItem === "Barang" ? item.namaItem : null,
-        id_sparepart: item.tipeItem === "Sparepart" ? item.namaItem : null,
-        jumlah: item.jumlah,
-      }));
+      const detailPayload: InventoryDetailPayload[] = validated.detailItems.map(
+        (item) => {
+          const tipeItem = item.tipeItem as "Barang" | "Sparepart";
+
+          return {
+            tipe_item: tipeItem,
+            id_barang: tipeItem === "Barang" ? item.namaItem : null,
+            id_sparepart: tipeItem === "Sparepart" ? item.namaItem : null,
+            jumlah: item.jumlah,
+          };
+        }
+      );
 
       await createBarangKeluar({
         id_user: ADMIN_GUDANG_USER_ID,
-        tanggal_mutasi: tanggalKeluar,
-        tujuan,
-        keterangan,
+        tanggal_mutasi: String(validated.tanggalKeluar),
+        tujuan: validated.tujuan,
+        keterangan: validated.keterangan ?? null,
         detail_items: detailPayload,
       });
 
@@ -267,26 +311,36 @@ export default function AdminGudangBarangKeluarPage() {
           <Stack gap={22}>
             <Group align="flex-start" grow>
               <Box w="28%">
-                <FieldLabel>Tanggal Keluar</FieldLabel>
+                <FieldLabel required>Tanggal Keluar</FieldLabel>
               </Box>
 
               <TextInput
                 type="date"
                 value={tanggalKeluar}
-                onChange={(event) => setTanggalKeluar(event.currentTarget.value)}
+                onChange={(event) => {
+                  setTanggalKeluar(event.currentTarget.value);
+                  clearFieldError("tanggalKeluar");
+                }}
+                disabled={isSubmitting}
+                error={errors.tanggalKeluar}
               />
             </Group>
 
             <Group align="flex-start" grow>
               <Box w="28%">
-                <FieldLabel>Tujuan</FieldLabel>
+                <FieldLabel required>Tujuan</FieldLabel>
               </Box>
 
               <Select
                 value={tujuan}
-                onChange={setTujuan}
+                onChange={(value) => {
+                  setTujuan(value);
+                  clearFieldError("tujuan");
+                }}
                 data={tujuanOptions}
                 placeholder="Pilih tujuan"
+                disabled={isSubmitting}
+                error={errors.tujuan}
               />
             </Group>
 
@@ -297,9 +351,14 @@ export default function AdminGudangBarangKeluarPage() {
 
               <Textarea
                 value={keterangan}
-                onChange={(event) => setKeterangan(event.currentTarget.value)}
+                onChange={(event) => {
+                  setKeterangan(event.currentTarget.value);
+                  clearFieldError("keterangan");
+                }}
                 placeholder="Masukkan Keterangan disini..."
                 minRows={4}
+                disabled={isSubmitting}
+                error={errors.keterangan}
               />
             </Group>
           </Stack>
@@ -309,12 +368,21 @@ export default function AdminGudangBarangKeluarPage() {
       <Paper radius="lg" shadow="xs" withBorder>
         <Box px="md" py={10}>
           <Group justify="space-between">
-            <SectionLabel>Detail Barang Keluar</SectionLabel>
+            <Stack gap={2}>
+              <SectionLabel>Detail Barang Keluar</SectionLabel>
+
+              {errors.detailItems ? (
+                <Text fz={13} c="red" fw={600}>
+                  {errors.detailItems}
+                </Text>
+              ) : null}
+            </Stack>
 
             <Button
               radius="xl"
               leftSection={<IconPlus size={18} />}
               onClick={handleAddItem}
+              disabled={isSubmitting}
               style={{ backgroundColor: "#0D4CB5", fontWeight: 700 }}
             >
               Tambah Item
@@ -334,7 +402,7 @@ export default function AdminGudangBarangKeluarPage() {
             </Table.Thead>
 
             <Table.Tbody>
-              {detailItems.map((item) => (
+              {detailItems.map((item, index) => (
                 <Table.Tr key={item.id}>
                   <Table.Td>
                     <Select
@@ -346,6 +414,8 @@ export default function AdminGudangBarangKeluarPage() {
                         { value: "Barang", label: "Barang" },
                         { value: "Sparepart", label: "Sparepart" },
                       ]}
+                      disabled={isSubmitting}
+                      error={getDetailItemError(index, "tipeItem")}
                     />
                   </Table.Td>
 
@@ -358,6 +428,8 @@ export default function AdminGudangBarangKeluarPage() {
                       data={getNamaItemOptions(item.tipeItem)}
                       placeholder="Pilih item"
                       searchable
+                      disabled={isSubmitting}
+                      error={getDetailItemError(index, "namaItem")}
                     />
                   </Table.Td>
 
@@ -373,6 +445,8 @@ export default function AdminGudangBarangKeluarPage() {
                       }
                       allowDecimal={false}
                       min={1}
+                      disabled={isSubmitting}
+                      error={getDetailItemError(index, "jumlah")}
                     />
                   </Table.Td>
 
@@ -381,6 +455,7 @@ export default function AdminGudangBarangKeluarPage() {
                       variant="subtle"
                       color="red"
                       onClick={() => handleDeleteItem(item.id)}
+                      disabled={isSubmitting}
                     >
                       <IconTrash size={18} />
                     </ActionIcon>
@@ -396,6 +471,7 @@ export default function AdminGudangBarangKeluarPage() {
         <Button
           radius="xl"
           onClick={() => router.push("/admin_gudang/inventory")}
+          disabled={isSubmitting}
           style={{
             minWidth: 160,
             height: 46,

@@ -17,8 +17,13 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { IconCalendarEvent } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
+import {
+  adminPenjualanTiketServisFormSchema,
+  validateWithZod,
+} from "@/lib/validations";
 
 export type TicketStatusVerifikasi = "Menunggu" | "Diterima" | "Ditolak";
+
 export type TicketStatusServis =
   | "Belum Diproses"
   | "Diproses"
@@ -86,6 +91,7 @@ function toInputDateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 }
 
@@ -108,10 +114,13 @@ export default function TiketServisFormModal({
   const [tanggal, setTanggal] = useState<string | null>(
     toInputDateString(tanggalMasuk)
   );
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!opened) return;
+
+    setErrors({});
 
     if (formType === "edit" && initialData) {
       setForm({
@@ -124,6 +133,7 @@ export default function TiketServisFormModal({
         gunakan_drop_point: initialData.gunakan_drop_point ? "ya" : "tidak",
         drop_point_id: initialData.drop_point_id,
       });
+
       setTanggal(toInputDateString(initialData.tanggal_masuk));
       return;
     }
@@ -132,11 +142,23 @@ export default function TiketServisFormModal({
     setTanggal(toInputDateString(tanggalMasuk));
   }, [opened, formType, initialData, tanggalMasuk]);
 
-  const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+  const clearFieldError = (field: string) => {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  };
+
+  const handleChange = <K extends keyof FormState>(
+    key: K,
+    value: FormState[K]
+  ) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
+
+    clearFieldError(key);
   };
 
   const handleDropPointRadioChange = (value: string) => {
@@ -147,9 +169,15 @@ export default function TiketServisFormModal({
       gunakan_drop_point: nextValue,
       drop_point_id: nextValue === "ya" ? prev.drop_point_id : null,
     }));
+
+    clearFieldError("gunakan_drop_point");
+    clearFieldError("alamat_cust");
+    clearFieldError("drop_point_id");
   };
 
   const handleReset = () => {
+    setErrors({});
+
     if (formType === "edit" && initialData) {
       setForm({
         nama_cust: initialData.nama_cust,
@@ -161,6 +189,7 @@ export default function TiketServisFormModal({
         gunakan_drop_point: initialData.gunakan_drop_point ? "ya" : "tidak",
         drop_point_id: initialData.drop_point_id,
       });
+
       setTanggal(toInputDateString(initialData.tanggal_masuk));
       return;
     }
@@ -169,52 +198,57 @@ export default function TiketServisFormModal({
     setTanggal(toInputDateString(tanggalMasuk));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-    if (
-      !form.nama_cust.trim() ||
-      !form.phone_cust.trim() ||
-      !form.jenis_perangkat ||
-      !form.merk_perangkat.trim() ||
-      !form.keluhan.trim() ||
-      !tanggal
-    ) {
-      alert("Mohon lengkapi field yang wajib diisi.");
+    const parsed = validateWithZod(adminPenjualanTiketServisFormSchema, {
+      nomor_tiket:
+        formType === "edit" && initialData
+          ? initialData.nomor_tiket
+          : nomorTiket,
+      tanggal_masuk: tanggal,
+      ...form,
+    });
+
+    if (!parsed.success) {
+      setErrors(parsed.errors);
       return;
     }
 
-    if (formType === "create" && !nomorTiket.trim()) {
-  alert("Nomor tiket sedang disiapkan. Mohon tunggu sebentar.");
-  return;
-}
+    setErrors({});
 
-    if (form.gunakan_drop_point === "ya" && !form.drop_point_id) {
-      alert("Mohon pilih drop point terlebih dahulu.");
+    if (formType === "create" && !nomorTiket.trim()) {
+      setErrors((prev) => ({
+        ...prev,
+        nomor_tiket: "Nomor tiket sedang disiapkan. Mohon tunggu sebentar.",
+      }));
       return;
     }
 
     const selectedDropPoint =
-      form.gunakan_drop_point === "ya"
-        ? dropPointOptions.find((item) => item.value === form.drop_point_id)
+      parsed.data.gunakan_drop_point === "ya"
+        ? dropPointOptions.find((item) => item.value === parsed.data.drop_point_id)
             ?.label ?? null
         : null;
 
     const payload: TicketRow = {
       id: formType === "edit" && initialData ? initialData.id : undefined,
-nomor_tiket:
-  formType === "edit" && initialData
-    ? initialData.nomor_tiket
-    : nomorTiket.trim(),
-      tanggal_masuk: toDate(tanggal),
-      nama_cust: form.nama_cust.trim(),
-      phone_cust: form.phone_cust.trim(),
-      alamat_cust: form.alamat_cust.trim(),
-      jenis_perangkat: form.jenis_perangkat,
-      merk_perangkat: form.merk_perangkat.trim(),
-      keluhan: form.keluhan.trim(),
-      gunakan_drop_point: form.gunakan_drop_point === "ya",
-      drop_point_id: form.gunakan_drop_point === "ya" ? form.drop_point_id : null,
+      nomor_tiket:
+        formType === "edit" && initialData
+          ? initialData.nomor_tiket
+          : nomorTiket.trim(),
+      tanggal_masuk: toDate(String(parsed.data.tanggal_masuk)),
+      nama_cust: parsed.data.nama_cust,
+      phone_cust: parsed.data.phone_cust,
+      alamat_cust: parsed.data.alamat_cust ?? "",
+      jenis_perangkat: parsed.data.jenis_perangkat,
+      merk_perangkat: parsed.data.merk_perangkat,
+      keluhan: parsed.data.keluhan,
+      gunakan_drop_point: parsed.data.gunakan_drop_point === "ya",
+      drop_point_id:
+        parsed.data.gunakan_drop_point === "ya"
+          ? parsed.data.drop_point_id ?? null
+          : null,
       drop_point_nama: selectedDropPoint,
       status_verifikasi:
         formType === "edit" && initialData
@@ -246,10 +280,10 @@ nomor_tiket:
 
   const submitLabel = formType === "create" ? "Simpan" : "Update";
 
-const displayNoTiket =
-  formType === "edit" && initialData
-    ? initialData.nomor_tiket
-    : nomorTiket || "Menyiapkan nomor tiket...";
+  const displayNoTiket =
+    formType === "edit" && initialData
+      ? initialData.nomor_tiket
+      : nomorTiket || "Menyiapkan nomor tiket...";
 
   return (
     <Modal
@@ -293,19 +327,27 @@ const displayNoTiket =
                 <Text fw={700} c="#6B7280" size="lg">
                   No Tiket
                 </Text>
+
                 <TextInput
                   value={displayNoTiket}
                   placeholder="Nomor tiket akan dibuat otomatis setelah disimpan"
                   readOnly
                   radius={0}
+                  error={errors.nomor_tiket}
                   styles={{
                     input: {
                       backgroundColor: "#EAE6E6",
-                      border: "none",
+                      border: errors.nomor_tiket
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       fontWeight: 700,
                       color: "#6B7280",
+                    },
+                    error: {
+                      fontSize: 13,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -313,26 +355,37 @@ const displayNoTiket =
 
               <Stack gap={8}>
                 <Text fw={700} c="#6B7280" size="lg">
-                  Tanggal Masuk
+                  Tanggal Masuk <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <DatePickerInput
                   value={tanggal}
-                  onChange={setTanggal}
+                  onChange={(value) => {
+                    setTanggal(value);
+                    clearFieldError("tanggal_masuk");
+                  }}
                   required
                   valueFormat="DD/MM/YYYY"
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.tanggal_masuk}
                   rightSection={
                     <IconCalendarEvent size={18} stroke={1.8} color="#6B7280" />
                   }
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.tanggal_masuk
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       fontWeight: 700,
                       color: "#6B7280",
+                    },
+                    error: {
+                      fontSize: 13,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -348,18 +401,26 @@ const displayNoTiket =
                 <Text fw={700} c="#6B7280" size="lg">
                   Nama Customer <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <TextInput
                   value={form.nama_cust}
-                  onChange={(e) => handleChange("nama_cust", e.currentTarget.value)}
+                  onChange={(event) =>
+                    handleChange("nama_cust", event.currentTarget.value)
+                  }
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.nama_cust}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.nama_cust ? "1px solid #FA5252" : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 13,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -369,18 +430,26 @@ const displayNoTiket =
                 <Text fw={700} c="#6B7280" size="lg">
                   No HP <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <TextInput
                   value={form.phone_cust}
-                  onChange={(e) => handleChange("phone_cust", e.currentTarget.value)}
+                  onChange={(event) =>
+                    handleChange("phone_cust", event.currentTarget.value)
+                  }
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.phone_cust}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.phone_cust ? "1px solid #FA5252" : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 13,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -389,20 +458,32 @@ const displayNoTiket =
 
             <Stack gap={8}>
               <Text fw={700} c="#6B7280" size="lg">
-                Alamat Customer
+                Alamat Customer{" "}
+                {form.gunakan_drop_point === "ya" ? (
+                  <span style={{ color: "red" }}>*</span>
+                ) : null}
               </Text>
+
               <TextInput
                 value={form.alamat_cust}
-                onChange={(e) => handleChange("alamat_cust", e.currentTarget.value)}
+                onChange={(event) =>
+                  handleChange("alamat_cust", event.currentTarget.value)
+                }
                 radius={0}
                 disabled={isSubmitting}
+                error={errors.alamat_cust}
+                placeholder="Wajib diisi jika menggunakan drop point"
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.alamat_cust ? "1px solid #FA5252" : "none",
                     height: 44,
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 13,
+                    marginTop: 6,
                   },
                 }}
               />
@@ -416,9 +497,14 @@ const displayNoTiket =
               <Radio.Group
                 value={form.gunakan_drop_point}
                 onChange={handleDropPointRadioChange}
+                error={errors.gunakan_drop_point}
               >
                 <Group gap="xl">
-                  <Radio value="ya" label="Ya, gunakan Drop Point" color="blue" />
+                  <Radio
+                    value="ya"
+                    label="Ya, gunakan Drop Point"
+                    color="blue"
+                  />
                   <Radio value="tidak" label="Tidak" color="blue" />
                 </Group>
               </Radio.Group>
@@ -429,6 +515,7 @@ const displayNoTiket =
                 <Text fw={700} c="#6B7280" size="lg">
                   Pilih Drop Point <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <Select
                   value={form.drop_point_id}
                   onChange={(value) => handleChange("drop_point_id", value)}
@@ -436,10 +523,14 @@ const displayNoTiket =
                   placeholder="Pilih drop point"
                   radius={0}
                   disabled={isSubmitting}
+                  searchable
+                  error={errors.drop_point_id}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.drop_point_id
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
@@ -450,6 +541,10 @@ const displayNoTiket =
                     option: {
                       color: "#000000",
                       fontSize: 16,
+                    },
+                    error: {
+                      fontSize: 13,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -474,6 +569,7 @@ const displayNoTiket =
                 <Text fw={700} c="#6B7280" size="lg">
                   Jenis Perangkat <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <Select
                   value={form.jenis_perangkat}
                   onChange={(value) => handleChange("jenis_perangkat", value)}
@@ -486,10 +582,13 @@ const displayNoTiket =
                   ]}
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.jenis_perangkat}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.jenis_perangkat
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
@@ -501,6 +600,10 @@ const displayNoTiket =
                       color: "#000000",
                       fontSize: 16,
                     },
+                    error: {
+                      fontSize: 13,
+                      marginTop: 6,
+                    },
                   }}
                 />
               </Stack>
@@ -509,20 +612,28 @@ const displayNoTiket =
                 <Text fw={700} c="#6B7280" size="lg">
                   Merk Perangkat <span style={{ color: "red" }}>*</span>
                 </Text>
+
                 <TextInput
                   value={form.merk_perangkat}
-                  onChange={(e) =>
-                    handleChange("merk_perangkat", e.currentTarget.value)
+                  onChange={(event) =>
+                    handleChange("merk_perangkat", event.currentTarget.value)
                   }
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.merk_perangkat}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.merk_perangkat
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 13,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -533,19 +644,27 @@ const displayNoTiket =
               <Text fw={700} c="#6B7280" size="lg">
                 Keluhan <span style={{ color: "red" }}>*</span>
               </Text>
+
               <Textarea
                 value={form.keluhan}
-                onChange={(e) => handleChange("keluhan", e.currentTarget.value)}
+                onChange={(event) =>
+                  handleChange("keluhan", event.currentTarget.value)
+                }
                 placeholder="Masukkan keluhan perangkat anda disini..."
                 minRows={6}
                 radius={0}
                 disabled={isSubmitting}
+                error={errors.keluhan}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.keluhan ? "1px solid #FA5252" : "none",
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 13,
+                    marginTop: 6,
                   },
                 }}
               />

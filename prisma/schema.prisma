@@ -234,7 +234,7 @@ model tiket_servis {
   id_diagnosa_ai      BigInt?                        @unique(map: "id_diagnosa_ai") @db.UnsignedBigInt
   nomor_tiket         String                         @unique(map: "nomor_tiket") @db.VarChar(100)
   sumber_tiket        tiket_servis_sumber_tiket
-  alamat_cust         String?                        @db.Text
+  alamat_cust         String                         @db.Text
   nama_cust           String                         @db.VarChar(150)
   phone_cust          String                         @db.VarChar(25)
   jenis_perangkat     String                         @db.VarChar(150)

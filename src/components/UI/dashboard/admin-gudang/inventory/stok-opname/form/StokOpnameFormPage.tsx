@@ -18,10 +18,7 @@ import {
 } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
-import {
-  IconPlus,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import {
   createStokOpname,
   type StokOpnameDetailPayload,
@@ -34,6 +31,7 @@ import {
   getSparepart,
   type SparepartApiItem,
 } from "@/lib/admin-gudang/admin-gudang-sparepart.client";
+import { stokOpnameFormSchema, validateWithZod } from "@/lib/validations";
 
 type StokOpnameItemType = "Barang" | "Sparepart";
 
@@ -65,10 +63,16 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function FieldLabel({ children }: { children: ReactNode }) {
+function FieldLabel({
+  children,
+  required = false,
+}: {
+  children: ReactNode;
+  required?: boolean;
+}) {
   return (
     <Text fw={700} fz={16} c="#111111">
-      {children}
+      {children} {required ? <span style={{ color: "red" }}>*</span> : null}
     </Text>
   );
 }
@@ -110,6 +114,7 @@ export default function StokOpnameFormPage() {
   ]);
   const [barangOptions, setBarangOptions] = useState<ItemOption[]>([]);
   const [sparepartOptions, setSparepartOptions] = useState<ItemOption[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const totalSelisihStock = useMemo(() => {
@@ -158,12 +163,50 @@ export default function StokOpnameFormPage() {
     return tipeItem === "Barang" ? barangOptions : sparepartOptions;
   }
 
+  function clearFieldError(field: string) {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  }
+
+  function clearDetailItemError(index: number, field: keyof StokOpnameDetailItem) {
+    setErrors((prev) => ({
+      ...prev,
+      [`detailItems.${index}.${field}`]: "",
+      detailItems: "",
+    }));
+  }
+
+  function getDetailItemError(
+    index: number,
+    field: keyof StokOpnameDetailItem
+  ) {
+    return errors[`detailItems.${index}.${field}`];
+  }
+
   function handleAddItem() {
     setDetailItems((prev) => [...prev, createEmptyItem()]);
+    clearFieldError("detailItems");
   }
 
   function handleDeleteItem(idItem: string) {
-    setDetailItems((prev) => prev.filter((item) => item.id !== idItem));
+    setDetailItems((prev) => {
+      const nextItems = prev.filter((item) => item.id !== idItem);
+      return nextItems.length > 0 ? nextItems : [createEmptyItem()];
+    });
+
+    setErrors((prev) => {
+      const nextErrors = { ...prev };
+
+      Object.keys(nextErrors).forEach((key) => {
+        if (key.startsWith("detailItems")) {
+          delete nextErrors[key];
+        }
+      });
+
+      return nextErrors;
+    });
   }
 
   function handleChangeItemType(
@@ -171,29 +214,38 @@ export default function StokOpnameFormPage() {
     value: StokOpnameItemType | null
   ) {
     setDetailItems((prev) =>
-      prev.map((item) =>
-        item.id === idItem
-          ? {
-              ...item,
-              tipeItem: value ?? "Barang",
-              idBarang: null,
-              idSparepart: null,
-              namaItem: null,
-              stokSistem: 0,
-              stokFisik: 0,
-              selisih: 0,
-            }
-          : item
-      )
+      prev.map((item, index) => {
+        if (item.id !== idItem) return item;
+
+        clearDetailItemError(index, "tipeItem");
+        clearDetailItemError(index, "idBarang");
+        clearDetailItemError(index, "idSparepart");
+        clearDetailItemError(index, "namaItem");
+
+        return {
+          ...item,
+          tipeItem: value ?? "Barang",
+          idBarang: null,
+          idSparepart: null,
+          namaItem: null,
+          stokSistem: 0,
+          stokFisik: 0,
+          selisih: 0,
+        };
+      })
     );
   }
 
   function handleChangeNamaItem(idItem: string, value: string | null) {
     setDetailItems((prev) =>
-      prev.map((item) => {
+      prev.map((item, index) => {
         if (item.id !== idItem) {
           return item;
         }
+
+        clearDetailItemError(index, "namaItem");
+        clearDetailItemError(index, "idBarang");
+        clearDetailItemError(index, "idSparepart");
 
         const selectedOption = getItemOptionsByType(item.tipeItem).find(
           (option) => option.value === value
@@ -230,10 +282,13 @@ export default function StokOpnameFormPage() {
 
   function handleChangeStokFisik(idItem: string, value: number | string) {
     setDetailItems((prev) =>
-      prev.map((item) => {
+      prev.map((item, index) => {
         if (item.id !== idItem) {
           return item;
         }
+
+        clearDetailItemError(index, "stokFisik");
+        clearDetailItemError(index, "selisih");
 
         const nextStokFisik = typeof value === "number" ? value : 0;
 
@@ -248,68 +303,66 @@ export default function StokOpnameFormPage() {
 
   function handleChangeKeteranganDetail(idItem: string, value: string) {
     setDetailItems((prev) =>
-      prev.map((item) =>
-        item.id === idItem
-          ? {
-              ...item,
-              keterangan: value,
-            }
-          : item
-      )
+      prev.map((item, index) => {
+        if (item.id !== idItem) return item;
+
+        clearDetailItemError(index, "keterangan");
+
+        return {
+          ...item,
+          keterangan: value,
+        };
+      })
     );
   }
 
-  async function handleSimpan() {
-    try {
-      if (!tanggalOpname) {
-        notifications.show({
-          title: "Gagal",
-          message: "Tanggal opname wajib diisi.",
-          color: "red",
-        });
-        return;
-      }
+  function validateForm() {
+    const parsed = validateWithZod(stokOpnameFormSchema, {
+      tanggalOpname,
+      keteranganHeader,
+      detailItems,
+    });
 
-      if (detailItems.length === 0) {
-        notifications.show({
-          title: "Gagal",
-          message: "Detail stok opname wajib diisi minimal 1 item.",
-          color: "red",
-        });
-        return;
-      }
+    if (!parsed.success) {
+      setErrors(parsed.errors);
 
-      const invalidItem = detailItems.some((item) => {
-        const idItem = item.tipeItem === "Barang" ? item.idBarang : item.idSparepart;
-        return !idItem || item.stokFisik < 0;
+      notifications.show({
+        title: "Validasi gagal",
+        message: parsed.message,
+        color: "red",
       });
 
-      if (invalidItem) {
-        notifications.show({
-          title: "Gagal",
-          message: "Semua item wajib dipilih dan stok fisik tidak boleh negatif.",
-          color: "red",
-        });
-        return;
-      }
+      return null;
+    }
 
+    setErrors({});
+    return parsed.data;
+  }
+
+  async function handleSimpan() {
+    const validated = validateForm();
+
+    if (!validated) {
+      return;
+    }
+
+    try {
       setIsSubmitting(true);
 
-      const detailPayload: StokOpnameDetailPayload[] = detailItems.map(
-        (item) => ({
+      const detailPayload: StokOpnameDetailPayload[] =
+        validated.detailItems.map((item) => ({
           tipe_item: item.tipeItem,
-          id_barang: item.tipeItem === "Barang" ? item.idBarang : null,
+          id_barang: item.tipeItem === "Barang" ? item.idBarang ?? null : null,
           id_sparepart:
-            item.tipeItem === "Sparepart" ? item.idSparepart : null,
+            item.tipeItem === "Sparepart" ? item.idSparepart ?? null : null,
           stock_fisik: item.stokFisik,
-          keterangan: item.keterangan,
-        })
-      );
+          keterangan: item.keterangan ?? null,
+        }));
 
       await createStokOpname({
         id_user: ADMIN_GUDANG_USER_ID,
-        tanggal_opname: tanggalOpname,
-        keterangan: keteranganHeader,
+        tanggal_opname: String(validated.tanggalOpname),
+        keterangan: validated.keteranganHeader ?? null,
         detail_items: detailPayload,
       });
 
@@ -364,17 +417,24 @@ export default function StokOpnameFormPage() {
           <Stack gap={22}>
             <Group align="flex-start" grow>
               <Box w="28%">
-                <FieldLabel>Tanggal Opname</FieldLabel>
+                <FieldLabel required>Tanggal Opname</FieldLabel>
               </Box>
 
               <TextInput
                 type="date"
                 value={tanggalOpname}
-                onChange={(event) => setTanggalOpname(event.currentTarget.value)}
+                onChange={(event) => {
+                  setTanggalOpname(event.currentTarget.value);
+                  clearFieldError("tanggalOpname");
+                }}
+                disabled={isSubmitting}
+                error={errors.tanggalOpname}
                 styles={{
                   input: {
                     backgroundColor: "#E2E2E2",
-                    border: "none",
+                    border: errors.tanggalOpname
+                      ? "1px solid #FA5252"
+                      : "none",
                     height: 42,
                   },
                 }}
@@ -388,15 +448,20 @@ export default function StokOpnameFormPage() {
 
               <Textarea
                 value={keteranganHeader}
-                onChange={(event) =>
-                  setKeteranganHeader(event.currentTarget.value)
-                }
+                onChange={(event) => {
+                  setKeteranganHeader(event.currentTarget.value);
+                  clearFieldError("keteranganHeader");
+                }}
                 placeholder="Masukkan keterangan stok opname disini..."
                 minRows={4}
+                disabled={isSubmitting}
+                error={errors.keteranganHeader}
                 styles={{
                   input: {
                     backgroundColor: "#E2E2E2",
-                    border: "none",
+                    border: errors.keteranganHeader
+                      ? "1px solid #FA5252"
+                      : "none",
                   },
                 }}
               />
@@ -446,12 +511,21 @@ export default function StokOpnameFormPage() {
           }}
         >
           <Group justify="space-between">
-            <SectionLabel>Detail Stock Opname</SectionLabel>
+            <Stack gap={2}>
+              <SectionLabel>Detail Stock Opname</SectionLabel>
+
+              {errors.detailItems ? (
+                <Text fz={13} c="red" fw={600}>
+                  {errors.detailItems}
+                </Text>
+              ) : null}
+            </Stack>
 
             <Button
               radius="xl"
               leftSection={<IconPlus size={18} />}
               onClick={handleAddItem}
+              disabled={isSubmitting}
               style={{
                 backgroundColor: "#0D4CB5",
                 fontWeight: 700,
@@ -489,7 +563,7 @@ export default function StokOpnameFormPage() {
               </Table.Thead>
 
               <Table.Tbody>
-                {detailItems.map((item) => (
+                {detailItems.map((item, index) => (
                   <Table.Tr key={item.id}>
                     <Table.Td>
                       <Select
@@ -504,6 +578,8 @@ export default function StokOpnameFormPage() {
                           { value: "Barang", label: "Barang" },
                           { value: "Sparepart", label: "Sparepart" },
                         ]}
+                        disabled={isSubmitting}
+                        error={getDetailItemError(index, "tipeItem")}
                       />
                     </Table.Td>
 
@@ -521,11 +597,23 @@ export default function StokOpnameFormPage() {
                         )}
                         placeholder="Pilih item"
                         searchable
+                        disabled={isSubmitting}
+                        error={
+                          getDetailItemError(index, "namaItem") ||
+                          getDetailItemError(index, "idBarang") ||
+                          getDetailItemError(index, "idSparepart")
+                        }
                       />
                     </Table.Td>
 
                     <Table.Td>
                       <Text fw={600}>{item.stokSistem}</Text>
+
+                      {getDetailItemError(index, "stokSistem") ? (
+                        <Text fz={12} c="red" mt={4}>
+                          {getDetailItemError(index, "stokSistem")}
+                        </Text>
+                      ) : null}
                     </Table.Td>
 
                     <Table.Td>
@@ -540,6 +628,8 @@ export default function StokOpnameFormPage() {
                         allowDecimal={false}
                         decimalScale={0}
                         min={0}
+                        disabled={isSubmitting}
+                        error={getDetailItemError(index, "stokFisik")}
                       />
                     </Table.Td>
 
@@ -550,6 +640,12 @@ export default function StokOpnameFormPage() {
                       }}
                     >
                       {getSelisihText(item.selisih)}
+
+                      {getDetailItemError(index, "selisih") ? (
+                        <Text fz={12} c="red" mt={4}>
+                          {getDetailItemError(index, "selisih")}
+                        </Text>
+                      ) : null}
                     </Table.Td>
 
                     <Table.Td>
@@ -562,6 +658,8 @@ export default function StokOpnameFormPage() {
                           )
                         }
                         placeholder="Masukkan keterangan"
+                        disabled={isSubmitting}
+                        error={getDetailItemError(index, "keterangan")}
                       />
                     </Table.Td>
 
@@ -570,6 +668,7 @@ export default function StokOpnameFormPage() {
                         variant="subtle"
                         color="red"
                         onClick={() => handleDeleteItem(item.id)}
+                        disabled={isSubmitting}
                       >
                         <IconTrash size={18} />
                       </ActionIcon>
@@ -586,6 +685,7 @@ export default function StokOpnameFormPage() {
         <Button
           radius="xl"
           onClick={() => router.push("/admin_gudang/inventory/stok-opname")}
+          disabled={isSubmitting}
           style={{
             minWidth: 160,
             height: 46,

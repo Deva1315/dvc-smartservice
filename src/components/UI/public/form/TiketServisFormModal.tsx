@@ -18,6 +18,10 @@ import { DatePickerInput } from "@mantine/dates";
 import { IconCalendarEvent } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
 import { getNearestPublicDropPointListRequest } from "@/lib/public/public-drop-point.client";
+import {
+  publicTiketServisFormSchema,
+  validateWithZod,
+} from "@/lib/validations";
 
 export type TicketStatusVerifikasi = "Menunggu" | "Diterima" | "Ditolak";
 
@@ -158,6 +162,7 @@ export default function TiketServisFormModal({
   const [tanggal, setTanggal] = useState<string | null>(
     toInputDateString(tanggalMasuk)
   );
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDistance, setIsLoadingDistance] = useState(false);
   const [distanceMessage, setDistanceMessage] = useState("");
@@ -172,6 +177,7 @@ export default function TiketServisFormModal({
   useEffect(() => {
     if (!opened) return;
 
+    setErrors({});
     setDistanceMessage("");
     setDisplayDropPointOptions(dropPointOptions);
 
@@ -202,6 +208,13 @@ export default function TiketServisFormModal({
     }));
   }, [displayDropPointOptions]);
 
+  const clearFieldError = (field: string) => {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  };
+
   const handleChange = <K extends keyof FormState>(
     key: K,
     value: FormState[K]
@@ -210,6 +223,8 @@ export default function TiketServisFormModal({
       ...prev,
       [key]: value,
     }));
+
+    clearFieldError(key);
   };
 
   async function handleCalculateNearestDropPoint(alamatCustomer: string) {
@@ -269,6 +284,13 @@ export default function TiketServisFormModal({
         drop_point_id: nearestOptions[0]?.value || prev.drop_point_id,
       }));
 
+      setErrors((prev) => ({
+        ...prev,
+        alamat_cust: "",
+        drop_point_id: "",
+        gunakan_drop_point: "",
+      }));
+
       setDistanceMessage(
         "Drop point berhasil diurutkan berdasarkan alamat customer."
       );
@@ -288,6 +310,7 @@ export default function TiketServisFormModal({
     const nextValue = value === "ya" ? "ya" : "tidak";
 
     setDistanceMessage("");
+    clearFieldError("gunakan_drop_point");
 
     setForm((prev) => ({
       ...prev,
@@ -296,15 +319,20 @@ export default function TiketServisFormModal({
     }));
 
     if (nextValue === "ya") {
+      clearFieldError("alamat_cust");
+      clearFieldError("drop_point_id");
       await handleCalculateNearestDropPoint(form.alamat_cust);
     }
 
     if (nextValue === "tidak") {
+      clearFieldError("alamat_cust");
+      clearFieldError("drop_point_id");
       setDisplayDropPointOptions(dropPointOptions);
     }
   };
 
   const handleReset = () => {
+    setErrors({});
     setDistanceMessage("");
     setDisplayDropPointOptions(dropPointOptions);
 
@@ -331,59 +359,58 @@ export default function TiketServisFormModal({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (
-      !form.nama_cust.trim() ||
-      !form.phone_cust.trim() ||
-      !form.jenis_perangkat ||
-      !form.merk_perangkat.trim() ||
-      !form.keluhan.trim() ||
-      !tanggal
-    ) {
-      alert("Mohon lengkapi field yang wajib diisi.");
+    const parsed = validateWithZod(publicTiketServisFormSchema, {
+      nomor_tiket:
+        formType === "edit" && initialData
+          ? initialData.nomor_tiket
+          : nomorTiket,
+      tanggal_masuk: tanggal,
+      ...form,
+    });
+
+    if (!parsed.success) {
+      setErrors(parsed.errors);
       return;
     }
+
+    setErrors({});
 
     if (formType === "create" && !nomorTiket.trim()) {
-  alert("Nomor tiket sedang disiapkan. Mohon tunggu sebentar.");
-  return;
-}
-
-    if (form.gunakan_drop_point === "ya" && !form.alamat_cust.trim()) {
-      alert("Mohon isi alamat customer untuk menghitung drop point terdekat.");
-      return;
-    }
-
-    if (form.gunakan_drop_point === "ya" && !form.drop_point_id) {
-      alert("Mohon pilih drop point terlebih dahulu.");
+      setErrors((prev) => ({
+        ...prev,
+        nomor_tiket: "Nomor tiket sedang disiapkan. Mohon tunggu sebentar.",
+      }));
       return;
     }
 
     const selectedDropPoint =
-      form.gunakan_drop_point === "ya"
+      parsed.data.gunakan_drop_point === "ya"
         ? displayDropPointOptions.find(
-            (item) => item.value === form.drop_point_id
+            (item) => item.value === parsed.data.drop_point_id
           )?.originalLabel ??
-          dropPointOptions.find((item) => item.value === form.drop_point_id)
+          dropPointOptions.find((item) => item.value === parsed.data.drop_point_id)
             ?.label ??
           null
         : null;
 
     const payload: TicketRow = {
       id: formType === "edit" && initialData ? initialData.id : undefined,
-nomor_tiket:
-  formType === "edit" && initialData
-    ? initialData.nomor_tiket
-    : nomorTiket.trim(),
-      tanggal_masuk: toDate(tanggal),
-      nama_cust: form.nama_cust.trim(),
-      phone_cust: form.phone_cust.trim(),
-      alamat_cust: form.alamat_cust.trim(),
-      jenis_perangkat: form.jenis_perangkat,
-      merk_perangkat: form.merk_perangkat.trim(),
-      keluhan: form.keluhan.trim(),
-      gunakan_drop_point: form.gunakan_drop_point === "ya",
+      nomor_tiket:
+        formType === "edit" && initialData
+          ? initialData.nomor_tiket
+          : nomorTiket.trim(),
+      tanggal_masuk: toDate(String(parsed.data.tanggal_masuk)),
+      nama_cust: parsed.data.nama_cust,
+      phone_cust: parsed.data.phone_cust,
+      alamat_cust: parsed.data.alamat_cust ?? "",
+      jenis_perangkat: parsed.data.jenis_perangkat,
+      merk_perangkat: parsed.data.merk_perangkat,
+      keluhan: parsed.data.keluhan,
+      gunakan_drop_point: parsed.data.gunakan_drop_point === "ya",
       drop_point_id:
-        form.gunakan_drop_point === "ya" ? form.drop_point_id : null,
+        parsed.data.gunakan_drop_point === "ya"
+          ? parsed.data.drop_point_id ?? null
+          : null,
       drop_point_nama: selectedDropPoint,
       status_verifikasi:
         formType === "edit" && initialData
@@ -415,10 +442,10 @@ nomor_tiket:
 
   const submitLabel = formType === "create" ? "Simpan" : "Update";
 
-const displayNoTiket =
-  formType === "edit" && initialData
-    ? initialData.nomor_tiket
-    : nomorTiket || "Menyiapkan nomor tiket...";
+  const displayNoTiket =
+    formType === "edit" && initialData
+      ? initialData.nomor_tiket
+      : nomorTiket || "Menyiapkan nomor tiket...";
 
   return (
     <Modal
@@ -468,10 +495,13 @@ const displayNoTiket =
                   placeholder="Nomor tiket akan dibuat otomatis setelah disimpan"
                   readOnly
                   radius={0}
+                  error={errors.nomor_tiket}
                   styles={{
                     input: {
                       backgroundColor: "#EAE6E6",
-                      border: "none",
+                      border: errors.nomor_tiket
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       fontWeight: 700,
@@ -488,18 +518,24 @@ const displayNoTiket =
 
                 <DatePickerInput
                   value={tanggal}
-                  onChange={setTanggal}
+                  onChange={(value) => {
+                    setTanggal(value);
+                    clearFieldError("tanggal_masuk");
+                  }}
                   required
                   valueFormat="DD/MM/YYYY"
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.tanggal_masuk}
                   rightSection={
                     <IconCalendarEvent size={18} stroke={1.8} color="#6B7280" />
                   }
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.tanggal_masuk
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       fontWeight: 700,
@@ -527,10 +563,11 @@ const displayNoTiket =
                   }
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.nama_cust}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.nama_cust ? "1px solid #FA5252" : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
@@ -551,10 +588,11 @@ const displayNoTiket =
                   }
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.phone_cust}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.phone_cust ? "1px solid #FA5252" : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
@@ -581,11 +619,12 @@ const displayNoTiket =
                 }}
                 radius={0}
                 disabled={isSubmitting}
+                error={errors.alamat_cust}
                 placeholder="Contoh: Jl. Smki No.22, Batubulan, Sukawati, Gianyar, Bali"
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.alamat_cust ? "1px solid #FA5252" : "none",
                     height: 44,
                     fontSize: 18,
                     color: "#111111",
@@ -602,6 +641,7 @@ const displayNoTiket =
               <Radio.Group
                 value={form.gunakan_drop_point}
                 onChange={handleDropPointRadioChange}
+                error={errors.gunakan_drop_point}
               >
                 <Group gap="xl">
                   <Radio
@@ -636,6 +676,7 @@ const displayNoTiket =
                   radius={0}
                   disabled={isSubmitting || isLoadingDistance}
                   searchable
+                  error={errors.drop_point_id}
                   renderOption={({ option }) => {
                     const item = displayDropPointOptions.find(
                       (dropPoint) => dropPoint.value === option.value
@@ -689,7 +730,9 @@ const displayNoTiket =
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.drop_point_id
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
@@ -756,10 +799,13 @@ const displayNoTiket =
                   ]}
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.jenis_perangkat}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.jenis_perangkat
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
@@ -787,10 +833,13 @@ const displayNoTiket =
                   }
                   radius={0}
                   disabled={isSubmitting}
+                  error={errors.merk_perangkat}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.merk_perangkat
+                        ? "1px solid #FA5252"
+                        : "none",
                       height: 44,
                       fontSize: 18,
                       color: "#111111",
@@ -814,10 +863,11 @@ const displayNoTiket =
                 minRows={6}
                 radius={0}
                 disabled={isSubmitting}
+                error={errors.keluhan}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.keluhan ? "1px solid #FA5252" : "none",
                     fontSize: 18,
                     color: "#111111",
                   },

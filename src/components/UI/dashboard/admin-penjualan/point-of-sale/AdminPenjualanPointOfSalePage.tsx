@@ -18,6 +18,7 @@ import {
   type POSMetodePembayaran,
   type POSTransaksiApiItem,
 } from "@/lib/admin-penjualan/admin-penjualan-point-of-sale.client";
+import { posCheckoutFormSchema, validateWithZod } from "@/lib/validations";
 
 type Barang = {
   id: string;
@@ -132,6 +133,9 @@ export default function AdminPenjualanPointOfSalePage() {
     useState<ActiveTransaksi | null>(null);
   const [lastInvoiceData, setLastInvoiceData] =
     useState<InvoicePenjualanData | null>(null);
+  const [checkoutErrors, setCheckoutErrors] = useState<Record<string, string>>(
+    {}
+  );
 
   const hasPreparedInitialTransaksiRef = useRef(false);
   const draftRequestRef = useRef<Promise<ActiveTransaksi> | null>(null);
@@ -171,6 +175,13 @@ export default function AdminPenjualanPointOfSalePage() {
     formatDateDisplay(activeTransaksi?.tanggal_transaksi || new Date());
 
   const adminPreview = lastInvoiceData?.admin || adminName;
+
+  function clearCheckoutFieldError(field: string) {
+    setCheckoutErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  }
 
   async function createDraftTransaksi() {
     if (draftRequestRef.current) {
@@ -282,6 +293,7 @@ export default function AdminPenjualanPointOfSalePage() {
 
   async function handleTambahBarang(barang: Barang) {
     clearLastInvoice();
+    clearCheckoutFieldError("cartLength");
 
     if (barang.stok <= 0) {
       notifications.show({
@@ -364,7 +376,16 @@ export default function AdminPenjualanPointOfSalePage() {
 
   function handleHapusItem(id: string) {
     clearLastInvoice();
-    setCart((prev) => prev.filter((item) => item.id !== id));
+
+    setCart((prev) => {
+      const nextCart = prev.filter((item) => item.id !== id);
+
+      if (nextCart.length > 0) {
+        clearCheckoutFieldError("cartLength");
+      }
+
+      return nextCart;
+    });
   }
 
   async function handleBatal() {
@@ -386,6 +407,7 @@ export default function AdminPenjualanPointOfSalePage() {
       setNamaCustomer(DEFAULT_NAMA_CUSTOMER);
       setActiveTransaksi(null);
       setLastInvoiceData(null);
+      setCheckoutErrors({});
 
       hasPreparedInitialTransaksiRef.current = false;
       await prepareInitialTransaksi(true);
@@ -414,11 +436,13 @@ export default function AdminPenjualanPointOfSalePage() {
   function handleChangeDiskon(value: number | string) {
     clearLastInvoice();
     setDiskon(value);
+    clearCheckoutFieldError("diskon");
   }
 
   function handleChangeNominalBayar(value: number | string) {
     clearLastInvoice();
     setNominalBayar(value);
+    clearCheckoutFieldError("nominalBayar");
   }
 
   function handleChangeMetodePembayaran(value: string) {
@@ -426,6 +450,9 @@ export default function AdminPenjualanPointOfSalePage() {
 
     const nextMetode = value as POSMetodePembayaran;
     setMetodePembayaran(nextMetode);
+
+    clearCheckoutFieldError("metodePembayaran");
+    clearCheckoutFieldError("nominalBayar");
 
     if (nextMetode !== "Cash") {
       setNominalBayar(0);
@@ -435,23 +462,25 @@ export default function AdminPenjualanPointOfSalePage() {
   function handleChangeNamaCustomer(value: string) {
     clearLastInvoice();
     setNamaCustomer(value);
+    clearCheckoutFieldError("namaCustomer");
   }
 
   function validateTransaksi() {
-    if (cart.length === 0) {
-      notifications.show({
-        title: "Gagal",
-        message: "Keranjang masih kosong.",
-        color: "red",
-      });
+    const parsed = validateWithZod(posCheckoutFormSchema, {
+      namaCustomer,
+      metodePembayaran,
+      diskon: diskonNumber,
+      nominalBayar: nominalBayarNumber,
+      total,
+      cartLength: cart.length,
+    });
 
-      return false;
-    }
+    if (!parsed.success) {
+      setCheckoutErrors(parsed.errors);
 
-    if (namaCustomer.trim().length > 150) {
       notifications.show({
-        title: "Gagal",
-        message: "Nama customer maksimal 150 karakter.",
+        title: "Validasi gagal",
+        message: parsed.message,
         color: "red",
       });
 
@@ -459,8 +488,13 @@ export default function AdminPenjualanPointOfSalePage() {
     }
 
     if (diskonNumber > subtotal) {
+      setCheckoutErrors((prev) => ({
+        ...prev,
+        diskon: "Diskon tidak boleh melebihi subtotal.",
+      }));
+
       notifications.show({
-        title: "Gagal",
+        title: "Validasi gagal",
         message: "Diskon tidak boleh melebihi subtotal.",
         color: "red",
       });
@@ -468,16 +502,7 @@ export default function AdminPenjualanPointOfSalePage() {
       return false;
     }
 
-    if (metodePembayaran === "Cash" && nominalBayarNumber < total) {
-      notifications.show({
-        title: "Gagal",
-        message: "Nominal bayar belum mencukupi.",
-        color: "red",
-      });
-
-      return false;
-    }
-
+    setCheckoutErrors({});
     return true;
   }
 
@@ -514,6 +539,7 @@ export default function AdminPenjualanPointOfSalePage() {
       setNominalBayar(0);
       setMetodePembayaran("Cash");
       setNamaCustomer(transaksi.nama_cust || DEFAULT_NAMA_CUSTOMER);
+      setCheckoutErrors({});
       hasPreparedInitialTransaksiRef.current = false;
 
       await fetchBarang();
@@ -580,6 +606,7 @@ export default function AdminPenjualanPointOfSalePage() {
         nominalBayar={nominalBayar}
         kembalian={kembalian}
         isSubmitting={isTransactionBusy}
+        errors={checkoutErrors}
         formatRupiah={formatRupiah}
         formatRupiahPrefix={formatRupiahPrefix}
         onChangeNamaCustomer={handleChangeNamaCustomer}

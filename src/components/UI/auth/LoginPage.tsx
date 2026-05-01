@@ -27,12 +27,16 @@ import {
   getDashboardPathByRoleName,
   loginRequest,
 } from "@/lib/auth/auth.client";
+import { loginFormSchema, validateWithZod } from "@/lib/validations";
 
 export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
 
@@ -66,28 +70,45 @@ export default function LoginPage() {
     };
   }, [router]);
 
+  const clearFieldError = (field: string) => {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  };
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (isSubmitting) return;
 
-    if (!email.trim() || !password.trim()) {
+    const parsed = validateWithZod(loginFormSchema, {
+      email,
+      password,
+    });
+
+    if (!parsed.success) {
+      setErrors(parsed.errors);
+
       notifications.show({
         color: "red",
         title: "Login gagal",
-        message: "Email dan password wajib diisi.",
+        message: parsed.message,
         icon: <IconAlertCircle size={18} />,
         autoClose: 3000,
       });
+
       return;
     }
+
+    setErrors({});
 
     try {
       setIsSubmitting(true);
 
       const result = await loginRequest({
-        email: email.trim().toLowerCase(),
-        password,
+        email: parsed.data.email,
+        password: parsed.data.password,
       });
 
       if (!result.success) {
@@ -216,47 +237,77 @@ export default function LoginPage() {
               <Stack gap={26} w="100%">
                 <TextInput
                   value={email}
-                  onChange={(e) => setEmail(e.currentTarget.value)}
+                  onChange={(e) => {
+                    setEmail(e.currentTarget.value);
+                    clearFieldError("email");
+                  }}
                   radius="md"
                   size="lg"
                   placeholder="Email"
+                  error={errors.email}
                   leftSection={
-                    <ActionIcon variant="subtle" color="gray" radius="xl" tabIndex={-1}>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      radius="xl"
+                      tabIndex={-1}
+                    >
                       <IconAt size={20} />
                     </ActionIcon>
                   }
                   styles={{
                     input: {
                       height: 70,
-                      border: "2px solid #6B6B6B",
+                      border: errors.email
+                        ? "2px solid #FA5252"
+                        : "2px solid #6B6B6B",
                       backgroundColor: "#FFFFFF",
                       fontSize: 18,
                       paddingLeft: 52,
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
 
                 <PasswordInput
                   value={password}
-                  onChange={(e) => setPassword(e.currentTarget.value)}
+                  onChange={(e) => {
+                    setPassword(e.currentTarget.value);
+                    clearFieldError("password");
+                  }}
                   radius="md"
                   size="lg"
                   placeholder="Password"
+                  error={errors.password}
                   leftSection={
-                    <ActionIcon variant="subtle" color="gray" radius="xl" tabIndex={-1}>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      radius="xl"
+                      tabIndex={-1}
+                    >
                       <IconShieldLock size={20} />
                     </ActionIcon>
                   }
                   styles={{
                     input: {
                       height: 70,
-                      border: "2px solid #6B6B6B",
+                      border: errors.password
+                        ? "2px solid #FA5252"
+                        : "2px solid #6B6B6B",
                       backgroundColor: "#FFFFFF",
                       fontSize: 18,
                       paddingLeft: 52,
                     },
                     innerInput: {
                       fontSize: 18,
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -298,7 +349,7 @@ export default function LoginPage() {
               </Button>
 
               <Text c="dimmed" size="md" ta="center">
-                Silakan login sesuai role yang terdaftar di sistem
+                Silakan login sesuai role anda
               </Text>
             </Stack>
           </form>

@@ -27,6 +27,7 @@ import { IconPlus, IconX } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
 import FormFieldLabel from "@/components/UI/common/form/FormFieldLabel";
 import { formatCurrency } from "@/utils/currency-format/format-currency";
+import { sparepartFormSchema, validateWithZod } from "@/lib/validations";
 
 export type SparepartFormInitialData = {
   id: string;
@@ -148,6 +149,13 @@ export default function SparepartFormModal({
     setErrors({});
   }, [opened, formType, initialData]);
 
+  function clearFieldError(field: string) {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  }
+
   function handleChange<K extends keyof SparepartFormState>(
     key: K,
     value: SparepartFormState[K]
@@ -156,6 +164,8 @@ export default function SparepartFormModal({
       ...prev,
       [key]: value,
     }));
+
+    clearFieldError(key);
   }
 
   function handleReset() {
@@ -168,17 +178,15 @@ export default function SparepartFormModal({
   }
 
   function validate() {
-    const nextErrors: Record<string, string> = {};
+    const parsed = validateWithZod(sparepartFormSchema, form);
 
-    if (!form.nama.trim()) nextErrors.nama = "Nama wajib diisi";
-    if (!form.kode.trim()) nextErrors.kode = "Kode wajib diisi";
-    if (!form.merk.trim()) nextErrors.merk = "Merk wajib diisi";
-    if (!form.supplier) nextErrors.supplier = "Supplier wajib dipilih";
-    if (!form.harga || form.harga <= 0) nextErrors.harga = "Harga wajib valid";
-    if (form.stok < 0) nextErrors.stok = "Stok tidak boleh negatif";
+    if (!parsed.success) {
+      setErrors(parsed.errors);
+      return null;
+    }
 
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+    setErrors({});
+    return parsed.data;
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -216,6 +224,8 @@ export default function SparepartFormModal({
         ...prev,
         fotoBase64: previewUrl,
       }));
+
+      clearFieldError("fotoBase64");
     } catch {
       alert("Gagal membaca file gambar.");
       inputElement.value = "";
@@ -232,6 +242,8 @@ export default function SparepartFormModal({
       fotoBase64: null,
     }));
 
+    clearFieldError("fotoBase64");
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -240,21 +252,23 @@ export default function SparepartFormModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!validate()) {
+    const validated = validate();
+
+    if (!validated) {
       return;
     }
 
     try {
       const success = await onSubmit(
         {
-          nama: form.nama.trim(),
-          kode: form.kode.trim(),
-          merk: form.merk.trim(),
-          stok: form.stok,
-          harga: form.harga,
-          supplier: form.supplier ?? "",
-          deskripsi: form.deskripsi.trim() ? form.deskripsi.trim() : null,
-          fotoBase64: form.fotoBase64,
+          nama: validated.nama,
+          kode: validated.kode,
+          merk: validated.merk,
+          stok: validated.stok,
+          harga: validated.harga,
+          supplier: validated.supplier,
+          deskripsi: validated.deskripsi ?? null,
+          fotoBase64: validated.fotoBase64 ?? null,
         },
         formType
       );
@@ -321,6 +335,7 @@ export default function SparepartFormModal({
                   size="lg"
                   color="#6B7280"
                 />
+
                 <TextInput
                   value={form.nama}
                   onChange={(event) =>
@@ -332,10 +347,14 @@ export default function SparepartFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.nama ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -348,6 +367,7 @@ export default function SparepartFormModal({
                   size="lg"
                   color="#6B7280"
                 />
+
                 <TextInput
                   value={getFormattedHarga(form.harga)}
                   onChange={(event) =>
@@ -363,10 +383,14 @@ export default function SparepartFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.harga ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -379,6 +403,7 @@ export default function SparepartFormModal({
                   size="lg"
                   color="#6B7280"
                 />
+
                 <TextInput
                   value={form.kode}
                   onChange={(event) =>
@@ -390,10 +415,14 @@ export default function SparepartFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.kode ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -406,6 +435,7 @@ export default function SparepartFormModal({
                   size="lg"
                   color="#6B7280"
                 />
+
                 <NumberInput
                   value={form.stok}
                   onChange={(value) =>
@@ -420,10 +450,14 @@ export default function SparepartFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.stok ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -436,6 +470,7 @@ export default function SparepartFormModal({
                   size="lg"
                   color="#6B7280"
                 />
+
                 <TextInput
                   value={form.merk}
                   onChange={(event) =>
@@ -447,10 +482,14 @@ export default function SparepartFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.merk ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -463,6 +502,7 @@ export default function SparepartFormModal({
                   size="lg"
                   color="#6B7280"
                 />
+
                 <Select
                   value={form.supplier}
                   onChange={(value) => handleChange("supplier", value)}
@@ -474,7 +514,7 @@ export default function SparepartFormModal({
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.supplier ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
@@ -486,6 +526,10 @@ export default function SparepartFormModal({
                       color: "#111111",
                       fontSize: 16,
                     },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
+                    },
                   }}
                 />
               </Stack>
@@ -493,6 +537,7 @@ export default function SparepartFormModal({
 
             <Stack gap={8}>
               <FormFieldLabel label="Deskripsi" size="lg" color="#6B7280" />
+
               <Textarea
                 value={form.deskripsi}
                 onChange={(event) =>
@@ -502,12 +547,17 @@ export default function SparepartFormModal({
                 minRows={7}
                 radius="md"
                 disabled={isSubmitting}
+                error={errors.deskripsi}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.deskripsi ? "1px solid #FA5252" : "none",
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />
@@ -575,6 +625,7 @@ export default function SparepartFormModal({
                 ) : (
                   <Stack align="center" gap={6}>
                     <IconPlus size={72} stroke={1.6} color="#EAEAEA" />
+
                     <Text c="#B0B0B0" size="sm">
                       Klik untuk upload foto sparepart
                     </Text>

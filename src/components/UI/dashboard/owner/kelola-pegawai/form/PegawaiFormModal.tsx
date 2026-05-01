@@ -17,6 +17,7 @@ import {
 } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import type { FormType } from "@/types/form-types";
+import { getPegawaiFormSchema, validateWithZod } from "@/lib/validations";
 
 export type PegawaiRoleOption = {
   value: string;
@@ -105,11 +106,14 @@ export default function PegawaiFormModal({
   onSubmit,
 }: PegawaiFormModalProps) {
   const [form, setForm] = useState<FormState>(initialForm);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!opened) return;
+
+    setErrors({});
 
     if (formType === "edit" && initialData) {
       setForm({
@@ -129,14 +133,28 @@ export default function PegawaiFormModal({
     setForm(initialForm);
   }, [opened, formType, initialData]);
 
-  const handleChange = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+  const clearFieldError = (field: string) => {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: "",
+    }));
+  };
+
+  const handleChange = <K extends keyof FormState>(
+    key: K,
+    value: FormState[K]
+  ) => {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
+
+    clearFieldError(key);
   };
 
   const handleReset = () => {
+    setErrors({});
+
     if (formType === "edit" && initialData) {
       setForm({
         nama: initialData.nama,
@@ -206,38 +224,25 @@ export default function PegawaiFormModal({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (
-      !form.nama.trim() ||
-      !form.email.trim() ||
-      !form.phone.trim() ||
-      !form.id_roles
-    ) {
-      alert("Mohon lengkapi field yang wajib diisi.");
+    const parsed = validateWithZod(getPegawaiFormSchema(formType), form);
+
+    if (!parsed.success) {
+      setErrors(parsed.errors);
       return;
     }
 
-    if (formType === "create" && !form.password.trim()) {
-      alert("Password wajib diisi saat menambah pegawai.");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailRegex.test(form.email.trim())) {
-      alert("Format email tidak valid.");
-      return;
-    }
+    setErrors({});
 
     const payload: PegawaiFormPayload = {
-      nama: form.nama.trim(),
-      email: form.email.trim().toLowerCase(),
-      password: form.password.trim() ? form.password.trim() : null,
-      phone: form.phone.trim(),
-      address: form.address.trim() ? form.address.trim() : null,
-      id_roles: form.id_roles,
-      photoFile: form.photoFile,
-      photoPreviewUrl: form.photoPreviewUrl,
-      removePhoto: form.removePhoto,
+      nama: parsed.data.nama,
+      email: parsed.data.email,
+      password: parsed.data.password ?? null,
+      phone: parsed.data.phone,
+      address: parsed.data.address ?? null,
+      id_roles: parsed.data.id_roles,
+      photoFile: parsed.data.photoFile ?? null,
+      photoPreviewUrl: parsed.data.photoPreviewUrl ?? null,
+      removePhoto: parsed.data.removePhoto ?? false,
     };
 
     try {
@@ -313,13 +318,18 @@ export default function PegawaiFormModal({
                   }
                   radius="md"
                   disabled={isSubmitting}
+                  error={errors.nama}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.nama ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -336,13 +346,18 @@ export default function PegawaiFormModal({
                   }
                   radius="md"
                   disabled={isSubmitting}
+                  error={errors.email}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.email ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -359,13 +374,18 @@ export default function PegawaiFormModal({
                   }
                   radius="md"
                   disabled={isSubmitting}
+                  error={errors.phone}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.phone ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -390,16 +410,21 @@ export default function PegawaiFormModal({
                   }
                   radius="md"
                   disabled={isSubmitting}
+                  error={errors.password}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.password ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
                     },
                     innerInput: {
                       fontSize: 18,
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -415,10 +440,11 @@ export default function PegawaiFormModal({
                   data={roleOptions}
                   radius="md"
                   disabled={isSubmitting}
+                  error={errors.id_roles}
                   styles={{
                     input: {
                       backgroundColor: "#FFFFFF",
-                      border: "none",
+                      border: errors.id_roles ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",
@@ -429,6 +455,10 @@ export default function PegawaiFormModal({
                     option: {
                       color: "#111111",
                       fontSize: 16,
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
                     },
                   }}
                 />
@@ -448,12 +478,17 @@ export default function PegawaiFormModal({
                 minRows={7}
                 radius="md"
                 disabled={isSubmitting}
+                error={errors.address}
                 styles={{
                   input: {
                     backgroundColor: "#FFFFFF",
-                    border: "none",
+                    border: errors.address ? "1px solid #FA5252" : "none",
                     fontSize: 18,
                     color: "#111111",
+                  },
+                  error: {
+                    fontSize: 14,
+                    marginTop: 6,
                   },
                 }}
               />

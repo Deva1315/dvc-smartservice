@@ -124,10 +124,6 @@ function ProductCard({ item }: { item: PublicProdukItem }) {
             >
               {formatRupiah(item.harga)}
             </Text>
-
-            <Text ta="center" size="xs" c="#6B7280" fw={600}>
-              Stok: {item.stock}
-            </Text>
           </Stack>
         </Stack>
       </Paper>
