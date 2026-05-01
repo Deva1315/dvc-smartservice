@@ -37,6 +37,8 @@ type ActiveTransaksi = {
   tanggal_transaksi: string;
 };
 
+const DEFAULT_NAMA_CUSTOMER = "Pelanggan Umum";
+
 function formatRupiah(value: number) {
   return new Intl.NumberFormat("id-ID", {
     maximumFractionDigits: 0,
@@ -99,6 +101,8 @@ function mapTransaksiToInvoiceData(
   return {
     nomorTransaksi: transaksi.nomor_transaksi,
     tanggal: formatDateDisplay(transaksi.tanggal_transaksi),
+    tanggalRaw: String(transaksi.tanggal_transaksi),
+    namaCustomer: transaksi.nama_cust || "Pelanggan Umum",
     admin: transaksi.admin?.nama || "-",
     metodePembayaran: transaksi.metode_transaksi,
     items: transaksi.detail_transaksi.map((item) => ({
@@ -120,6 +124,7 @@ export default function AdminPenjualanPointOfSalePage() {
   const [diskon, setDiskon] = useState<number | string>(0);
   const [nominalBayar, setNominalBayar] = useState<number | string>(0);
   const [adminName, setAdminName] = useState("-");
+  const [namaCustomer, setNamaCustomer] = useState(DEFAULT_NAMA_CUSTOMER);
   const [isLoadingBarang, setIsLoadingBarang] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparingTransaksi, setIsPreparingTransaksi] = useState(false);
@@ -378,6 +383,7 @@ export default function AdminPenjualanPointOfSalePage() {
       setDiskon(0);
       setNominalBayar(0);
       setMetodePembayaran("Cash");
+      setNamaCustomer(DEFAULT_NAMA_CUSTOMER);
       setActiveTransaksi(null);
       setLastInvoiceData(null);
 
@@ -426,11 +432,26 @@ export default function AdminPenjualanPointOfSalePage() {
     }
   }
 
+  function handleChangeNamaCustomer(value: string) {
+    clearLastInvoice();
+    setNamaCustomer(value);
+  }
+
   function validateTransaksi() {
     if (cart.length === 0) {
       notifications.show({
         title: "Gagal",
         message: "Keranjang masih kosong.",
+        color: "red",
+      });
+
+      return false;
+    }
+
+    if (namaCustomer.trim().length > 150) {
+      notifications.show({
+        title: "Gagal",
+        message: "Nama customer maksimal 150 karakter.",
         color: "red",
       });
 
@@ -473,6 +494,7 @@ export default function AdminPenjualanPointOfSalePage() {
       const draftTransaksi = activeTransaksi || (await ensureDraftTransaksi());
 
       const result = await bayarPOSTransaksi(draftTransaksi.id, {
+        nama_cust: namaCustomer.trim() || DEFAULT_NAMA_CUSTOMER,
         metode_transaksi: metodePembayaran,
         diskon_transaksi: diskonNumber,
         nominal_bayar: nominalBayarNumber,
@@ -491,6 +513,7 @@ export default function AdminPenjualanPointOfSalePage() {
       setDiskon(0);
       setNominalBayar(0);
       setMetodePembayaran("Cash");
+      setNamaCustomer(transaksi.nama_cust || DEFAULT_NAMA_CUSTOMER);
       hasPreparedInitialTransaksiRef.current = false;
 
       await fetchBarang();
@@ -548,6 +571,7 @@ export default function AdminPenjualanPointOfSalePage() {
         nomorTransaksiPreview={nomorTransaksiPreview}
         tanggalPreview={tanggalPreview}
         adminPreview={adminPreview}
+        namaCustomer={namaCustomer}
         lastInvoiceData={lastInvoiceData}
         subtotal={subtotal}
         diskon={diskon}
@@ -558,6 +582,7 @@ export default function AdminPenjualanPointOfSalePage() {
         isSubmitting={isTransactionBusy}
         formatRupiah={formatRupiah}
         formatRupiahPrefix={formatRupiahPrefix}
+        onChangeNamaCustomer={handleChangeNamaCustomer}
         onChangeDiskon={handleChangeDiskon}
         onChangeMetodePembayaran={handleChangeMetodePembayaran}
         onChangeNominalBayar={handleChangeNominalBayar}

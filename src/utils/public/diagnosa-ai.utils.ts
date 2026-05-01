@@ -1,7 +1,14 @@
 import { z } from "zod";
-import type {
-  DiagnosaAiModelResponse,
-} from "@/lib/diagnosa-ai/diagnosa-ai.types";
+import type { DiagnosaAiModelResponse } from "@/lib/diagnosa-ai/diagnosa-ai.types";
+
+export const MAX_DIAGNOSA_AI_IMAGE_BYTES = 5 * 1024 * 1024;
+
+const ACCEPTED_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+];
 
 export const diagnosaAiChatRequestSchema = z.object({
   message: z.string().trim().min(1, "Pesan wajib diisi."),
@@ -76,32 +83,57 @@ export function normalizeImageMarker(imageBase64?: string | null) {
   return "[image-attached]";
 }
 
-export function extractPureBase64Image(value?: string | null) {
+export function getBase64SizeInBytes(base64: string) {
+  const normalized = base64.replace(/\s/g, "");
+  const padding = normalized.endsWith("==")
+    ? 2
+    : normalized.endsWith("=")
+      ? 1
+      : 0;
+
+  return Math.floor((normalized.length * 3) / 4) - padding;
+}
+
+export function extractBase64ImageData(value?: string | null) {
   if (!value) return null;
 
   const trimmed = value.trim();
 
-  if (trimmed.startsWith("blob:")) {
+  if (!trimmed || trimmed.startsWith("blob:")) {
     return null;
   }
 
   if (trimmed.startsWith("data:image/")) {
-    const parts = trimmed.split(",");
-    if (parts.length < 2) return null;
+    const match = trimmed.match(/^data:(image\/[[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/);
 
-    const pureBase64 = parts[1]?.replace(/\s/g, "") ?? "";
-    if (!pureBase64) return null;
+    if (!match) return null;
 
-    if (!/^[A-Za-z0-9+/]+=*$/.test(pureBase64)) {
+    const mimeType = match[1]?.toLowerCase();
+    const pureBase64 = match[2]?.replace(/\s/g, "") ?? "";
+
+    if (!mimeType || !ACCEPTED_IMAGE_MIME_TYPES.includes(mimeType)) {
       return null;
     }
 
-    return pureBase64;
+    if (!pureBase64 || !/^[A-Za-z0-9+/]+=*$/.test(pureBase64)) {
+      return null;
+    }
+
+    return {
+      data: pureBase64,
+      mimeType: mimeType === "image/jpg" ? "image/jpeg" : mimeType,
+      sizeBytes: getBase64SizeInBytes(pureBase64),
+    };
   }
 
   const maybePureBase64 = trimmed.replace(/\s/g, "");
+
   if (/^[A-Za-z0-9+/]+=*$/.test(maybePureBase64)) {
-    return maybePureBase64;
+    return {
+      data: maybePureBase64,
+      mimeType: "image/jpeg",
+      sizeBytes: getBase64SizeInBytes(maybePureBase64),
+    };
   }
 
   return null;

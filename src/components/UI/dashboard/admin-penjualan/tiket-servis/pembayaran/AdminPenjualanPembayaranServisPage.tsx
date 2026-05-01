@@ -102,32 +102,30 @@ export default function AdminPenjualanPembayaranServisPage() {
   const statusPembayaranLabel = isPaid ? "Lunas" : "Belum Lunas";
   const statusPembayaranColor = isPaid ? "green" : "orange";
 
-  const notaData = useMemo<NotaPembayaranServisData | null>(() => {
-    if (!data) return null;
+const notaData = useMemo<NotaPembayaranServisData | null>(() => {
+  if (!data) return null;
 
-    return {
-      nomorTiket: data.tiket.nomor_tiket,
-      tanggalBayar: formatTanggal(
-        data.pembayaran?.tanggal_pembayaran || new Date().toISOString()
-      ),
-      namaPelanggan: data.tiket.nama_cust,
-      noTelepon: data.tiket.phone_cust,
-      perangkat: getPerangkatDisplay(data),
-      metodePembayaran: data.pembayaran?.metode_pembayaran || metode,
-      items: [
-        ...data.rincian_jasa.map((item) => ({
-          nama: item.nama,
-          qty: null,
-          harga: item.harga,
-        })),
-        ...data.rincian_sparepart.map((item) => ({
-          nama: item.nama,
-          qty: item.jumlah,
-          harga: item.harga,
-        })),
-      ],
-    };
-  }, [data, metode]);
+  return {
+    nomorTiket: data.tiket.nomor_tiket,
+    tanggalTiket: data.tiket.tanggal_masuk,
+    namaPelanggan: data.tiket.nama_cust,
+    noTelepon: data.tiket.phone_cust,
+    perangkat: getPerangkatDisplay(data),
+    metodePembayaran: data.pembayaran?.metode_pembayaran || metode,
+    items: [
+      ...data.rincian_jasa.map((item) => ({
+        nama: item.nama,
+        qty: null,
+        harga: item.harga,
+      })),
+      ...data.rincian_sparepart.map((item) => ({
+        nama: item.nama,
+        qty: item.jumlah,
+        harga: item.harga,
+      })),
+    ],
+  };
+}, [data, metode]);
 
   async function fetchPembayaran() {
     try {

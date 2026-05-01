@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { chatWithOllama } from "@/lib/ollama/ollama";
-import { getDiagnosaAiSystemPrompt } from "@/lib/diagnosa-ai/diagnosa-ai.prompt";
+import { generateDiagnosaAiWithGemini } from "@/lib/diagnosa-ai/diagnosa-ai-gemini";
 import {
   buildNextHistory,
   buildSavedSnapshotStrings,
   diagnosaAiChatRequestSchema,
-  extractPureBase64Image,
+  extractBase64ImageData,
+  MAX_DIAGNOSA_AI_IMAGE_BYTES,
   normalizeDiagnosaAiId,
   normalizeImageMarker,
   parseModelJson,
@@ -32,52 +32,48 @@ export async function POST(request: Request) {
     }
 
     const payload = parsedBody.data;
-    const pureBase64Image = extractPureBase64Image(payload.imageBase64);
+    const imageData = extractBase64ImageData(payload.imageBase64);
 
-    if (payload.imageBase64 && !pureBase64Image) {
+    if (payload.imageBase64 && !imageData) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "Gambar tidak valid. Kirim data URL base64 atau base64 murni yang valid.",
+            "Gambar tidak valid. Gunakan gambar JPG, JPEG, PNG, atau WEBP dalam format base64.",
         },
         { status: 400 }
       );
     }
 
-    const ollamaMessages: Array<{
-      role: "system" | "user" | "assistant";
-      content: string;
-      images?: string[];
-    }> = [
-      {
-        role: "system",
-        content: getDiagnosaAiSystemPrompt(),
-      },
-      ...payload.history.map((item) => ({
-        role: item.role,
-        content: item.content,
-      })),
-      {
-        role: "user",
-        content: payload.message,
-        ...(pureBase64Image ? { images: [pureBase64Image] } : {}),
-      },
-    ];
+    if (imageData && imageData.sizeBytes > MAX_DIAGNOSA_AI_IMAGE_BYTES) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Ukuran gambar terlalu besar. Maksimal gambar untuk Diagnosa AI adalah 5 MB.",
+        },
+        { status: 413 }
+      );
+    }
 
-    const ollamaResponse = await chatWithOllama({
-      model: process.env.DIAGNOSA_AI_MODEL || "gemma3",
-      messages: ollamaMessages,
-      stream: false,
+    const geminiResponse = await generateDiagnosaAiWithGemini({
+      message: payload.message,
+      history: payload.history,
+      image: imageData
+        ? {
+            data: imageData.data,
+            mimeType: imageData.mimeType,
+          }
+        : null,
     });
 
-    const assistantRawText = ollamaResponse.message?.content?.trim();
+    const assistantRawText = geminiResponse.text.trim();
 
     if (!assistantRawText) {
       return NextResponse.json(
         {
           success: false,
-          message: "Model Ollama tidak mengembalikan output.",
+          message: "Gemini tidak mengembalikan output.",
         },
         { status: 502 }
       );
@@ -88,12 +84,12 @@ export async function POST(request: Request) {
     try {
       parsedModelResponse = parseModelJson(assistantRawText);
     } catch (error) {
-      console.error("PARSE OLLAMA JSON ERROR:", error);
+      console.error("PARSE GEMINI JSON ERROR:", error);
 
       return NextResponse.json(
         {
           success: false,
-          message: "Output Ollama bukan JSON valid.",
+          message: "Output Gemini bukan JSON valid.",
           raw: assistantRawText,
         },
         { status: 502 }
@@ -165,14 +161,28 @@ export async function POST(request: Request) {
           snapshot: parsedModelResponse.snapshot,
           nextHistory,
           savedDiagnosa: serializeBigInt(savedDiagnosa),
-          source: "ollama",
-          model: ollamaResponse.model,
+          source: "gemini",
+          model: geminiResponse.model,
         },
       },
       { status: 200 }
     );
   } catch (error) {
     console.error("POST /api/diagnosa-ai/chat error:", error);
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    if (errorMessage.includes("GEMINI_API_KEY")) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Konfigurasi Gemini belum lengkap. Tambahkan GEMINI_API_KEY di .env.local dan Vercel Environment Variables.",
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
       {

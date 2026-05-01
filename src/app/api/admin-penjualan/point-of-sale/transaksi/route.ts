@@ -143,6 +143,20 @@ function normalizeMetodeTransaksi(value: unknown) {
   return metode;
 }
 
+function normalizeNamaCustomer(value: unknown) {
+  const namaCust = typeof value === "string" ? value.trim() : "";
+
+  if (!namaCust) {
+    return "Pelanggan Umum";
+  }
+
+  if (namaCust.length > 150) {
+    throw new Error("Nama customer maksimal 150 karakter");
+  }
+
+  return namaCust;
+}
+
 function toNumber(value: unknown) {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -253,6 +267,7 @@ function buildTransaksiResponse(transaksi: TransaksiWithRelations) {
       transaksi.tanggal_transaksi
     ),
     id_user: transaksi.id_user,
+    nama_cust: transaksi.nama_cust,
     tanggal_transaksi: transaksi.tanggal_transaksi,
 
     subtotal_transaksi: transaksi.subtotal_transaksi,
@@ -336,6 +351,11 @@ export async function GET(request: NextRequest) {
     const searchId = parseTransactionIdFromSearch(search);
 
     const orWhere: Prisma.transaksi_penjualanWhereInput[] = [
+      {
+        nama_cust: {
+          contains: search,
+        },
+      },
       {
         metode_transaksi: {
           contains: search,
@@ -475,6 +495,7 @@ if (action === "create_draft") {
     return tx.transaksi_penjualan.create({
       data: {
         id_user: BigInt(session.id),
+        nama_cust: "Pelanggan Umum",
         tanggal_transaksi: new Date(),
         subtotal_transaksi: toDecimal(0),
         diskon_transaksi: toDecimal(0),
@@ -520,6 +541,8 @@ if (action === "create_draft") {
       "ID transaksi"
     );
 
+    const namaCust = normalizeNamaCustomer(body.nama_cust ?? body.namaCustomer);
+
     const metodeTransaksi = normalizeMetodeTransaksi(
       body.metode_transaksi ?? body.metodePembayaran
     );
@@ -562,6 +585,7 @@ if (action === "create_draft") {
         transaksi = await tx.transaksi_penjualan.create({
           data: {
             id_user: BigInt(session.id),
+            nama_cust: namaCust,
             tanggal_transaksi: new Date(),
             subtotal_transaksi: toDecimal(0),
             diskon_transaksi: toDecimal(0),
@@ -690,6 +714,7 @@ if (action === "create_draft") {
           id: transaksi.id,
         },
         data: {
+          nama_cust: namaCust,
           subtotal_transaksi: toDecimal(subtotalTransaksi),
           diskon_transaksi: toDecimal(diskon),
           total_transaksi: toDecimal(totalTransaksi),
@@ -727,6 +752,7 @@ if (action === "create_draft") {
       ? 404
       : message.includes("wajib") ||
         message.includes("harus") ||
+        message.includes("maksimal") ||
         message.includes("tidak boleh") ||
         message.includes("mencukupi") ||
         message.includes("Stok") ||

@@ -31,6 +31,7 @@ export type POSTransaksiApiItem = {
   id: string;
   nomor_transaksi: string;
   id_user: string;
+  nama_cust: string;
   tanggal_transaksi: string;
 
   subtotal_transaksi: string | number;
@@ -59,6 +60,7 @@ export type POSTransaksiApiItem = {
 
 export type CreatePOSTransaksiPayload = {
   id_transaksi?: string;
+  nama_cust?: string;
   metode_transaksi: POSMetodePembayaran;
   diskon_transaksi?: number;
   nominal_bayar?: number;
@@ -177,15 +179,18 @@ export async function bayarPOSTransaksi(
 }
 
 export async function batalPOSTransaksi(id: string) {
-  const response = await fetch(`${BASE_URL}/transaksi/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      action: "cancel",
-    }),
-  });
+  const response = await fetch(
+    `${BASE_URL}/transaksi/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "cancel",
+      }),
+    }
+  );
 
   const result = await response.json();
 

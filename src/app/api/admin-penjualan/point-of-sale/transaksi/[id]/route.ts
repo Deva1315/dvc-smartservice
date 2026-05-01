@@ -117,6 +117,7 @@ function buildTransaksiResponse(transaksi: TransaksiWithRelations) {
       transaksi.tanggal_transaksi
     ),
     id_user: transaksi.id_user,
+    nama_cust: transaksi.nama_cust,
     tanggal_transaksi: transaksi.tanggal_transaksi,
 
     subtotal_transaksi: transaksi.subtotal_transaksi,

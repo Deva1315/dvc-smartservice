@@ -1,4 +1,12 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+/* eslint-disable jsx-a11y/alt-text */
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
 
 type InvoiceItem = {
   nama: string;
@@ -9,6 +17,8 @@ type InvoiceItem = {
 export type InvoicePenjualanData = {
   nomorTransaksi: string;
   tanggal: string;
+  tanggalRaw?: string;
+  namaCustomer?: string;
   admin: string;
   metodePembayaran: string;
   items: InvoiceItem[];
@@ -20,220 +30,427 @@ type InvoicePenjualanPDFProps = {
   data: InvoicePenjualanData;
 };
 
-function formatRupiah(value: number) {
-  return `Rp ${new Intl.NumberFormat("id-ID", {
-    maximumFractionDigits: 0,
-  }).format(value)}`;
-}
+const LOGO_SRC = "/Images/logo-dvc.png";
+const MINIMUM_TABLE_ROWS = 6;
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("id-ID", {
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(Number.isFinite(value) ? value : 0);
+}
+
+function formatTanggalLong(value?: string) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 function getPageHeight(itemCount: number) {
-  const baseHeight = 430;
-  const rowHeight = 26;
-  const safeSpace = 90;
-
-  return baseHeight + itemCount * rowHeight + safeSpace;
+  const rowCount = Math.max(itemCount, MINIMUM_TABLE_ROWS);
+  return 300 + rowCount * 30 + 180;
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function CellText({
+  text,
+  align = "left",
+  bold = false,
+  italic = false,
+}: {
+  text: string;
+  align?: "left" | "center" | "right";
+  bold?: boolean;
+  italic?: boolean;
+}) {
+  const textStyles = [
+    styles.cellText,
+    ...(align === "center" ? [styles.textCenter] : []),
+    ...(align === "right" ? [styles.textRight] : []),
+    ...(bold ? [styles.bold] : []),
+    ...(italic ? [styles.italic] : []),
+  ];
+
   return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoColon}>:</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
+    <Text style={textStyles}>
+      {text}
+    </Text>
   );
 }
 
-export default function InvoicePenjualanPDF({ data }: InvoicePenjualanPDFProps) {
+export default function InvoicePenjualanPDF({
+  data,
+}: InvoicePenjualanPDFProps) {
   const subtotal = data.items.reduce(
     (total, item) => total + item.harga * item.qty,
     0
   );
+
   const total = Math.max(subtotal - data.diskon, 0);
-  const kembalian = Math.max(data.nominalBayar - total, 0);
+  const tanggalNota = data.tanggalRaw || data.tanggal;
+  const namaCustomer = data.namaCustomer?.trim() || "Pelanggan Umum";
+
+  const rows = data.items.map((item, index) => ({
+    tanggal: index === 0 ? formatTanggalLong(tanggalNota) : "",
+    namaBarang: item.qty > 1 ? `${item.nama} x${item.qty}` : item.nama,
+    harga: formatNumber(item.harga),
+    jumlah: formatNumber(item.harga * item.qty),
+  }));
+
+  while (rows.length < MINIMUM_TABLE_ROWS) {
+    rows.push({
+      tanggal: "",
+      namaBarang: "",
+      harga: "",
+      jumlah: "",
+    });
+  }
 
   return (
     <Document>
-      <Page size={[390, getPageHeight(data.items.length)]} style={styles.page}>
+      <Page size={[595, getPageHeight(data.items.length)]} style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.title}>DVC COMPUTER</Text>
-          <Text style={styles.subtitle}>
-            Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
-          </Text>
-          <Text style={styles.subtitle}>08174762502</Text>
-        </View>
+          <View style={styles.leftHeader}>
+            <View style={styles.logoWrapper}>
+              <Image src={LOGO_SRC} style={styles.logo} />
 
-        <View style={styles.grayLine} />
+              <View style={styles.companyWrapper}>
+                <Text style={styles.companyName}>DVC Komputer</Text>
+                <Text style={styles.companyAddress}>
+                  Jl. Ciung Wanara No. 99X, Sukawati
+                </Text>
+              </View>
+            </View>
 
-        <Text style={styles.invoiceTitle}>INVOICE PENJUALAN</Text>
+            <View style={styles.notaNumberWrapper}>
+              <Text style={styles.notaNumberLabel}>NOTA NO :</Text>
+              <Text style={styles.notaNumberValue}>{data.nomorTransaksi}</Text>
+            </View>
+          </View>
 
-        <View style={styles.infoWrapper}>
-          <InfoRow label="No. Transaksi" value={data.nomorTransaksi} />
-          <InfoRow label="Tanggal" value={data.tanggal} />
-          <InfoRow label="Admin" value={data.admin} />
-          <InfoRow label="Pembayaran" value={data.metodePembayaran} />
-        </View>
-
-        <View style={styles.grayLine} />
-
-        <View style={styles.tableHeader}>
-          <Text style={[styles.cellName, styles.bold]}>Nama Barang</Text>
-          <Text style={[styles.cellQty, styles.bold]}>Qty</Text>
-          <Text style={[styles.cellPrice, styles.bold]}>Harga</Text>
-          <Text style={[styles.cellSubtotal, styles.bold]}>Subtotal</Text>
-        </View>
-
-        {data.items.map((item, index) => (
-          <View key={index} style={styles.tableRow}>
-            <Text style={styles.cellName}>{item.nama}</Text>
-            <Text style={styles.cellQty}>{item.qty}</Text>
-            <Text style={styles.cellPrice}>{formatNumber(item.harga)}</Text>
-            <Text style={styles.cellSubtotal}>
-              {formatNumber(item.harga * item.qty)}
+          <View style={styles.rightHeader}>
+            <Text style={styles.rightHeaderText}>
+              Gianyar, {formatTanggalLong(tanggalNota)}
+            </Text>
+            <Text style={styles.rightHeaderText}>
+              Kepada Yth. {namaCustomer}
             </Text>
           </View>
-        ))}
-
-        <View style={styles.grayLine} />
-
-        <View style={styles.summaryWrapper}>
-          <SummaryRow label="Subtotal" value={formatRupiah(subtotal)} />
-          <SummaryRow label="Diskon" value={formatRupiah(data.diskon)} />
-          <SummaryRow label="Total" value={formatRupiah(total)} />
-          <SummaryRow
-            label="Nominal Bayar"
-            value={formatRupiah(data.nominalBayar)}
-          />
-          <SummaryRow label="Kembalian" value={formatRupiah(kembalian)} />
         </View>
 
-        <View style={styles.grayLine} />
+        <View style={styles.serviceBanner}>
+          <Text style={styles.serviceBannerText}>
+            Melayani : Service Komputer - Jual - Beli Komputer - Hardware
+          </Text>
+        </View>
 
-        <Text style={styles.footer}>
-          Terima kasih telah berbelanja di DVC COMPUTER
-        </Text>
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <View style={[styles.colTanggalCell, styles.headerCell]}>
+              <CellText text="Tanggal" align="center" bold italic />
+            </View>
+
+            <View style={[styles.colNamaBarangCell, styles.headerCell]}>
+              <CellText text="Nama Barang" align="center" bold italic />
+            </View>
+
+            <View style={[styles.colHargaCell, styles.headerCell]}>
+              <CellText text="Harga" align="center" bold italic />
+            </View>
+
+            <View style={[styles.colJumlahCell, styles.headerCell]}>
+              <CellText text="Jumlah" align="center" bold italic />
+            </View>
+          </View>
+
+          {rows.map((row, index) => (
+            <View key={index} style={styles.tableRow}>
+              <View style={styles.colTanggalCell}>
+                <CellText text={row.tanggal} />
+              </View>
+
+              <View style={styles.colNamaBarangCell}>
+                <CellText text={row.namaBarang} />
+              </View>
+
+              <View style={styles.colHargaCell}>
+                <CellText text={row.harga} align="right" />
+              </View>
+
+              <View style={styles.colJumlahCell}>
+                <CellText text={row.jumlah} align="right" />
+              </View>
+            </View>
+          ))}
+
+          <View style={styles.totalRow}>
+            <View style={styles.totalLabelCell}>
+              <Text style={styles.totalLabel}>Total Rp.</Text>
+            </View>
+
+            <View style={styles.totalValueCell}>
+              <Text style={styles.totalValue}>{formatNumber(total)}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.signatureWrapper}>
+          <View style={styles.signatureBox}>
+            <Text style={styles.signatureTitle}>Yang Menerima</Text>
+
+            <View style={styles.signatureSpace} />
+
+            <Text style={styles.signatureName}>{namaCustomer}</Text>
+          </View>
+
+          <View style={styles.signatureBox}>
+            <Text style={styles.signatureTitle}>Yang Menyerahkan</Text>
+
+            <View style={styles.signatureSpace} />
+
+            <Text style={styles.signatureName}>DVC Komputer</Text>
+          </View>
+        </View>
       </Page>
     </Document>
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.summaryRow}>
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={styles.summaryValue}>{value}</Text>
-    </View>
-  );
-}
+const sharedCellBase = {
+  minHeight: 30,
+  justifyContent: "center" as const,
+  paddingHorizontal: 8,
+  paddingVertical: 6,
+};
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 22,
-    paddingHorizontal: 28,
-    paddingBottom: 22,
+    paddingTop: 24,
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+    fontFamily: "Times-Roman",
     fontSize: 11,
-    fontFamily: "Helvetica",
-    color: "#222222",
+    color: "#111111",
   },
+
   header: {
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 700,
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  grayLine: {
-    height: 12,
-    backgroundColor: "#F2F2F2",
-    marginVertical: 8,
-  },
-  invoiceTitle: {
-    textAlign: "center",
-    fontSize: 14,
-    fontWeight: 700,
-    marginVertical: 6,
-  },
-  infoWrapper: {
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  infoRow: {
-    flexDirection: "row",
-    marginBottom: 6,
-  },
-  infoLabel: {
-    width: 95,
-    fontSize: 11,
-  },
-  infoColon: {
-    width: 12,
-    fontSize: 11,
-  },
-  infoValue: {
-    flex: 1,
-    fontSize: 11,
-  },
-  tableHeader: {
-    flexDirection: "row",
-    paddingVertical: 6,
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 5,
-  },
-  cellName: {
-    flex: 1,
-    fontSize: 10.5,
-  },
-  cellQty: {
-    width: 35,
-    textAlign: "center",
-    fontSize: 10.5,
-  },
-  cellPrice: {
-    width: 70,
-    textAlign: "right",
-    fontSize: 10.5,
-  },
-  cellSubtotal: {
-    width: 80,
-    textAlign: "right",
-    fontSize: 10.5,
-  },
-  bold: {
-    fontWeight: 700,
-  },
-  summaryWrapper: {
-    marginTop: 4,
-  },
-  summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 7,
+    alignItems: "flex-start",
+    marginBottom: 12,
   },
-  summaryLabel: {
-    fontSize: 11,
+
+  leftHeader: {
+    width: "54%",
   },
-  summaryValue: {
+
+  rightHeader: {
+    width: "42%",
+    paddingTop: 8,
+  },
+
+  logoWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  logo: {
+    width: 72,
+    height: 54,
+    objectFit: "contain",
+    marginRight: 10,
+  },
+
+  companyWrapper: {
+    flexDirection: "column",
+  },
+
+  companyName: {
+    fontFamily: "Times-Bold",
+    fontSize: 14,
+    marginBottom: 3,
+  },
+
+  companyAddress: {
+    fontSize: 10.5,
+    lineHeight: 1.3,
+  },
+
+  notaNumberWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+
+  notaNumberLabel: {
+    fontFamily: "Times-Bold",
+    fontSize: 11.5,
+    marginRight: 6,
+  },
+
+  notaNumberValue: {
+    fontFamily: "Times-Bold",
+    fontSize: 11.5,
+  },
+
+  rightHeaderText: {
+    fontFamily: "Times-Bold",
+    fontSize: 11.5,
+    marginBottom: 5,
+  },
+
+  serviceBanner: {
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: "#111111",
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+
+  serviceBannerText: {
+    fontFamily: "Times-BoldItalic",
+    fontSize: 10.5,
+  },
+
+  table: {
+    borderWidth: 1,
+    borderColor: "#111111",
+  },
+
+  tableHeader: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderColor: "#111111",
+  },
+
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderColor: "#111111",
+  },
+
+  headerCell: {
+    minHeight: 28,
+  },
+
+  colTanggalCell: {
+    ...sharedCellBase,
+    width: "19%",
+    borderRightWidth: 1,
+    borderColor: "#111111",
+  },
+
+  colNamaBarangCell: {
+    ...sharedCellBase,
+    width: "49%",
+    borderRightWidth: 1,
+    borderColor: "#111111",
+  },
+
+  colHargaCell: {
+    ...sharedCellBase,
+    width: "14%",
+    borderRightWidth: 1,
+    borderColor: "#111111",
+  },
+
+  colJumlahCell: {
+    ...sharedCellBase,
+    width: "18%",
+  },
+
+  totalRow: {
+    flexDirection: "row",
+  },
+
+  totalLabelCell: {
+    width: "82%",
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRightWidth: 1,
+    borderColor: "#111111",
+  },
+
+  totalValueCell: {
+    width: "18%",
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+
+  cellText: {
     fontSize: 11,
+    lineHeight: 1.35,
+  },
+
+  textCenter: {
+    textAlign: "center",
+  },
+
+  textRight: {
     textAlign: "right",
   },
-  footer: {
-    fontSize: 10.5,
+
+  bold: {
+    fontFamily: "Times-Bold",
+  },
+
+  italic: {
+    fontFamily: "Times-Italic",
+  },
+
+  totalLabel: {
+    textAlign: "right",
+    fontFamily: "Times-Bold",
+    fontSize: 14,
+  },
+
+  totalValue: {
+    textAlign: "right",
+    fontFamily: "Times-Bold",
+    fontSize: 13,
+  },
+
+  signatureWrapper: {
+    marginTop: 38,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 34,
+  },
+
+  signatureBox: {
+    width: "34%",
+    alignItems: "center",
+  },
+
+  signatureTitle: {
+    fontFamily: "Times-Bold",
+    fontSize: 12,
+  },
+
+  signatureSpace: {
+    height: 64,
+  },
+
+  signatureName: {
+    width: "100%",
+    borderBottomWidth: 1,
+    borderColor: "#111111",
     textAlign: "center",
-    marginTop: 8,
+    fontFamily: "Times-Bold",
+    fontSize: 11.5,
+    paddingBottom: 2,
   },
 });

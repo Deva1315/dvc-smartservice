@@ -8,6 +8,7 @@ export async function sendDiagnosaAiChat(
 ): Promise<DiagnosaAiChatResponse> {
   const response = await fetch("/api/diagnosa-ai/chat", {
     method: "POST",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
     },

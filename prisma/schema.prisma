@@ -265,6 +265,7 @@ model tiket_servis {
 model transaksi_penjualan {
   id                 BigInt                               @id @default(autoincrement()) @db.UnsignedBigInt
   id_user            BigInt                               @db.UnsignedBigInt
+  nama_cust          String                               @default("Pelanggan Umum") @db.VarChar(150)
   tanggal_transaksi  DateTime                             @db.DateTime(0)
   subtotal_transaksi Decimal                              @default(0.00) @db.Decimal(15, 2)
   diskon_transaksi   Decimal                              @default(0.00) @db.Decimal(15, 2)

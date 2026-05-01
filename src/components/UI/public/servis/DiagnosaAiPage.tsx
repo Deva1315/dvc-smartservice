@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ActionIcon,
@@ -25,7 +25,9 @@ import {
   IconMapPin,
   IconPhone,
   IconPhotoPlus,
+  IconRefresh,
   IconSend,
+  IconX,
 } from "@tabler/icons-react";
 import { sendDiagnosaAiChat } from "@/lib/diagnosa-ai/diagnosa-ai.client";
 import type {
@@ -34,11 +36,25 @@ import type {
 } from "@/lib/diagnosa-ai/diagnosa-ai.types";
 
 type ChatMessage = {
-  id: number;
+  id: string;
   role: "user" | "assistant";
   text: string;
   image?: string | null;
 };
+
+const MAX_IMAGE_SIZE_MB = 5;
+const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+
+const ACCEPTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+];
+
+function createMessageId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -71,13 +87,13 @@ function buildAssistantDisplayText(
     assistantMessage,
     "",
     "Kemungkinan penyebab:",
-    ...snapshot.kemungkinanPenyebab.map((item: string) => `- ${item}`),
+    ...snapshot.kemungkinanPenyebab.map((item) => `- ${item}`),
     "",
     "Kemungkinan solusi:",
-    ...snapshot.kemungkinanSolusi.map((item: string) => `- ${item}`),
+    ...snapshot.kemungkinanSolusi.map((item) => `- ${item}`),
     "",
     "Saran tindakan:",
-    ...snapshot.saranTindakan.map((item: string) => `- ${item}`),
+    ...snapshot.saranTindakan.map((item) => `- ${item}`),
     "",
     `Tingkat urgensi: ${snapshot.tingkatUrgensi}`,
     `Perlu servis langsung: ${snapshot.perluServisLangsung ? "Ya" : "Tidak"}`,
@@ -92,52 +108,103 @@ export default function DiagnosaAiPage() {
   const [prompt, setPrompt] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [history, setHistory] = useState<DiagnosaAiHistoryMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [diagnosaAiId, setDiagnosaAiId] = useState<string | null>(null);
-  const [, setSnapshot] = useState<DiagnosaAiSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<DiagnosaAiSnapshot | null>(null);
+
+  const canSend = useMemo(() => {
+    return Boolean(prompt.trim() || selectedImage) && !loading;
+  }, [prompt, selectedImage, loading]);
+
+  const serviceHref = diagnosaAiId
+    ? `/tiket_servis?diagnosa_ai_id=${encodeURIComponent(diagnosaAiId)}`
+    : "/tiket_servis";
 
   const handlePickImage = () => {
     fileInputRef.current?.click();
   };
 
-const handleImageChange = async (
-  event: React.ChangeEvent<HTMLInputElement>
-) => {
-  const inputElement = event.currentTarget;
-  const file = inputElement.files?.[0];
+  const handleImageChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const inputElement = event.currentTarget;
+    const file = inputElement.files?.[0];
 
-  if (!file) return;
+    if (!file) return;
 
-  try {
-    const base64 = await fileToBase64(file);
-    setSelectedImage(base64);
-  } catch {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      notifications.show({
+        color: "red",
+        title: "Format gambar tidak valid",
+        message: "Gunakan gambar JPG, JPEG, PNG, atau WEBP.",
+        icon: <IconAlertCircle size={18} />,
+        autoClose: 3000,
+      });
+
+      inputElement.value = "";
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      notifications.show({
+        color: "red",
+        title: "Gambar terlalu besar",
+        message: `Ukuran gambar maksimal ${MAX_IMAGE_SIZE_MB} MB.`,
+        icon: <IconAlertCircle size={18} />,
+        autoClose: 3000,
+      });
+
+      inputElement.value = "";
+      return;
+    }
+
+    try {
+      const base64 = await fileToBase64(file);
+      setSelectedImage(base64);
+    } catch {
+      notifications.show({
+        color: "red",
+        title: "Upload gagal",
+        message: "Gambar tidak bisa diproses.",
+        icon: <IconAlertCircle size={18} />,
+        autoClose: 3000,
+      });
+    } finally {
+      inputElement.value = "";
+    }
+  };
+
+  const handleResetChat = () => {
+    setPrompt("");
+    setSelectedImage(null);
+    setMessages([]);
+    setHistory([]);
+    setDiagnosaAiId(null);
+    setSnapshot(null);
+
     notifications.show({
-      color: "red",
-      title: "Upload gagal",
-      message: "Gambar tidak bisa diproses.",
-      icon: <IconAlertCircle size={18} />,
-      autoClose: 3000,
+      color: "blue",
+      title: "Percakapan direset",
+      message: "Kamu bisa memulai diagnosa baru.",
+      autoClose: 2200,
     });
-  } finally {
-    inputElement.value = "";
-  }
-};
+  };
 
   const handleSend = async () => {
-    if (!prompt.trim() && !selectedImage) return;
-    if (loading) return;
+    if (!canSend) return;
 
     const userText = prompt.trim() || "Mohon analisis gambar perangkat saya.";
 
     const userMessage: ChatMessage = {
-      id: Date.now(),
+      id: createMessageId(),
       role: "user",
       text: userText,
       image: selectedImage,
     };
 
-    const currentMessages = [...messages, userMessage];
+    const previousMessages = messages;
+    const currentMessages = [...previousMessages, userMessage];
 
     setMessages(currentMessages);
     setPrompt("");
@@ -145,17 +212,10 @@ const handleImageChange = async (
     setLoading(true);
 
     try {
-      const historyPayload: DiagnosaAiHistoryMessage[] = messages.map(
-        (message) => ({
-          role: message.role,
-          content: message.text,
-        })
-      );
-
       const response = await sendDiagnosaAiChat({
         message: userText,
         imageBase64: userMessage.image ?? null,
-        history: historyPayload,
+        history,
         diagnosaAiId,
       });
 
@@ -168,23 +228,25 @@ const handleImageChange = async (
           autoClose: 3500,
         });
 
-        setMessages(messages);
+        setMessages(previousMessages);
         return;
       }
 
-setSnapshot(response.data.snapshot);
+      const assistantDisplayText = buildAssistantDisplayText(
+        response.data.assistantMessage,
+        response.data.snapshot
+      );
 
-const aiMessage: ChatMessage = {
-  id: Date.now() + 1,
-  role: "assistant",
-  text: buildAssistantDisplayText(
-    response.data.assistantMessage,
-    response.data.snapshot
-  ),
-};
+      const aiMessage: ChatMessage = {
+        id: createMessageId(),
+        role: "assistant",
+        text: assistantDisplayText,
+      };
 
-setMessages([...currentMessages, aiMessage]);
-setDiagnosaAiId(response.data.diagnosaAiId);
+      setMessages([...currentMessages, aiMessage]);
+      setHistory(response.data.nextHistory);
+      setDiagnosaAiId(response.data.diagnosaAiId);
+      setSnapshot(response.data.snapshot);
 
       notifications.show({
         color: "green",
@@ -202,10 +264,22 @@ setDiagnosaAiId(response.data.diagnosaAiId);
         autoClose: 3500,
       });
 
-      setMessages(messages);
+      setMessages(previousMessages);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenTicketService = () => {
+    if (!diagnosaAiId || !snapshot) return;
+
+    sessionStorage.setItem(
+      "dvc_diagnosa_ai_ticket_prefill",
+      JSON.stringify({
+        diagnosaAiId,
+        gejala: snapshot.gejala,
+      })
+    );
   };
 
   return (
@@ -232,7 +306,13 @@ setDiagnosaAiId(response.data.diagnosaAiId);
               fontSize: "clamp(20px, 2vw, 34px)",
             }}
           >
-            Masukkan gejala atau upload gambar untuk analisis
+            Masukkan gejala atau upload gambar untuk analisis awal
+          </Text>
+
+          <Text ta="center" c="#6B7280" maw={760} fz={16}>
+            Hasil AI hanya sebagai diagnosa awal dan tidak menjadi keputusan
+            final. Pemeriksaan teknisi tetap diperlukan untuk memastikan
+            kerusakan perangkat.
           </Text>
         </Stack>
 
@@ -250,6 +330,26 @@ setDiagnosaAiId(response.data.diagnosaAiId);
           }}
         >
           <Stack gap={18} style={{ flex: 1 }}>
+            {messages.length === 0 && !loading && (
+              <Group justify="center" style={{ flex: 1 }}>
+                <Paper
+                  radius="xl"
+                  p="xl"
+                  bg="#D8D8D8"
+                  style={{
+                    maxWidth: 620,
+                    textAlign: "center",
+                  }}
+                >
+                  <Text c="#374151" fw={700} fz={20}>
+                    Ceritakan gejala perangkatmu, misalnya laptop mati total,
+                    layar blank, printer tidak menarik kertas, atau upload foto
+                    kondisi perangkat.
+                  </Text>
+                </Paper>
+              </Group>
+            )}
+
             {messages.map((message) => {
               const isUser = message.role === "user";
 
@@ -262,7 +362,7 @@ setDiagnosaAiId(response.data.diagnosaAiId);
                   <Stack
                     gap={14}
                     align={isUser ? "flex-end" : "flex-start"}
-                    maw="62%"
+                    maw="75%"
                   >
                     {message.image && (
                       <Paper
@@ -290,17 +390,17 @@ setDiagnosaAiId(response.data.diagnosaAiId);
                     <Paper
                       radius="xl"
                       p="lg"
-                      bg={isUser ? "#D8D8D8" : "#BFC4CA"}
+                      bg={isUser ? "#0D4CB5" : "#6B7280"}
                       style={{
-                        maxWidth: 420,
+                        maxWidth: 620,
                       }}
                     >
                       <Text
-                        c={isUser ? "#FFFFFF" : "#FFFFFF"}
+                        c="#FFFFFF"
                         fw={700}
                         style={{
-                          fontSize: 18,
-                          lineHeight: 1.5,
+                          fontSize: 17,
+                          lineHeight: 1.6,
                           whiteSpace: "pre-line",
                         }}
                       >
@@ -314,7 +414,7 @@ setDiagnosaAiId(response.data.diagnosaAiId);
 
             {loading && (
               <Group justify="flex-start">
-                <Paper radius="xl" p="lg" bg="#BFC4CA">
+                <Paper radius="xl" p="lg" bg="#6B7280">
                   <Text c="#FFFFFF" fw={700}>
                     Sedang menganalisis...
                   </Text>
@@ -330,8 +430,8 @@ setDiagnosaAiId(response.data.diagnosaAiId);
                 p="sm"
                 bg="#D8D8D8"
                 style={{
-                  width: 180,
-                  height: 110,
+                  width: 190,
+                  height: 120,
                   position: "relative",
                   overflow: "hidden",
                 }}
@@ -341,9 +441,26 @@ setDiagnosaAiId(response.data.diagnosaAiId);
                   alt="Preview"
                   fill
                   unoptimized
-                  sizes="180px"
+                  sizes="190px"
                   style={{ objectFit: "contain" }}
                 />
+
+                <ActionIcon
+                  variant="filled"
+                  color="red"
+                  radius="xl"
+                  size="sm"
+                  onClick={() => setSelectedImage(null)}
+                  aria-label="Hapus gambar"
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    zIndex: 2,
+                  }}
+                >
+                  <IconX size={14} />
+                </ActionIcon>
               </Paper>
             )}
 
@@ -362,6 +479,8 @@ setDiagnosaAiId(response.data.diagnosaAiId);
                   color="gray"
                   size="xl"
                   onClick={handlePickImage}
+                  disabled={loading}
+                  aria-label="Upload gambar"
                 >
                   <IconPhotoPlus size={34} />
                 </ActionIcon>
@@ -374,6 +493,7 @@ setDiagnosaAiId(response.data.diagnosaAiId);
                   minRows={1}
                   maxRows={4}
                   variant="unstyled"
+                  disabled={loading}
                   style={{ flex: 1 }}
                   styles={{
                     input: {
@@ -389,7 +509,8 @@ setDiagnosaAiId(response.data.diagnosaAiId);
                   color="gray"
                   size="xl"
                   onClick={handleSend}
-                  disabled={loading}
+                  disabled={!canSend}
+                  aria-label="Kirim pesan"
                 >
                   <IconSend size={34} />
                 </ActionIcon>
@@ -399,25 +520,37 @@ setDiagnosaAiId(response.data.diagnosaAiId);
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
               hidden
               onChange={handleImageChange}
             />
 
-            <Group justify="flex-end">
+            <Group justify="space-between" align="center">
+              <Button
+                variant="light"
+                color="gray"
+                leftSection={<IconRefresh size={18} />}
+                onClick={handleResetChat}
+                disabled={loading || messages.length === 0}
+                radius="md"
+              >
+                Reset Chat
+              </Button>
+
               <Button
                 component="a"
-                href="/tiket_servis"
+                href={serviceHref}
+                onClick={handleOpenTicketService}
                 radius="md"
                 style={{
-                  minWidth: 170,
+                  minWidth: 190,
                   height: 46,
                   backgroundColor: "#0D4CB5",
                   fontSize: 18,
                   fontWeight: 700,
                 }}
               >
-                Servis
+                {diagnosaAiId ? "Buat Tiket Servis" : "Servis"}
               </Button>
             </Group>
           </Stack>

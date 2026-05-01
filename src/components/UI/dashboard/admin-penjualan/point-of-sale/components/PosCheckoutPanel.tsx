@@ -12,6 +12,7 @@ import {
   Stack,
   Table,
   Text,
+  TextInput,
 } from "@mantine/core";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import InvoicePenjualanPDF, {
@@ -33,6 +34,7 @@ type PosCheckoutPanelProps = {
   nomorTransaksiPreview: string;
   tanggalPreview: string;
   adminPreview: string;
+  namaCustomer: string;
   lastInvoiceData: InvoicePenjualanData | null;
   subtotal: number;
   diskon: number | string;
@@ -43,6 +45,7 @@ type PosCheckoutPanelProps = {
   isSubmitting: boolean;
   formatRupiah: (value: number) => string;
   formatRupiahPrefix: (value: number) => string;
+  onChangeNamaCustomer: (value: string) => void;
   onChangeDiskon: (value: number | string) => void;
   onChangeMetodePembayaran: (value: string) => void;
   onChangeNominalBayar: (value: number | string) => void;
@@ -55,6 +58,7 @@ export default function PosCheckoutPanel({
   nomorTransaksiPreview,
   tanggalPreview,
   adminPreview,
+  namaCustomer,
   lastInvoiceData,
   subtotal,
   diskon,
@@ -65,6 +69,7 @@ export default function PosCheckoutPanel({
   isSubmitting,
   formatRupiah,
   formatRupiahPrefix,
+  onChangeNamaCustomer,
   onChangeDiskon,
   onChangeMetodePembayaran,
   onChangeNominalBayar,
@@ -95,6 +100,17 @@ export default function PosCheckoutPanel({
             <Text fz={15}>NO. TRANSAKSI: {nomorTransaksiPreview}</Text>
             <Text fz={15}>TANGGAL: {tanggalPreview}</Text>
             <Text fz={15}>ADMIN: {adminPreview}</Text>
+
+            <TextInput
+              label="Nama Customer"
+              placeholder="Masukkan nama customer"
+              value={namaCustomer}
+              onChange={(event) =>
+                onChangeNamaCustomer(event.currentTarget.value)
+              }
+              maxLength={150}
+              disabled={isSubmitting || isTransactionFinished}
+            />
 
             {lastInvoiceData ? (
               <Badge color="green" variant="light" w="fit-content">
@@ -154,7 +170,9 @@ export default function PosCheckoutPanel({
                 thousandSeparator="."
                 decimalSeparator=","
                 w={160}
-                disabled={isSubmitting || cart.length === 0 || isTransactionFinished}
+                disabled={
+                  isSubmitting || cart.length === 0 || isTransactionFinished
+                }
               />
             </Group>
 
