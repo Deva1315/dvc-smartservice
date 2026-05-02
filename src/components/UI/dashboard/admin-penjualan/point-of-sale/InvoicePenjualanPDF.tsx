@@ -55,10 +55,6 @@ function formatTanggalLong(value?: string) {
   }).format(date);
 }
 
-function getPageHeight(itemCount: number) {
-  const rowCount = Math.max(itemCount, MINIMUM_TABLE_ROWS);
-  return 300 + rowCount * 30 + 180;
-}
 
 function CellText({
   text,
@@ -116,7 +112,7 @@ export default function InvoicePenjualanPDF({
 
   return (
     <Document>
-      <Page size={[595, getPageHeight(data.items.length)]} style={styles.page}>
+      <Page size="A5" orientation="landscape" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.leftHeader}>
             <View style={styles.logoWrapper}>
@@ -225,19 +221,19 @@ export default function InvoicePenjualanPDF({
 }
 
 const sharedCellBase = {
-  minHeight: 30,
+  minHeight: 22,
   justifyContent: "center" as const,
-  paddingHorizontal: 8,
-  paddingVertical: 6,
+  paddingHorizontal: 6,
+  paddingVertical: 3,
 };
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 24,
+    paddingTop: 16,
     paddingHorizontal: 18,
-    paddingBottom: 24,
+    paddingBottom: 14,
     fontFamily: "Times-Roman",
-    fontSize: 11,
+    fontSize: 10.5,
     color: "#111111",
   },
 
@@ -245,7 +241,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 8,
   },
 
   leftHeader: {
@@ -254,20 +250,20 @@ const styles = StyleSheet.create({
 
   rightHeader: {
     width: "42%",
-    paddingTop: 8,
+    paddingTop: 5,
   },
 
   logoWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 6,
   },
 
   logo: {
-    width: 72,
-    height: 54,
+    width: 60,
+    height: 45,
     objectFit: "contain",
-    marginRight: 10,
+    marginRight: 8,
   },
 
   companyWrapper: {
@@ -276,35 +272,35 @@ const styles = StyleSheet.create({
 
   companyName: {
     fontFamily: "Times-Bold",
-    fontSize: 14,
+    fontSize: 12.5,
     marginBottom: 3,
   },
 
   companyAddress: {
-    fontSize: 10.5,
-    lineHeight: 1.3,
+    fontSize: 9.5,
+    lineHeight: 1.2,
   },
 
   notaNumberWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
+    marginTop: 2,
   },
 
   notaNumberLabel: {
     fontFamily: "Times-Bold",
-    fontSize: 11.5,
+    fontSize: 10.5,
     marginRight: 6,
   },
 
   notaNumberValue: {
     fontFamily: "Times-Bold",
-    fontSize: 11.5,
+    fontSize: 10.5,
   },
 
   rightHeaderText: {
     fontFamily: "Times-Bold",
-    fontSize: 11.5,
+    fontSize: 10.5,
     marginBottom: 5,
   },
 
@@ -312,13 +308,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
     borderColor: "#111111",
-    paddingVertical: 4,
+    paddingVertical: 3,
     alignItems: "center",
   },
 
   serviceBannerText: {
     fontFamily: "Times-BoldItalic",
-    fontSize: 10.5,
+    fontSize: 10,
   },
 
   table: {
@@ -339,7 +335,7 @@ const styles = StyleSheet.create({
   },
 
   headerCell: {
-    minHeight: 28,
+    minHeight: 22,
   },
 
   colTanggalCell: {
@@ -374,25 +370,25 @@ const styles = StyleSheet.create({
 
   totalLabelCell: {
     width: "82%",
-    minHeight: 32,
+    minHeight: 25,
     justifyContent: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRightWidth: 1,
     borderColor: "#111111",
   },
 
   totalValueCell: {
     width: "18%",
-    minHeight: 32,
+    minHeight: 25,
     justifyContent: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
 
   cellText: {
-    fontSize: 11,
-    lineHeight: 1.35,
+    fontSize: 10.5,
+    lineHeight: 1.25,
   },
 
   textCenter: {
@@ -414,17 +410,17 @@ const styles = StyleSheet.create({
   totalLabel: {
     textAlign: "right",
     fontFamily: "Times-Bold",
-    fontSize: 14,
+    fontSize: 12.5,
   },
 
   totalValue: {
     textAlign: "right",
     fontFamily: "Times-Bold",
-    fontSize: 13,
+    fontSize: 11,
   },
 
   signatureWrapper: {
-    marginTop: 38,
+    marginTop: 24,
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 34,
@@ -437,11 +433,11 @@ const styles = StyleSheet.create({
 
   signatureTitle: {
     fontFamily: "Times-Bold",
-    fontSize: 12,
+    fontSize: 11,
   },
 
   signatureSpace: {
-    height: 64,
+    height: 38,
   },
 
   signatureName: {
@@ -450,7 +446,7 @@ const styles = StyleSheet.create({
     borderColor: "#111111",
     textAlign: "center",
     fontFamily: "Times-Bold",
-    fontSize: 11.5,
+    fontSize: 10.5,
     paddingBottom: 2,
   },
 });
