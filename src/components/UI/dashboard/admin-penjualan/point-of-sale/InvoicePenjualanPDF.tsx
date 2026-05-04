@@ -31,7 +31,11 @@ type InvoicePenjualanPDFProps = {
 };
 
 const LOGO_SRC = "/Images/logo-dvc.png";
+const NOTA_PAGE_WIDTH = 595.28;
+const NOTA_MIN_HEIGHT = 419.53;
 const MINIMUM_TABLE_ROWS = 6;
+const TABLE_ROW_HEIGHT = 22;
+const PAGE_FIXED_CONTENT_HEIGHT = 285;
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -55,6 +59,14 @@ function formatTanggalLong(value?: string) {
   }).format(date);
 }
 
+
+function getPageHeight(rowCount: number) {
+  const safeRowCount = Math.max(rowCount, MINIMUM_TABLE_ROWS);
+  return Math.max(
+    NOTA_MIN_HEIGHT,
+    PAGE_FIXED_CONTENT_HEIGHT + safeRowCount * TABLE_ROW_HEIGHT
+  );
+}
 
 function CellText({
   text,
@@ -112,7 +124,7 @@ export default function InvoicePenjualanPDF({
 
   return (
     <Document>
-      <Page size="A5" orientation="landscape" style={styles.page}>
+      <Page size={[NOTA_PAGE_WIDTH, getPageHeight(rows.length)]} style={styles.page}>
         <View style={styles.header}>
           <View style={styles.leftHeader}>
             <View style={styles.logoWrapper}>

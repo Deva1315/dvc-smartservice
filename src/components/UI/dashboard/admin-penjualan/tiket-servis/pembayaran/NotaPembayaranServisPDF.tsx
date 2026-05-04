@@ -14,6 +14,14 @@ type NotaItem = {
   harga: number;
 };
 
+type NotaTableRow = {
+  tanggal: string;
+  namaBarang: string;
+  harga: string;
+  jumlah: string;
+  isSection?: boolean;
+};
+
 export type NotaPembayaranServisData = {
   nomorTiket: string;
   tanggalTiket: string;
@@ -22,7 +30,9 @@ export type NotaPembayaranServisData = {
   perangkat: string;
   metodePembayaran: string;
   serviceTitle?: string;
-  items: NotaItem[];
+  items?: NotaItem[];
+  jasaServis?: NotaItem[];
+  spareparts?: NotaItem[];
 };
 
 type NotaPembayaranServisPDFProps = {
@@ -30,7 +40,12 @@ type NotaPembayaranServisPDFProps = {
 };
 
 const LOGO_SRC = "/Images/logo-dvc.png";
+const NOTA_PAGE_WIDTH = 595.28;
+const NOTA_MIN_HEIGHT = 419.53;
 const MINIMUM_TABLE_ROWS = 6;
+const TABLE_ROW_HEIGHT = 22;
+const SECTION_ROW_HEIGHT = 20;
+const PAGE_FIXED_CONTENT_HEIGHT = 285;
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -54,6 +69,16 @@ function formatTanggalLong(value?: string) {
   }).format(date);
 }
 
+
+function getPageHeight(rowCount: number, sectionCount: number) {
+  const safeRowCount = Math.max(rowCount, MINIMUM_TABLE_ROWS);
+  return Math.max(
+    NOTA_MIN_HEIGHT,
+    PAGE_FIXED_CONTENT_HEIGHT +
+      safeRowCount * TABLE_ROW_HEIGHT +
+      sectionCount * SECTION_ROW_HEIGHT
+  );
+}
 
 function CellText({
   text,
@@ -84,20 +109,53 @@ function CellText({
 export default function NotaPembayaranServisPDF({
   data,
 }: NotaPembayaranServisPDFProps) {
-  const total = data.items.reduce(
+  const jasaServis = data.jasaServis ?? [];
+  const spareparts = data.spareparts ?? [];
+  const hasSeparatedItems = jasaServis.length > 0 || spareparts.length > 0;
+  const allItems = hasSeparatedItems
+    ? [...jasaServis, ...spareparts]
+    : data.items ?? [];
+
+  const total = allItems.reduce(
     (sum, item) => sum + item.harga * (item.qty ?? 1),
     0
   );
 
   const namaPelanggan = data.namaPelanggan?.trim() || "Pelanggan Umum";
+  const rows: NotaTableRow[] = [];
 
-  const rows = data.items.map((item, index) => ({
-    tanggal: index === 0 ? formatTanggalLong(data.tanggalTiket) : "",
-    namaBarang:
-      item.qty && item.qty > 1 ? `${item.nama} x${item.qty}` : item.nama,
-    harga: formatNumber(item.harga),
-    jumlah: formatNumber(item.harga * (item.qty ?? 1)),
-  }));
+  const pushItemRows = (items: NotaItem[], sectionTitle?: string) => {
+    if (sectionTitle && items.length > 0) {
+      rows.push({
+        tanggal: "",
+        namaBarang: sectionTitle,
+        harga: "",
+        jumlah: "",
+        isSection: true,
+      });
+    }
+
+    items.forEach((item) => {
+      rows.push({
+        tanggal: rows.some((row) => !row.isSection && row.tanggal)
+          ? ""
+          : formatTanggalLong(data.tanggalTiket),
+        namaBarang:
+          item.qty && item.qty > 1 ? `${item.nama} x${item.qty}` : item.nama,
+        harga: formatNumber(item.harga),
+        jumlah: formatNumber(item.harga * (item.qty ?? 1)),
+      });
+    });
+  };
+
+  if (hasSeparatedItems) {
+    pushItemRows(jasaServis, "Jasa Servis");
+    pushItemRows(spareparts, "Sparepart");
+  } else {
+    pushItemRows(allItems);
+  }
+
+  const sectionCount = rows.filter((row) => row.isSection).length;
 
   while (rows.length < MINIMUM_TABLE_ROWS) {
     rows.push({
@@ -110,7 +168,10 @@ export default function NotaPembayaranServisPDF({
 
   return (
     <Document>
-      <Page size="A5" orientation="landscape" style={styles.page}>
+      <Page
+        size={[NOTA_PAGE_WIDTH, getPageHeight(rows.length, sectionCount)]}
+        style={styles.page}
+      >
         <View style={styles.header}>
           <View style={styles.leftHeader}>
             <View style={styles.logoWrapper}>
@@ -167,21 +228,29 @@ export default function NotaPembayaranServisPDF({
 
           {rows.map((row, index) => (
             <View key={index} style={styles.tableRow}>
-              <View style={styles.colTanggalCell}>
-                <CellText text={row.tanggal} />
-              </View>
+              {row.isSection ? (
+                <View style={styles.sectionCell}>
+                  <CellText text={row.namaBarang} bold />
+                </View>
+              ) : (
+                <>
+                  <View style={styles.colTanggalCell}>
+                    <CellText text={row.tanggal} />
+                  </View>
 
-              <View style={styles.colNamaBarangCell}>
-                <CellText text={row.namaBarang} />
-              </View>
+                  <View style={styles.colNamaBarangCell}>
+                    <CellText text={row.namaBarang} />
+                  </View>
 
-              <View style={styles.colHargaCell}>
-                <CellText text={row.harga} align="right" />
-              </View>
+                  <View style={styles.colHargaCell}>
+                    <CellText text={row.harga} align="right" />
+                  </View>
 
-              <View style={styles.colJumlahCell}>
-                <CellText text={row.jumlah} align="right" />
-              </View>
+                  <View style={styles.colJumlahCell}>
+                    <CellText text={row.jumlah} align="right" />
+                  </View>
+                </>
+              )}
             </View>
           ))}
 
@@ -360,6 +429,14 @@ const styles = StyleSheet.create({
   colJumlahCell: {
     ...sharedCellBase,
     width: "18%",
+  },
+
+  sectionCell: {
+    minHeight: 20,
+    width: "100%",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
 
   totalRow: {
