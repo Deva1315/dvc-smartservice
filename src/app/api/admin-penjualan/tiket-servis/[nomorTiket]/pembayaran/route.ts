@@ -62,10 +62,9 @@ async function requireAdminPenjualanSession() {
   const normalizedRole = session.roleName.toLowerCase().replace(/\s+/g, "_");
 
   if (
-    normalizedRole !== "admin_penjualan" &&
-    normalizedRole !== "owner"
+    normalizedRole !== "admin_penjualan"
   ) {
-    throw new Error("Forbidden. Hanya Admin Penjualan atau Owner yang dapat melakukan pembayaran servis.");
+    throw new Error("Forbidden. Hanya Admin Penjualan yang dapat melakukan pembayaran servis.");
   }
 
   return session;

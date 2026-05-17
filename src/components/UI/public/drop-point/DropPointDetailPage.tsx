@@ -125,7 +125,7 @@ export default function DropPointDetailPage({
       <Box
         style={{
           backgroundColor: "#EFEFEF",
-          minHeight: "calc(100vh - 140px)",
+          minHeight: "calc(100vh - 90px)",
         }}
         pt={{ base: 42, md: 56 }}
         pb={{ base: 70, md: 90 }}
@@ -164,7 +164,7 @@ export default function DropPointDetailPage({
       <Box
         style={{
           backgroundColor: "#EFEFEF",
-          minHeight: "calc(100vh - 140px)",
+          minHeight: "calc(100vh - 90px)",
         }}
         pt={{ base: 42, md: 56 }}
         pb={{ base: 70, md: 90 }}
@@ -218,28 +218,13 @@ export default function DropPointDetailPage({
     <Box
       style={{
         backgroundColor: "#EFEFEF",
-        minHeight: "calc(100vh - 140px)",
+        minHeight: "calc(100vh - 90px)",
       }}
       pt={{ base: 42, md: 56 }}
       pb={{ base: 70, md: 90 }}
     >
       <Container size={1080}>
         <Stack gap={22}>
-          <Button
-            component="a"
-            href="/drop-point"
-            variant="subtle"
-            leftSection={<IconArrowLeft size={18} />}
-            px={0}
-            w="fit-content"
-            style={{
-              color: "#0B4DB8",
-              fontWeight: 700,
-            }}
-          >
-            Kembali ke daftar drop point
-          </Button>
-
           <Stack align="center" gap={0}>
             <Title
               order={1}

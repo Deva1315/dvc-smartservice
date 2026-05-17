@@ -12,8 +12,12 @@ import {
     Select,
     Stack,
     Text,
-    TextInput,
 } from "@mantine/core";
+import {
+    DatePickerInput,
+    MonthPickerInput,
+    YearPickerInput,
+} from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
     IconCalendarMonth,
@@ -38,12 +42,40 @@ type OwnerLaporanDataPageProps<T extends Record<string, unknown>> = {
     emptyText?: string;
 };
 
-function getTodayInputValue() {
-    const date = new Date();
-    const offset = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - offset * 60 * 1000);
+function formatDateToInputValue(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
 
-    return localDate.toISOString().slice(0, 10);
+    return `${year}-${month}-${day}`;
+}
+
+function parseInputDateValue(value: string) {
+    if (!value) return null;
+
+    const date = new Date(`${value}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    return date;
+}
+
+function normalizeDateByPeriode(date: Date, periode: PeriodeLaporan) {
+    if (periode === "bulanan") {
+        return new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+
+    if (periode === "tahunan") {
+        return new Date(date.getFullYear(), 0, 1);
+    }
+
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getTodayInputValue() {
+    return formatDateToInputValue(new Date());
 }
 
 function formatDateIndonesian(value: string) {
@@ -62,6 +94,31 @@ function formatDateIndonesian(value: string) {
     }).format(date);
 }
 
+function formatFilterDateIndonesian(value: string, periode: PeriodeLaporan) {
+    if (!value) return "-";
+
+    const date = new Date(`${value}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    if (periode === "bulanan") {
+        return new Intl.DateTimeFormat("id-ID", {
+            month: "long",
+            year: "numeric",
+        }).format(date);
+    }
+
+    if (periode === "tahunan") {
+        return new Intl.DateTimeFormat("id-ID", {
+            year: "numeric",
+        }).format(date);
+    }
+
+    return formatDateIndonesian(value);
+}
+
 function formatDateTimeIndonesian(value: Date) {
     return new Intl.DateTimeFormat("id-ID", {
         day: "2-digit",
@@ -75,7 +132,6 @@ function formatDateTimeIndonesian(value: Date) {
 function getPeriodeLabel(periode: PeriodeLaporan) {
     const labels: Record<PeriodeLaporan, string> = {
         harian: "Harian",
-        mingguan: "Mingguan",
         bulanan: "Bulanan",
         tahunan: "Tahunan",
     };
@@ -208,7 +264,7 @@ function downloadCsv<T extends Record<string, unknown>>(options: {
         [options.title.toUpperCase()],
         [],
         ["Periode", getPeriodeLabel(options.periode)],
-        ["Tanggal Filter", formatDateIndonesian(options.tanggal)],
+        ["Tanggal Filter", formatFilterDateIndonesian(options.tanggal, options.periode)],
         ["Diunduh Pada", formatDateTimeIndonesian(new Date())],
         [],
     ];
@@ -288,11 +344,21 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
     const summaryText = useMemo(() => getSummaryText(summary), [summary]);
 
+    function getTanggalForCurrentFilter() {
+        const baseDate = parseInputDateValue(tanggal) || new Date();
+        const normalizedDate = normalizeDateByPeriode(baseDate, periode);
+
+        return formatDateToInputValue(normalizedDate);
+    }
+
     async function fetchLaporan(nextTanggal?: string) {
         try {
             setIsLoading(true);
 
-            const selectedTanggal = nextTanggal || tanggal || getTodayInputValue();
+            const selectedTanggal =
+                nextTanggal || tanggal || formatDateToInputValue(
+                    normalizeDateByPeriode(new Date(), periode)
+                );
 
             const result = await getOwnerLaporan(jenis, {
                 periode,
@@ -319,20 +385,49 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
     }
 
     useEffect(() => {
-        const today = getTodayInputValue();
+        const today = parseInputDateValue(getTodayInputValue()) || new Date();
+        const initialTanggal = formatDateToInputValue(
+            normalizeDateByPeriode(today, periodeDefault)
+        );
 
-        setTanggal(today);
-        fetchLaporan(today);
+        setTanggal(initialTanggal);
+        fetchLaporan(initialTanggal);
     }, []);
 
-    function handleApplyFilter() {
-        const selectedTanggal = tanggal || getTodayInputValue();
+    function handlePeriodeChange(value: string | null) {
+        const nextPeriode = (value as PeriodeLaporan) || periodeDefault;
+        const baseDate = parseInputDateValue(tanggal) || new Date();
+        const normalizedDate = normalizeDateByPeriode(baseDate, nextPeriode);
 
+        setPeriode(nextPeriode);
+        setTanggal(formatDateToInputValue(normalizedDate));
+    }
+
+    function handleTanggalChange(value: Date | null) {
+        const baseDate = value || new Date();
+        const normalizedDate = normalizeDateByPeriode(baseDate, periode);
+
+        setTanggal(formatDateToInputValue(normalizedDate));
+    }
+
+    function handleTanggalDatePickerChange(value: string | null) {
+    const baseDate = value ? parseInputDateValue(value) : new Date();
+    const normalizedDate = normalizeDateByPeriode(baseDate || new Date(), "harian");
+
+    setTanggal(formatDateToInputValue(normalizedDate));
+}
+
+    function handleApplyFilter() {
+        const selectedTanggal = getTanggalForCurrentFilter();
+
+        setTanggal(selectedTanggal);
         fetchLaporan(selectedTanggal);
 
         notifications.show({
             title: "Filter Laporan",
-            message: `Filter ${label} diterapkan (${periode}, ${selectedTanggal})`,
+            message: `Filter ${label} diterapkan (${getPeriodeLabel(
+                periode
+            )}, ${formatFilterDateIndonesian(selectedTanggal, periode)})`,
             color: "blue",
         });
     }
@@ -348,8 +443,10 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
             return;
         }
 
+        const selectedTanggal = getTanggalForCurrentFilter();
+
         if (type === "excel") {
-            const fileName = `${sanitizeFileName(label)}-${periode}-${tanggal}.csv`;
+            const fileName = `${sanitizeFileName(label)}-${periode}-${selectedTanggal}.csv`;
 
             downloadCsv({
                 filename: fileName,
@@ -357,7 +454,7 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
                 rows,
                 columns,
                 periode,
-                tanggal,
+                tanggal: selectedTanggal,
                 summary,
             });
 
@@ -373,7 +470,7 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
         try {
             setIsDownloadingPdf(true);
 
-            const fileName = `${sanitizeFileName(label)}-${periode}-${tanggal}.pdf`;
+            const fileName = `${sanitizeFileName(label)}-${periode}-${selectedTanggal}.pdf`;
 
             const generatedAt = formatDateTimeIndonesian(new Date());
 
@@ -381,7 +478,7 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
                 <OwnerLaporanPDF
                     title={label}
                     periode={periode}
-                    tanggal={tanggal}
+                    tanggal={selectedTanggal}
                     generatedAt={generatedAt}
                     columns={getPdfColumns(columns)}
                     rows={rows}
@@ -408,6 +505,83 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
         } finally {
             setIsDownloadingPdf(false);
         }
+    }
+
+    function renderTanggalPicker() {
+        const commonStyles = {
+            input: {
+                height: 54,
+                backgroundColor: "#FFFFFF",
+                border: "1px solid #D9DCE3",
+                fontSize: 17,
+            },
+        };
+
+        const commonPropsString = {
+            value: tanggal || null,
+            onChange: (value: string | null) => {
+                if (!value) {
+                    handleTanggalChange(null);
+                    return;
+                }
+
+                const parsed = parseInputDateValue(value) || new Date();
+
+                handleTanggalChange(parsed);
+            },
+            radius: "md" as const,
+            leftSection: <IconCalendarMonth size={18} stroke={1.8} />,
+            clearable: false,
+            style: {
+                flex: 1,
+            },
+            styles: commonStyles,
+            popoverProps: {
+                withinPortal: true,
+            },
+        };
+
+        if (periode === "bulanan") {
+            return (
+                <MonthPickerInput
+                    key="month-picker"
+                    {...commonPropsString}
+                    placeholder="Pilih bulan"
+                    valueFormat="MM / YYYY"
+                />
+            );
+        }
+
+        if (periode === "tahunan") {
+            return (
+                <YearPickerInput
+                    key="year-picker"
+                    {...commonPropsString}
+                    placeholder="Pilih tahun"
+                    valueFormat="YYYY"
+                />
+            );
+        }
+
+        return (
+           <DatePickerInput
+        key="date-picker"
+        value={tanggal || null}
+        onChange={handleTanggalDatePickerChange}
+        radius="md"
+        leftSection={<IconCalendarMonth size={18} stroke={1.8} />}
+        clearable={false}
+        style={{
+            flex: 1,
+        }}
+        styles={commonStyles}
+        popoverProps={{
+            withinPortal: true,
+        }}
+        placeholder="Pilih tanggal"
+        valueFormat="DD / MM / YYYY"
+    />
+        );
     }
 
     return (
@@ -472,12 +646,9 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
                     <Group gap={12} align="stretch" wrap="nowrap">
                         <Select
                             value={periode}
-                            onChange={(value) =>
-                                setPeriode((value as PeriodeLaporan) || periodeDefault)
-                            }
+                            onChange={handlePeriodeChange}
                             data={[
                                 { value: "harian", label: "Harian" },
-                                { value: "mingguan", label: "Mingguan" },
                                 { value: "bulanan", label: "Bulanan" },
                                 { value: "tahunan", label: "Tahunan" },
                             ]}
@@ -495,24 +666,7 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
                             }}
                         />
 
-                        <TextInput
-                            type="date"
-                            value={tanggal}
-                            onChange={(event) => setTanggal(event.currentTarget.value)}
-                            radius="md"
-                            leftSection={<IconCalendarMonth size={18} stroke={1.8} />}
-                            style={{
-                                flex: 1,
-                            }}
-                            styles={{
-                                input: {
-                                    height: 54,
-                                    backgroundColor: "#FFFFFF",
-                                    border: "1px solid #D9DCE3",
-                                    fontSize: 17,
-                                },
-                            }}
-                        />
+                        {renderTanggalPicker()}
 
                         <Button
                             radius="md"

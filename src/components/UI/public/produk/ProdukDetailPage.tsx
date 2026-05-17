@@ -125,16 +125,6 @@ export default function ProdukDetailPage({ productSlug }: ProdukDetailPageProps)
     return (
       <Box bg="#F5F5F5" mih="100vh">
         <Container size="xl" py={30}>
-          <Anchor
-            href="/produk"
-            underline="never"
-            c="#0D4CB5"
-            fw={700}
-            style={{ fontSize: 16 }}
-          >
-            ← Kembali ke Produk
-          </Anchor>
-
           <Paper mt={24} radius="xl" p="xl" bg="#FFFFFF" shadow="sm">
             <Text ta="center" fw={700} c="dimmed">
               Produk tidak ditemukan.
@@ -148,15 +138,6 @@ export default function ProdukDetailPage({ productSlug }: ProdukDetailPageProps)
   return (
     <Box bg="#F5F5F5" mih="100vh">
       <Container size="xl" py={30}>
-        <Anchor
-          href="/produk"
-          underline="never"
-          c="#0D4CB5"
-          fw={700}
-          style={{ fontSize: 16 }}
-        >
-          ← Kembali ke Produk
-        </Anchor>
 
         <Paper
           mt={24}

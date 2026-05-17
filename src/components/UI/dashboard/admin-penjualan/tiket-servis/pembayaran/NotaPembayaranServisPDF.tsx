@@ -186,7 +186,7 @@ export default function NotaPembayaranServisPDF({
             </View>
 
             <View style={styles.notaNumberWrapper}>
-              <Text style={styles.notaNumberLabel}>NOTA NO :</Text>
+              <Text style={styles.notaNumberLabel}>Nomor Nota :</Text>
               <Text style={styles.notaNumberValue}>{data.nomorTiket}</Text>
             </View>
           </View>

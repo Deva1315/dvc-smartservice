@@ -197,7 +197,7 @@ export default function CekStatusServisPage() {
               radius={20}
               p={6}
               style={{
-                backgroundColor: "#F5F3F1",
+                backgroundColor: "#ffffff",
                 boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.03)",
               }}
             >

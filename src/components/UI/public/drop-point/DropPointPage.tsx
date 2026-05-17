@@ -217,7 +217,7 @@ export default function DropPointPage() {
     <Box
       style={{
         backgroundColor: "#EFEFEF",
-        minHeight: "calc(100vh - 140px)",
+        minHeight: "calc(100vh - 90px)",
       }}
       pt={{ base: 46, md: 58 }}
       pb={{ base: 70, md: 90 }}

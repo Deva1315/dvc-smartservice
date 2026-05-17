@@ -46,6 +46,14 @@ export const dropPointFormSchema = z.object({
   jam_operasional: optionalString(100),
 });
 
+export const jabatanFormSchema = z.object({
+  nama_roles: requiredString("Nama jabatan", 100).refine(
+    (value) => value.trim().toLowerCase() !== "owner",
+    "Role Owner tidak dapat dikelola dari menu ini."
+  ),
+});
+
 export type PegawaiCreateFormInput = z.infer<typeof pegawaiCreateFormSchema>;
 export type PegawaiEditFormInput = z.infer<typeof pegawaiEditFormSchema>;
 export type DropPointFormInput = z.infer<typeof dropPointFormSchema>;
+export type JabatanFormInput = z.infer<typeof jabatanFormSchema>;

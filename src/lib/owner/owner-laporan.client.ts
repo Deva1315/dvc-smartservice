@@ -1,4 +1,4 @@
-export type PeriodeLaporan = "harian" | "mingguan" | "bulanan" | "tahunan";
+export type PeriodeLaporan = "harian" | "bulanan" | "tahunan";
 
 export type OwnerLaporanJenis =
   | "penjualan"

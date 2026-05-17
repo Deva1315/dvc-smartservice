@@ -377,13 +377,6 @@ export default function AdminPenjualanGaransiServisPage() {
           showFooter={false}
           emptyText="Data garansi tidak ditemukan"
         />
-
-        {!isLoading && tiketOptions.length === 0 ? (
-          <Text fz={14} c="dimmed">
-            Catatan: tidak ada tiket servis yang sudah dibayar dan belum memiliki
-            garansi.
-          </Text>
-        ) : null}
       </Stack>
 
       <GaransiFormModal

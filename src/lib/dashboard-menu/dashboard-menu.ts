@@ -62,6 +62,12 @@ const DASHBOARD_MENU: Record<DashboardRoleKey, DashboardMenuItem[]> = {
       icon: IconUsers,
     },
     {
+      key: "kelola-jabatan",
+      label: "Kelola Jabatan",
+      href: "/owner/kelola-jabatan",
+      icon: IconClipboardList,
+    },
+    {
       key: "laporan",
       label: "Laporan",
       icon: IconReportAnalytics,
@@ -141,7 +147,7 @@ const DASHBOARD_MENU: Record<DashboardRoleKey, DashboardMenuItem[]> = {
       href: "/admin_gudang/barang",
       icon: IconBasket,
     },
-        {
+    {
       key: "kategori",
       label: "Kategori Barang",
       href: "/admin_gudang/kategori",
