@@ -3,9 +3,11 @@
 import {
   Badge,
   Box,
-  Grid,
+  Group,
   Image,
   Modal,
+  Paper,
+  SimpleGrid,
   Stack,
   Text,
 } from "@mantine/core";
@@ -38,9 +40,27 @@ function formatRupiah(value: number) {
 }
 
 function getStockBadgeColor(stok: number) {
-  if (stok <= 0) return "red";
-  if (stok <= 5) return "yellow";
+  if (stok <= 0) {
+    return "red";
+  }
+
+  if (stok <= 5) {
+    return "yellow";
+  }
+
   return "green";
+}
+
+function getStockLabel(stok: number) {
+  if (stok <= 0) {
+    return "Stok Habis";
+  }
+
+  if (stok <= 5) {
+    return `Stok Menipis (${stok})`;
+  }
+
+  return `Stok Tersedia (${stok})`;
 }
 
 function FieldItem({
@@ -52,10 +72,19 @@ function FieldItem({
 }) {
   return (
     <Stack gap={6}>
-      <Text fw={700} fz={14} c="#6B7280">
+      <Text fw={700} fz="sm" c="#6B7280">
         {label}
       </Text>
-      <Text fw={600} fz={16} c="#111111">
+
+      <Text
+        fw={800}
+        fz={16}
+        c="#111827"
+        style={{
+          lineHeight: 1.5,
+          wordBreak: "break-word",
+        }}
+      >
         {value || "-"}
       </Text>
     </Stack>
@@ -71,102 +100,240 @@ export default function BarangDetailModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title={
-        <Text fw={800} fz={28} c="#000000">
-          Detail Barang
-        </Text>
-      }
       centered
-      size={860}
-      radius={24}
-      padding={28}
+      size="70rem"
+      radius="xl"
+      closeButtonProps={{
+        size: "lg",
+        radius: "xl",
+      }}
       overlayProps={{
         backgroundOpacity: 0.45,
         blur: 2,
       }}
+      styles={{
+        content: {
+          backgroundColor: "#FFFFFF",
+          overflow: "hidden",
+        },
+        header: {
+          backgroundColor: "#FFFFFF",
+          padding: "26px 30px 10px",
+          borderBottom: "1px solid #F1F5F9",
+        },
+        body: {
+          padding: 0,
+          backgroundColor: "#FFFFFF",
+        },
+        title: {
+          color: "#111827",
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+        },
+        close: {
+          color: "#6B7280",
+        },
+      }}
+      title="Detail Barang"
     >
-      {!data ? null : (
-        <Stack gap={24}>
-          <Box
-            style={{
-              width: "100%",
-              height: 260,
-              borderRadius: 18,
-              overflow: "hidden",
-              backgroundColor: "#F5F7FB",
-              border: "1px solid #E8EEF7",
-            }}
-          >
-            {data.foto ? (
-              <Image
-                src={data.foto}
-                alt={data.nama}
-                w="100%"
-                h="100%"
-                fit="contain"
-              />
-            ) : (
-              <Box
+      <Box
+        style={{
+          maxHeight: "calc(100vh - 150px)",
+          overflowY: "auto",
+          backgroundColor: "#FFFFFF",
+        }}
+      >
+        <Box px={{ base: 20, sm: 30 }} py={26}>
+          {!data ? null : (
+            <Stack gap={24}>
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
                 style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
                 }}
               >
-                <Text c="dimmed">Tidak ada foto</Text>
-              </Box>
-            )}
-          </Box>
+                <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+                  <Box
+                    style={{
+                      width: "100%",
+                      minHeight: 300,
+                      borderRadius: 18,
+                      overflow: "hidden",
+                      backgroundColor: "#F9FAFB",
+                      border: "1px solid #E5E7EB",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {data.foto ? (
+                      <Image
+                        src={data.foto}
+                        alt={data.nama}
+                        w="100%"
+                        h={300}
+                        fit="contain"
+                        style={{
+                          backgroundColor: "#F9FAFB",
+                        }}
+                      />
+                    ) : (
+                      <Stack align="center" gap={6}>
+                        <Text fw={800} c="#9CA3AF">
+                          Tidak ada foto
+                        </Text>
+                        <Text fz="sm" c="#9CA3AF">
+                          Foto barang belum tersedia.
+                        </Text>
+                      </Stack>
+                    )}
+                  </Box>
 
-          <Grid gap={22}>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <FieldItem label="Nama" value={data.nama} />
-            </Grid.Col>
+                  <Stack gap="md" justify="space-between">
+                    <Stack gap={6}>
+                      <Group justify="space-between" align="flex-start" gap="md">
+                        <Stack gap={6} style={{ minWidth: 0, flex: 1 }}>
+                          <Text fw={800} fz={24} c="#111827" lineClamp={2}>
+                            {data.nama}
+                          </Text>
 
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <FieldItem label="Kode" value={data.kode} />
-            </Grid.Col>
+                          <Text fz="sm" c="#6B7280">
+                            {data.kode || "-"} • {data.merk || "-"}
+                          </Text>
+                        </Stack>
 
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <FieldItem label="Merk" value={data.merk} />
-            </Grid.Col>
+                        <Badge
+                          color={getStockBadgeColor(data.stok)}
+                          variant="light"
+                          radius="md"
+                          size="lg"
+                          style={{
+                            textTransform: "none",
+                            flexShrink: 0,
+                            fontWeight: 800,
+                          }}
+                        >
+                          {getStockLabel(data.stok)}
+                        </Badge>
+                      </Group>
 
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <Stack gap={6}>
-                <Text fw={700} fz={14} c="#6B7280">
-                  Stok
-                </Text>
-                <Badge
-                  color={getStockBadgeColor(data.stok)}
-                  variant="light"
-                  radius="sm"
-                  w="fit-content"
-                >
-                  {data.stok}
-                </Badge>
-              </Stack>
-            </Grid.Col>
+                      <Text fw={900} fz={28} c="#0D4CB5" mt={8}>
+                        {formatRupiah(data.harga)}
+                      </Text>
+                    </Stack>
 
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <FieldItem label="Harga" value={formatRupiah(data.harga)} />
-            </Grid.Col>
+                    <Paper
+                      radius="md"
+                      p="md"
+                      withBorder
+                      style={{
+                        borderColor: "#E5E7EB",
+                        backgroundColor: "#F9FAFB",
+                      }}
+                    >
+                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                        <FieldItem label="Kategori" value={data.kategori} />
+                        <FieldItem label="Supplier" value={data.supplier} />
+                        <FieldItem label="Merk" value={data.merk} />
+                        <FieldItem label="Kode Barang" value={data.kode} />
+                      </SimpleGrid>
+                    </Paper>
+                  </Stack>
+                </SimpleGrid>
+              </Paper>
 
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <FieldItem label="Kategori" value={data.kategori} />
-            </Grid.Col>
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
+                style={{
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
+                }}
+              >
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Informasi Barang
+                    </Text>
 
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <FieldItem label="Supplier" value={data.supplier} />
-            </Grid.Col>
+                    <Text fz="sm" c="#6B7280">
+                      Detail identitas, kategori, supplier, harga, dan stok
+                      barang.
+                    </Text>
+                  </Stack>
 
-            <Grid.Col span={12}>
-              <FieldItem label="Deskripsi" value={data.deskripsi || "-"} />
-            </Grid.Col>
-          </Grid>
-        </Stack>
-      )}
+                  <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+                    <FieldItem label="Nama Barang" value={data.nama} />
+                    <FieldItem label="Kode Barang" value={data.kode} />
+                    <FieldItem label="Merk" value={data.merk} />
+                    <FieldItem label="Harga" value={formatRupiah(data.harga)} />
+                    <FieldItem label="Kategori" value={data.kategori} />
+                    <FieldItem label="Supplier" value={data.supplier} />
+
+                    <Stack gap={6}>
+                      <Text fw={700} fz="sm" c="#6B7280">
+                        Stok
+                      </Text>
+
+                      <Badge
+                        color={getStockBadgeColor(data.stok)}
+                        variant="filled"
+                        radius="md"
+                        size="lg"
+                        w="fit-content"
+                        style={{
+                          textTransform: "none",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {data.stok}
+                      </Badge>
+                    </Stack>
+                  </SimpleGrid>
+                </Stack>
+              </Paper>
+
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
+                style={{
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#F9FAFB",
+                }}
+              >
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Deskripsi Barang
+                    </Text>
+
+                    <Text fz="sm" c="#6B7280">
+                      Catatan tambahan, kondisi barang, atau spesifikasi produk.
+                    </Text>
+                  </Stack>
+
+                  <Text
+                    fz={15}
+                    c="#111827"
+                    style={{
+                      lineHeight: 1.7,
+                      whiteSpace: "pre-line",
+                    }}
+                  >
+                    {data.deskripsi || "-"}
+                  </Text>
+                </Stack>
+              </Paper>
+            </Stack>
+          )}
+        </Box>
+      </Box>
     </Modal>
   );
 }

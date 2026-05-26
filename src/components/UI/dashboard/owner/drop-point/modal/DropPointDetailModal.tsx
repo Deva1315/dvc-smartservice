@@ -1,11 +1,12 @@
 "use client";
 
 import {
+  Box,
   Button,
-  Divider,
-  Flex,
+  Group,
   Modal,
   Paper,
+  SimpleGrid,
   Stack,
   Text,
   ThemeIcon,
@@ -33,33 +34,27 @@ type DropPointDetailModalProps = {
 
 type InfoItemProps = {
   label: string;
-  value: string;
+  value: string | number | null | undefined;
 };
 
 function InfoItem({ label, value }: InfoItemProps) {
   return (
-    <Stack gap={4}>
-      <Text
-        fw={700}
-        c="#4B5563"
-        style={{
-          fontSize: 15,
-          lineHeight: 1.2,
-        }}
-      >
+    <Stack gap={6}>
+      <Text fw={700} fz="sm" c="#6B7280">
         {label}
       </Text>
 
       <Text
+        fw={800}
+        fz={16}
         c="#111827"
         style={{
-          fontSize: 17,
           lineHeight: 1.5,
-          fontWeight: 500,
+          wordBreak: "break-word",
           whiteSpace: "pre-line",
         }}
       >
-        {value}
+        {value || "-"}
       </Text>
     </Stack>
   );
@@ -78,18 +73,14 @@ export default function DropPointDetailModal({
   onClose,
   dropPoint,
 }: DropPointDetailModalProps) {
-  if (!dropPoint) {
-    return null;
-  }
-
-  const mapsUrl = buildDropPointMapsUrl(dropPoint);
+  const mapsUrl = dropPoint ? buildDropPointMapsUrl(dropPoint) : "#";
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
       centered
-      size="68rem"
+      size="64rem"
       radius="xl"
       closeOnClickOutside
       closeButtonProps={{
@@ -97,170 +88,217 @@ export default function DropPointDetailModal({
         radius: "xl",
       }}
       styles={{
-        body: {
-          backgroundColor: "#EFEFEF",
-          padding: 24,
+        content: {
+          backgroundColor: "#FFFFFF",
+          overflow: "hidden",
         },
         header: {
-          backgroundColor: "#EFEFEF",
-          paddingBottom: 0,
+          backgroundColor: "#FFFFFF",
+          padding: "26px 30px 10px",
+          borderBottom: "1px solid #F1F5F9",
         },
-        content: {
-          backgroundColor: "#EFEFEF",
+        body: {
+          padding: 0,
+          backgroundColor: "#FFFFFF",
+        },
+        title: {
+          color: "#111827",
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+        },
+        close: {
+          color: "#6B7280",
         },
       }}
-      title={
-        <Text
-          fw={800}
-          c="#000000"
-          style={{
-            fontSize: 26,
-            lineHeight: 1.2,
-          }}
-        >
-          Detail Drop Point
-        </Text>
-      }
+      title="Detail Drop Point"
     >
-      <Stack gap={22}>
-        <Paper
-          radius={24}
-          px={{ base: 20, md: 28 }}
-          py={{ base: 22, md: 28 }}
-          style={{
-            backgroundColor: "#B9D3F3",
-            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.04)",
-          }}
-        >
-          <Flex
-            justify="space-between"
-            align="stretch"
-            gap={{ base: 22, md: 30 }}
-            direction={{ base: "column", md: "row" }}
-          >
-            <Flex align="flex-start" gap={18} flex={1}>
-              <ThemeIcon
-                size={62}
-                radius="xl"
-                variant="filled"
-                styles={{
-                  root: {
-                    backgroundColor: "#FFFFFF",
-                    color: "#97B9E6",
-                    flexShrink: 0,
-                  },
+      <Box
+        style={{
+          maxHeight: "calc(100vh - 150px)",
+          overflowY: "auto",
+          backgroundColor: "#FFFFFF",
+        }}
+      >
+        <Box px={{ base: 20, sm: 30 }} py={26}>
+          {!dropPoint ? null : (
+            <Stack gap={24}>
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
+                style={{
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
                 }}
               >
-                <IconMapPin size={30} stroke={2.1} />
-              </ThemeIcon>
-
-              <Stack gap={10} flex={1}>
-                <Text
-                  fw={700}
-                  c="#111111"
-                  style={{
-                    fontSize: "clamp(24px, 2.7vw, 34px)",
-                    lineHeight: 1.15,
-                  }}
+                <Group
+                  justify="space-between"
+                  align="flex-start"
+                  gap="xl"
+                  wrap="wrap"
                 >
-                  {dropPoint.nama_drop_point}
-                </Text>
+                  <Group align="flex-start" gap="md" style={{ flex: 1 }}>
+                    <ThemeIcon
+                      size={58}
+                      radius="xl"
+                      variant="light"
+                      color="blue"
+                      style={{
+                        flexShrink: 0,
+                      }}
+                    >
+                      <IconMapPin size={28} stroke={2} />
+                    </ThemeIcon>
 
-                <Text
-                  fw={600}
-                  c="#70747C"
-                  style={{
-                    fontSize: "clamp(17px, 1.9vw, 22px)",
-                    lineHeight: 1.45,
-                  }}
-                >
-                  {dropPoint.alamat}
-                </Text>
+                    <Stack gap={8} style={{ minWidth: 0, flex: 1 }}>
+                      <Text
+                        fw={800}
+                        fz={24}
+                        c="#111827"
+                        style={{
+                          lineHeight: 1.2,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {dropPoint.nama_drop_point}
+                      </Text>
 
-                <Flex align="center" gap={10} wrap="wrap">
-                  <IconPhone size={22} stroke={1.9} color="#70747C" />
-                  <Text
-                    c="#70747C"
+                      <Text
+                        fz={15}
+                        c="#6B7280"
+                        style={{
+                          lineHeight: 1.6,
+                          whiteSpace: "pre-line",
+                        }}
+                      >
+                        {dropPoint.alamat}
+                      </Text>
+
+                      <Group gap="lg" wrap="wrap" mt={4}>
+                        <Group gap={8}>
+                          <IconPhone size={18} stroke={1.9} color="#6B7280" />
+
+                          <Text fw={700} fz="sm" c="#6B7280">
+                            {dropPoint.phone ?? "-"}
+                          </Text>
+                        </Group>
+
+                        <Group gap={8}>
+                          <IconClock size={18} stroke={1.9} color="#6B7280" />
+
+                          <Text
+                            fw={700}
+                            fz="sm"
+                            c="#6B7280"
+                            style={{
+                              whiteSpace: "pre-line",
+                            }}
+                          >
+                            {dropPoint.jam_operasional ?? "-"}
+                          </Text>
+                        </Group>
+                      </Group>
+                    </Stack>
+                  </Group>
+
+                  <Button
+                    component="a"
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    radius="md"
+                    size="md"
+                    rightSection={<IconExternalLink size={18} />}
                     style={{
-                      fontSize: "clamp(16px, 1.8vw, 20px)",
-                      lineHeight: 1.35,
+                      minWidth: 210,
+                      height: 46,
+                      backgroundColor: "#0D4CB5",
+                      fontSize: 15,
+                      fontWeight: 700,
                     }}
                   >
-                    Telp : {dropPoint.phone ?? "-"}
-                  </Text>
-                </Flex>
+                    Buka Google Maps
+                  </Button>
+                </Group>
+              </Paper>
 
-                <Flex align="center" gap={10} wrap="wrap">
-                  <IconClock size={22} stroke={1.9} color="#70747C" />
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
+                style={{
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
+                }}
+              >
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Informasi Lokasi
+                    </Text>
+
+                    <Text fz="sm" c="#6B7280">
+                      Detail data Drop Point yang digunakan untuk penerimaan
+                      perangkat servis pelanggan.
+                    </Text>
+                  </Stack>
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                    <InfoItem
+                      label="Nama Drop Point"
+                      value={dropPoint.nama_drop_point}
+                    />
+                    <InfoItem
+                      label="Nomor Telepon"
+                      value={dropPoint.phone ?? "-"}
+                    />
+                    <InfoItem
+                      label="Jam Operasional"
+                      value={dropPoint.jam_operasional ?? "-"}
+                    />
+                    <InfoItem label="ID Drop Point" value={dropPoint.id} />
+                  </SimpleGrid>
+                </Stack>
+              </Paper>
+
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
+                style={{
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#F9FAFB",
+                }}
+              >
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Alamat Lengkap
+                    </Text>
+
+                    <Text fz="sm" c="#6B7280">
+                      Alamat ini digunakan sebagai titik pencarian pada Google
+                      Maps.
+                    </Text>
+                  </Stack>
+
                   <Text
-                    c="#70747C"
+                    fz={15}
+                    c="#111827"
                     style={{
-                      fontSize: "clamp(16px, 1.8vw, 20px)",
-                      lineHeight: 1.35,
+                      lineHeight: 1.7,
                       whiteSpace: "pre-line",
                     }}
                   >
-                    {dropPoint.jam_operasional ?? "-"}
+                    {dropPoint.alamat || "-"}
                   </Text>
-                </Flex>
-              </Stack>
-            </Flex>
-
-            <Stack justify="center" gap={12} w={{ base: "100%", md: 280 }}>
-              <Button
-                component="a"
-                href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                radius={14}
-                h={52}
-                rightSection={<IconExternalLink size={18} />}
-                style={{
-                  backgroundColor: "#0B4DB8",
-                  fontSize: 18,
-                  fontWeight: 700,
-                  boxShadow: "none",
-                }}
-              >
-                Buka di Google Maps
-              </Button>
+                </Stack>
+              </Paper>
             </Stack>
-          </Flex>
-        </Paper>
-
-        <Paper
-          radius={22}
-          px={{ base: 20, md: 24 }}
-          py={{ base: 22, md: 26 }}
-          style={{
-            backgroundColor: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-          }}
-        >
-          <Stack gap={16}>
-            <Text
-              fw={700}
-              c="#111827"
-              style={{
-                fontSize: 24,
-                lineHeight: 1.2,
-              }}
-            >
-              Informasi Lokasi
-            </Text>
-
-            <Divider />
-
-            <InfoItem label="Nama Drop Point" value={dropPoint.nama_drop_point} />
-            <InfoItem label="Alamat" value={dropPoint.alamat} />
-            <InfoItem label="Nomor Telepon" value={dropPoint.phone ?? "-"} />
-            <InfoItem
-              label="Jam Operasional"
-              value={dropPoint.jam_operasional ?? "-"}
-            />
-          </Stack>
-        </Paper>
-      </Stack>
+          )}
+        </Box>
+      </Box>
     </Modal>
   );
 }

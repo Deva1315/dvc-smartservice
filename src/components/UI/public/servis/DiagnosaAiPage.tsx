@@ -4,7 +4,6 @@ import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ActionIcon,
-  Anchor,
   Box,
   Button,
   Container,
@@ -18,9 +17,6 @@ import {
 import { notifications } from "@mantine/notifications";
 import {
   IconAlertCircle,
-  IconBrandFacebook,
-  IconBrandInstagram,
-  IconBrandTwitter,
   IconCheck,
   IconMapPin,
   IconPhone,
@@ -50,6 +46,7 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/png",
   "image/webp",
 ];
+
 
 function createMessageId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -276,6 +273,7 @@ export default function DiagnosaAiPage() {
               fontSize: "clamp(42px, 4vw, 64px)",
               fontWeight: 900,
               color: "#111111",
+              
             }}
           >
             Diagnosa AI
@@ -292,7 +290,12 @@ export default function DiagnosaAiPage() {
             Masukkan gejala atau upload gambar untuk analisis awal
           </Text>
 
-          <Text ta="center" c="#6B7280" maw={760} fz={16}>
+          <Text
+            ta="center"
+            c="#6B7280"
+            maw={760}
+            fz={16}
+          >
             Hasil AI hanya sebagai diagnosa awal dan tidak menjadi keputusan
             final. Pemeriksaan teknisi tetap diperlukan untuk memastikan
             kerusakan perangkat.
@@ -385,6 +388,7 @@ export default function DiagnosaAiPage() {
                           fontSize: 17,
                           lineHeight: 1.6,
                           whiteSpace: "pre-line",
+                          
                         }}
                       >
                         {message.text}
@@ -398,7 +402,7 @@ export default function DiagnosaAiPage() {
             {loading && (
               <Group justify="flex-start">
                 <Paper radius="xl" p="lg" bg="#6B7280">
-                  <Text c="#FFFFFF" fw={700}>
+                  <Text c="#FFFFFF" fw={700} >
                     Sedang menganalisis...
                   </Text>
                 </Paper>
@@ -483,6 +487,7 @@ export default function DiagnosaAiPage() {
                       fontSize: 18,
                       lineHeight: 1.4,
                       color: "#333333",
+                      
                     },
                   }}
                 />
@@ -521,6 +526,7 @@ export default function DiagnosaAiPage() {
                   backgroundColor: "#0D4CB5",
                   fontSize: 18,
                   fontWeight: 700,
+                  
                 }}
               >
                 {diagnosaAiId ? "Buat Tiket Servis" : "Servis"}
@@ -530,59 +536,142 @@ export default function DiagnosaAiPage() {
         </Paper>
       </Container>
 
-      <Box bg="#F5F5F5" pt={40}>
-        <Container size="md">
-          <Stack align="center" gap={14}>
+      {/* FOOTER TANPA ANIMASI */}
             <Box
+              mt={60}
               style={{
-                position: "relative",
-                width: 180,
-                height: 150,
+                backgroundColor: "#F5F5F5",
               }}
             >
-              <Image
-                src="/images/logo-dvc.png"
-                alt="DVC Computer"
-                fill
-                sizes="180px"
-                style={{ objectFit: "contain" }}
-              />
+              <Container size="xl" py={60}>
+                <Group
+                  justify="space-between"
+                  align="flex-start"
+                  gap={60}
+                  wrap="wrap"
+                >
+                  {/* KIRI */}
+                  <Group
+                    align="flex-start"
+                    gap={24}
+                    wrap="nowrap"
+                    style={{
+                      flex: 1,
+                      minWidth: 320,
+                    }}
+                  >
+                    <Box
+                      style={{
+                        position: "relative",
+                        width: 110,
+                        height: 110,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Image
+                        src="/images/logo-dvc.png"
+                        alt="DVC Computer"
+                        fill
+                        sizes="110px"
+                        style={{ objectFit: "contain" }}
+                      />
+                    </Box>
+      
+                    <Stack gap={10} maw={520}>
+                      <Title
+                        order={3}
+                        c="#111111"
+                        style={{
+                          fontSize: "clamp(24px, 2vw, 34px)",
+                          fontWeight: 800,
+                          lineHeight: 1.2,
+                          
+                        }}
+                      >
+                        DVC SMART SERVICE
+                      </Title>
+      
+                      <Text
+                        c="#4B5563"
+                        style={{
+                          fontSize: "clamp(16px, 1.2vw, 22px)",
+                          lineHeight: 1.7,
+                          
+                        }}
+                      >
+                        Solusi modern untuk penjualan dan servis perangkat
+                        komputer dengan fitur tiket servis, drop point,
+                        dan diagnosa AI.
+                      </Text>
+                    </Stack>
+                  </Group>
+      
+                  {/* KANAN */}
+                  <Stack
+                    gap={14}
+                    align="flex-end"
+                    style={{
+                      minWidth: 320,
+                    }}
+                  >
+                    <Title
+                      order={3}
+                      c="#111111"
+                      style={{
+                        fontSize: "clamp(24px, 2vw, 34px)",
+                        fontWeight: 800,
+                        
+                      }}
+                    >
+                      CONTACT
+                    </Title>
+      
+                    <Group gap={8} wrap="nowrap">
+                      <IconMapPin size={18} color="#111111" />
+      
+                      <Text
+                        c="#4B5563"
+                        ta="right"
+                        style={{
+                          fontSize: "clamp(15px, 1vw, 18px)",
+                          lineHeight: 1.6,
+                          
+                        }}
+                      >
+                        Jl. Ciung Wanara, No. 99X,
+                        Kec. Sukawati Bali 80582
+                      </Text>
+                    </Group>
+      
+                    <Group gap={8}>
+                      <IconPhone size={18} color="#111111" />
+      
+                      <Text
+                        c="#4B5563"
+                        style={{
+                          fontSize: "clamp(15px, 1vw, 18px)",
+                        }}
+                      >
+                        08174762502
+                      </Text>
+                    </Group>
+                  </Stack>
+                </Group>
+              </Container>
+      
+              {/* COPYRIGHT */}
+              <Box
+                py={18}
+                bg="#0D3F8F"
+                style={{
+                  textAlign: "center",
+                }}
+              >
+                <Text c="white" size="sm">
+                  © 2026 DVC Smart Service. All rights reserved.
+                </Text>
+              </Box>
             </Box>
-
-            <Group gap={8} justify="center">
-              <IconPhone size={18} />
-              <Text size="md" c="#111111">
-                Telp : 08174762502
-              </Text>
-            </Group>
-
-            <Group gap={8} justify="center" wrap="nowrap">
-              <IconMapPin size={18} />
-              <Text size="md" c="#111111" ta="center">
-                Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
-              </Text>
-            </Group>
-
-            <Group gap={14} justify="center" mt={6}>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Facebook">
-                <IconBrandFacebook size={28} />
-              </Anchor>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Instagram">
-                <IconBrandInstagram size={28} />
-              </Anchor>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Twitter">
-                <IconBrandTwitter size={28} />
-              </Anchor>
-            </Group>
-          </Stack>
-        </Container>
-
-        <Box mt={46} py={18} bg="#0D3F8F" style={{ textAlign: "center" }}>
-          <Text c="white" size="sm">
-            © 2026 All rights reserved.
-          </Text>
-        </Box>
-      </Box>
     </Box>
   );
 }

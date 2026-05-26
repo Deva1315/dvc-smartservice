@@ -8,6 +8,8 @@ import {
   Group,
   Modal,
   NumberInput,
+  Paper,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
@@ -52,16 +54,28 @@ function FieldLabel({
   required?: boolean;
 }) {
   return (
-    <Text fw={700} fz={16} c="#6B7280">
+    <Text fw={700} fz="sm" c="#374151">
       {label}
-      {required && (
-        <Text span c="red" ml={2}>
+      {required ? (
+        <Text span c="#EF4444" ml={2}>
           *
         </Text>
-      )}
+      ) : null}
     </Text>
   );
 }
+
+const inputBaseStyle = {
+  backgroundColor: "#F9FAFB",
+  height: 46,
+  fontSize: 15,
+  color: "#111827",
+};
+
+const errorStyle = {
+  fontSize: 13,
+  marginTop: 6,
+};
 
 export default function JasaServisFormModal({
   opened,
@@ -78,7 +92,9 @@ export default function JasaServisFormModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!opened) return;
+    if (!opened) {
+      return;
+    }
 
     setErrors({});
 
@@ -143,6 +159,8 @@ export default function JasaServisFormModal({
   const modalTitle =
     formType === "create" ? "Kelola Jasa Servis" : "Edit Jasa Servis";
 
+  const submitLabel = formType === "create" ? "Simpan Jasa" : "Update Jasa";
+
   return (
     <Modal
       opened={opened}
@@ -156,177 +174,224 @@ export default function JasaServisFormModal({
         radius: "xl",
       }}
       styles={{
-        body: {
-          backgroundColor: "#D9D9D9",
-          padding: 0,
+        content: {
+          backgroundColor: "#FFFFFF",
+          overflow: "hidden",
         },
         header: {
-          backgroundColor: "#D9D9D9",
-          paddingBottom: 0,
+          backgroundColor: "#FFFFFF",
+          padding: "26px 30px 10px",
+          borderBottom: "1px solid #F1F5F9",
         },
-        content: {
-          backgroundColor: "#D9D9D9",
+        body: {
+          padding: 0,
+          backgroundColor: "#FFFFFF",
+        },
+        title: {
+          color: "#111827",
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+        },
+        close: {
+          color: "#6B7280",
         },
       }}
-      title={
-        <Text fw={800} fz={34} c="#000000">
-          {modalTitle}
-        </Text>
-      }
+      title={modalTitle}
     >
-      <Box px="lg" pb="lg" pt="md">
-        <form onSubmit={handleSubmit}>
-          <Stack gap={16}>
-            <Stack gap={6}>
-              <FieldLabel label="Nama" required />
-
-              <TextInput
-                value={nama}
-                onChange={(event) => {
-                  setNama(event.currentTarget.value);
-                  clearFieldError("nama");
-                }}
-                radius="md"
-                disabled={isSubmitting}
-                error={errors.nama}
-                styles={{
-                  input: {
-                    height: 58,
-                    border: errors.nama ? "1px solid #FA5252" : "none",
-                    backgroundColor: "#FFFFFF",
-                    fontSize: 18,
-                  },
-                  error: {
-                    fontSize: 14,
-                    marginTop: 6,
-                  },
-                }}
-              />
-            </Stack>
-
-            <Stack gap={6}>
-              <FieldLabel label="Harga" required />
-
-              <NumberInput
-                value={harga}
-                onChange={(value) => {
-                  setHarga(value);
-                  clearFieldError("harga");
-                }}
-                min={0}
-                allowDecimal={false}
-                thousandSeparator="."
-                decimalSeparator=","
-                radius="md"
-                disabled={isSubmitting}
-                error={errors.harga}
-                styles={{
-                  input: {
-                    height: 58,
-                    border: errors.harga ? "1px solid #FA5252" : "none",
-                    backgroundColor: "#FFFFFF",
-                    fontSize: 18,
-                  },
-                  error: {
-                    fontSize: 14,
-                    marginTop: 6,
-                  },
-                }}
-              />
-            </Stack>
-
-            <Stack gap={6}>
-              <FieldLabel label="Deskripsi" />
-
-              <Textarea
-                value={deskripsi}
-                onChange={(event) => {
-                  setDeskripsi(event.currentTarget.value);
-                  clearFieldError("deskripsi");
-                }}
-                placeholder="Masukkan deskripsi jasa disini..."
-                minRows={6}
-                radius="md"
-                disabled={isSubmitting}
-                error={errors.deskripsi}
-                styles={{
-                  input: {
-                    border: errors.deskripsi ? "1px solid #FA5252" : "none",
-                    backgroundColor: "#FFFFFF",
-                    fontSize: 18,
-                  },
-                  error: {
-                    fontSize: 14,
-                    marginTop: 6,
-                  },
-                }}
-              />
-            </Stack>
-
-            <Stack gap={6}>
-              <FieldLabel label="Jam Operasional" />
-
-              <TextInput
-                value={jamOperasional}
-                onChange={(event) => {
-                  setJamOperasional(event.currentTarget.value);
-                  clearFieldError("jamOperasional");
-                }}
-                placeholder="Contoh: 09:00 - 17:00"
-                radius="md"
-                disabled={isSubmitting}
-                error={errors.jamOperasional}
-                styles={{
-                  input: {
-                    height: 58,
-                    border: errors.jamOperasional
-                      ? "1px solid #FA5252"
-                      : "none",
-                    backgroundColor: "#FFFFFF",
-                    fontSize: 18,
-                  },
-                  error: {
-                    fontSize: 14,
-                    marginTop: 6,
-                  },
-                }}
-              />
-            </Stack>
-
-            <Group justify="flex-end" gap="lg" mt="lg">
-              <Button
-                type="button"
-                radius="xl"
-                onClick={handleClose}
-                disabled={isSubmitting}
+      <Box
+        style={{
+          maxHeight: "calc(100vh - 150px)",
+          overflowY: "auto",
+          backgroundColor: "#FFFFFF",
+        }}
+      >
+        <Box px={{ base: 20, sm: 30 }} py={26}>
+          <form onSubmit={handleSubmit}>
+            <Stack gap={30}>
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
                 style={{
-                  minWidth: 160,
-                  height: 42,
-                  backgroundColor: "#FF1008",
-                  fontSize: 18,
-                  fontWeight: 700,
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
                 }}
               >
-                Batal
-              </Button>
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Informasi Jasa Servis
+                    </Text>
 
-              <Button
-                type="submit"
-                radius="xl"
-                loading={isSubmitting}
+                    <Text fz="sm" c="#6B7280">
+                      Lengkapi nama jasa, harga, deskripsi, dan jam operasional
+                      layanan servis.
+                    </Text>
+                  </Stack>
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                    <Stack gap={6}>
+                      <FieldLabel label="Nama Jasa" required />
+
+                      <TextInput
+                        value={nama}
+                        onChange={(event) => {
+                          setNama(event.currentTarget.value);
+                          clearFieldError("nama");
+                        }}
+                        placeholder="Contoh: Instalasi Windows"
+                        radius="md"
+                        disabled={isSubmitting}
+                        error={errors.nama}
+                        styles={{
+                          input: {
+                            ...inputBaseStyle,
+                            border: errors.nama
+                              ? "1px solid #FA5252"
+                              : "1px solid #E5E7EB",
+                          },
+                          error: errorStyle,
+                        }}
+                      />
+                    </Stack>
+
+                    <Stack gap={6}>
+                      <FieldLabel label="Harga" required />
+
+                      <NumberInput
+                        value={harga}
+                        onChange={(value) => {
+                          setHarga(value);
+                          clearFieldError("harga");
+                        }}
+                        min={0}
+                        allowDecimal={false}
+                        thousandSeparator="."
+                        decimalSeparator=","
+                        prefix="Rp "
+                        placeholder="Contoh: Rp 150.000"
+                        radius="md"
+                        disabled={isSubmitting}
+                        error={errors.harga}
+                        styles={{
+                          input: {
+                            ...inputBaseStyle,
+                            border: errors.harga
+                              ? "1px solid #FA5252"
+                              : "1px solid #E5E7EB",
+                          },
+                          error: errorStyle,
+                        }}
+                      />
+                    </Stack>
+                  </SimpleGrid>
+
+                  <Stack gap={6}>
+                    <FieldLabel label="Deskripsi" />
+
+                    <Textarea
+                      value={deskripsi}
+                      onChange={(event) => {
+                        setDeskripsi(event.currentTarget.value);
+                        clearFieldError("deskripsi");
+                      }}
+                      placeholder="Masukkan deskripsi jasa servis, cakupan pekerjaan, atau catatan layanan..."
+                      minRows={5}
+                      radius="md"
+                      disabled={isSubmitting}
+                      error={errors.deskripsi}
+                      styles={{
+                        input: {
+                          backgroundColor: "#F9FAFB",
+                          border: errors.deskripsi
+                            ? "1px solid #FA5252"
+                            : "1px solid #E5E7EB",
+                          fontSize: 15,
+                          color: "#111827",
+                        },
+                        error: errorStyle,
+                      }}
+                    />
+                  </Stack>
+
+                  <Stack gap={6}>
+                    <FieldLabel label="Jam Operasional" />
+
+                    <TextInput
+                      value={jamOperasional}
+                      onChange={(event) => {
+                        setJamOperasional(event.currentTarget.value);
+                        clearFieldError("jamOperasional");
+                      }}
+                      placeholder="Contoh: 09:00 - 17:00"
+                      radius="md"
+                      disabled={isSubmitting}
+                      error={errors.jamOperasional}
+                      styles={{
+                        input: {
+                          ...inputBaseStyle,
+                          border: errors.jamOperasional
+                            ? "1px solid #FA5252"
+                            : "1px solid #E5E7EB",
+                        },
+                        error: errorStyle,
+                      }}
+                    />
+                  </Stack>
+                </Stack>
+              </Paper>
+
+              <Group
+                justify="flex-end"
+                gap="md"
+                pt={8}
                 style={{
-                  minWidth: 160,
-                  height: 42,
-                  backgroundColor: "#0D4CB5",
-                  fontSize: 18,
-                  fontWeight: 700,
+                  position: "sticky",
+                  bottom: 0,
+                  backgroundColor: "#FFFFFF",
+                  paddingTop: 18,
+                  borderTop: "1px solid #F1F5F9",
+                  zIndex: 2,
                 }}
               >
-                Simpan
-              </Button>
-            </Group>
-          </Stack>
-        </form>
+                <Button
+                  type="button"
+                  radius="md"
+                  size="md"
+                  variant="outline"
+                  color="gray"
+                  onClick={handleClose}
+                  disabled={isSubmitting}
+                  style={{
+                    minWidth: 130,
+                    height: 46,
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  Batal
+                </Button>
+
+                <Button
+                  type="submit"
+                  radius="md"
+                  size="md"
+                  loading={isSubmitting}
+                  style={{
+                    minWidth: 150,
+                    height: 46,
+                    backgroundColor: "#0D4CB5",
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  {submitLabel}
+                </Button>
+              </Group>
+            </Stack>
+          </form>
+        </Box>
       </Box>
     </Modal>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Anchor,
   Box,
@@ -12,33 +13,16 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import {
-  IconBrandFacebook,
-  IconBrandInstagram,
-  IconBrandTwitter,
-  IconMapPin,
-  IconPhone,
-} from "@tabler/icons-react";
+import { IconMapPin, IconPhone } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 
-const popularCategories = [
-  {
-    title: "Laptop",
-    image: "/images/laptop.png",
-    href: "/produk",
-  },
-  {
-    title: "Dekstop",
-    image: "/images/desktop.png",
-    href: "/produk",
-  },
-  {
-    title: "Printer",
-    image: "/images/printer.png",
-    href: "/produk",
-  },
-];
+type PopularCategory = {
+  title: string;
+  image: string;
+  href: string;
+  totalTerjual?: number;
+};
 
 const dvcCards = [
   {
@@ -88,7 +72,128 @@ const staggerContainer = {
   },
 };
 
+function normalizePopularCategories(payload: unknown): PopularCategory[] {
+  const root = payload as {
+    data?: unknown;
+    categories?: unknown;
+    kategori?: unknown;
+  };
+
+  const rawData = Array.isArray(root?.data)
+    ? root.data
+    : Array.isArray(root?.categories)
+      ? root.categories
+      : Array.isArray(root?.kategori)
+        ? root.kategori
+        : Array.isArray(payload)
+          ? payload
+          : [];
+
+  return rawData
+    .map((item) => {
+      const value = item as Record<string, unknown>;
+
+      const title =
+        typeof value.title === "string"
+          ? value.title
+          : typeof value.nama_kategori === "string"
+            ? value.nama_kategori
+            : typeof value.namaKategori === "string"
+              ? value.namaKategori
+              : typeof value.nama === "string"
+                ? value.nama
+                : "";
+
+      const image =
+        typeof value.image === "string"
+          ? value.image
+          : typeof value.image_url === "string"
+            ? value.image_url
+            : typeof value.imageUrl === "string"
+              ? value.imageUrl
+              : typeof value.gambar === "string"
+                ? value.gambar
+                : "";
+
+      const href = typeof value.href === "string" ? value.href : "/produk";
+
+      const totalTerjual =
+        typeof value.totalTerjual === "number"
+          ? value.totalTerjual
+          : typeof value.total_terjual === "number"
+            ? value.total_terjual
+            : typeof value.totalTerjual === "string"
+              ? Number(value.totalTerjual)
+              : typeof value.total_terjual === "string"
+                ? Number(value.total_terjual)
+                : undefined;
+
+      return {
+        title,
+        image,
+        href,
+        totalTerjual: Number.isFinite(totalTerjual)
+          ? totalTerjual
+          : undefined,
+      };
+    })
+    .filter((item) => item.title !== "" && item.image !== "")
+    .slice(0, 3);
+}
+
 export default function BerandaPage() {
+  const [popularCategories, setPopularCategories] = useState<PopularCategory[]>(
+    [],
+  );
+  const [isPopularCategoryLoading, setIsPopularCategoryLoading] =
+    useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function getPopularCategories() {
+      try {
+        setIsPopularCategoryLoading(true);
+
+        const response = await fetch("/api/public/kategori-terpopuler?limit=3", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          if (isMounted) {
+            setPopularCategories([]);
+          }
+
+          return;
+        }
+
+        const payload = await response.json();
+        const normalizedCategories = normalizePopularCategories(payload);
+
+        if (isMounted) {
+          setPopularCategories(normalizedCategories);
+        }
+      } catch (error) {
+        console.error("Gagal memuat kategori terpopuler:", error);
+
+        if (isMounted) {
+          setPopularCategories([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsPopularCategoryLoading(false);
+        }
+      }
+    }
+
+    getPopularCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <Box bg="#F5F5F5">
       {/* HERO */}
@@ -122,11 +227,7 @@ export default function BerandaPage() {
             alignItems: "center",
           }}
         >
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-          >
+          <motion.div initial="hidden" animate="visible" variants={fadeUp}>
             <Box maw={520}>
               <Text
                 c="white"
@@ -135,10 +236,10 @@ export default function BerandaPage() {
                   fontSize: "clamp(30px, 3vw, 52px)",
                   lineHeight: 1.25,
                   textShadow: "0 4px 18px rgba(0,0,0,0.35)",
+                  
                 }}
               >
-                Servis perangkat jadi lebih mudah dan modern bersama DVC
-                SmartService
+                Servis perangkat jadi lebih mudah dan modern
               </Text>
 
               <Text
@@ -162,6 +263,7 @@ export default function BerandaPage() {
                   style={{
                     backgroundColor: "#0D4CB5",
                     fontWeight: 700,
+                    
                   }}
                 >
                   Buat Tiket
@@ -176,6 +278,7 @@ export default function BerandaPage() {
                   color="dark"
                   style={{
                     fontWeight: 700,
+                    
                   }}
                 >
                   Diagnosa AI
@@ -196,6 +299,7 @@ export default function BerandaPage() {
               fontSize: "clamp(28px, 2.6vw, 44px)",
               fontWeight: 800,
               color: "#111111",
+              
             }}
           >
             Telusuri Kategori Terpopuler
@@ -207,78 +311,118 @@ export default function BerandaPage() {
             whileInView="visible"
             viewport={{ once: true }}
           >
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={36}>
-              {popularCategories.map((item) => (
-                <motion.div
-                  key={item.title}
-                  variants={fadeUp}
-                  whileHover={{
-                    y: -8,
-                  }}
-                >
-                  <Anchor
-                    href={item.href}
-                    underline="never"
-                    style={{ color: "inherit" }}
+            {isPopularCategoryLoading ? (
+              <Text
+                ta="center"
+                c="#6B7280"
+                style={{
+                  fontSize: 18,
+                  
+                }}
+              >
+                Memuat kategori terpopuler...
+              </Text>
+            ) : popularCategories.length === 0 ? (
+              <Text
+                ta="center"
+                c="#6B7280"
+                style={{
+                  fontSize: 18,
+                  
+                }}
+              >
+                Belum ada data kategori terpopuler.
+              </Text>
+            ) : (
+              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={36}>
+                {popularCategories.map((item) => (
+                  <motion.div
+                    key={item.title}
+                    variants={fadeUp}
+                    whileHover={{
+                      y: -8,
+                    }}
                   >
-                    <Stack
-                      align="center"
-                      gap={18}
-                      style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 24,
-                        padding: 24,
-                        border: "1px solid #ECECEC",
-                        transition: "all 0.3s ease",
-                      }}
+                    <Anchor
+                      href={item.href}
+                      underline="never"
+                      style={{ color: "inherit" }}
                     >
-                      <Box
+                      <Stack
+                        align="center"
+                        gap={18}
                         style={{
-                          position: "relative",
-                          width: "100%",
-                          maxWidth: 360,
-                          aspectRatio: "1.25 / 1",
-                          overflow: "hidden",
+                          backgroundColor: "#FFFFFF",
+                          borderRadius: 24,
+                          padding: 24,
+                          border: "1px solid #ECECEC",
+                          transition: "all 0.3s ease",
                         }}
                       >
-                        <motion.div
-                          whileHover={{
-                            scale: 1.06,
-                          }}
-                          transition={{
-                            duration: 0.3,
-                          }}
+                        <Box
                           style={{
-                            width: "100%",
-                            height: "100%",
                             position: "relative",
+                            width: "100%",
+                            maxWidth: 360,
+                            aspectRatio: "1.25 / 1",
+                            overflow: "hidden",
                           }}
                         >
-                          <Image
-                            src={item.image}
-                            alt={item.title}
-                            fill
-                            sizes="180px"
-                            style={{ objectFit: "contain" }}
-                          />
-                        </motion.div>
-                      </Box>
+                          <motion.div
+                            whileHover={{
+                              scale: 1.06,
+                            }}
+                            transition={{
+                              duration: 0.3,
+                            }}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              position: "relative",
+                            }}
+                          >
+                            <Image
+                              src={item.image}
+                              alt={item.title}
+                              fill
+                              sizes="180px"
+                              style={{ objectFit: "contain" }}
+                            />
+                          </motion.div>
+                        </Box>
 
-                      <Text
-                        fw={800}
-                        ta="center"
-                        style={{
-                          fontSize: "clamp(28px, 2vw, 40px)",
-                          color: "#111111",
-                        }}
-                      >
-                        {item.title}
-                      </Text>
-                    </Stack>
-                  </Anchor>
-                </motion.div>
-              ))}
-            </SimpleGrid>
+                        <Stack gap={4} align="center">
+                          <Text
+                            fw={800}
+                            ta="center"
+                            style={{
+                              fontSize: "clamp(28px, 2vw, 40px)",
+                              color: "#111111",
+                              
+                            }}
+                          >
+                            {item.title}
+                          </Text>
+
+                          {typeof item.totalTerjual === "number" && (
+                            <Text
+                              ta="center"
+                              c="#6B7280"
+                              style={{
+                                fontSize: 14,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {item.totalTerjual} produk terjual
+                            </Text>
+                          )}
+                        </Stack>
+                      </Stack>
+                    </Anchor>
+                  </motion.div>
+                ))}
+              </SimpleGrid>
+            )}
           </motion.div>
         </Stack>
       </Container>
@@ -293,6 +437,7 @@ export default function BerandaPage() {
               fontSize: "clamp(28px, 2.6vw, 44px)",
               fontWeight: 800,
               color: "#111111",
+              
             }}
           >
             Temukan Lebih Banyak Hal dengan DVC
@@ -340,6 +485,7 @@ export default function BerandaPage() {
                           fw={800}
                           style={{
                             fontSize: "clamp(24px, 2vw, 34px)",
+                            
                             color: card.textColor,
                             marginBottom: 14,
                           }}
@@ -352,8 +498,7 @@ export default function BerandaPage() {
                             fontSize: "clamp(18px, 1.5vw, 28px)",
                             lineHeight: 1.4,
                             color: card.textColor,
-                            opacity:
-                              card.title === "Diagnosa AI" ? 0.95 : 1,
+                            opacity: card.title === "Diagnosa AI" ? 0.95 : 1,
                           }}
                         >
                           {card.description}
@@ -371,6 +516,7 @@ export default function BerandaPage() {
                           backgroundColor: "#0D4CB5",
                           fontSize: 20,
                           fontWeight: 700,
+                          
                         }}
                       >
                         {card.buttonLabel}
@@ -432,6 +578,7 @@ export default function BerandaPage() {
                     fontSize: "clamp(28px, 2.5vw, 44px)",
                     fontWeight: 800,
                     color: "#111111",
+                    
                   }}
                 >
                   Drop Point untuk Kemudahan Servis
@@ -459,6 +606,7 @@ export default function BerandaPage() {
                     backgroundColor: "#0D4CB5",
                     fontSize: 20,
                     fontWeight: 700,
+                    
                   }}
                 >
                   Lihat
@@ -490,80 +638,136 @@ export default function BerandaPage() {
       </motion.div>
 
       {/* FOOTER TANPA ANIMASI */}
-      <Box bg="#F5F5F5" pt={52}>
-        <Container size="md">
-          <Stack align="center" gap={14}>
-            <Box
+      <Box
+        mt={60}
+        style={{
+          backgroundColor: "#F5F5F5",
+        }}
+      >
+        <Container size="xl" py={60}>
+          <Group
+            justify="space-between"
+            align="flex-start"
+            gap={60}
+            wrap="wrap"
+          >
+            {/* KIRI */}
+            <Group
+              align="flex-start"
+              gap={24}
+              wrap="nowrap"
               style={{
-                position: "relative",
-                width: 180,
-                height: 150,
+                flex: 1,
+                minWidth: 320,
               }}
             >
-              <Image
-                src="/images/logo-dvc.png"
-                alt="DVC Computer"
-                fill
-                sizes="180px"
-                style={{ objectFit: "contain" }}
-              />
-            </Box>
+              <Box
+                style={{
+                  position: "relative",
+                  width: 110,
+                  height: 110,
+                  flexShrink: 0,
+                }}
+              >
+                <Image
+                  src="/images/logo-dvc.png"
+                  alt="DVC Computer"
+                  fill
+                  sizes="110px"
+                  style={{ objectFit: "contain" }}
+                />
+              </Box>
 
-            <Group gap={8} justify="center">
-              <IconPhone size={18} />
-              <Text size="md" c="#111111">
-                Telp : 08174762502
-              </Text>
+              <Stack gap={10} maw={520}>
+                <Title
+                  order={3}
+                  c="#111111"
+                  style={{
+                    fontSize: "clamp(24px, 2vw, 34px)",
+                    fontWeight: 800,
+                    lineHeight: 1.2,
+                    
+                  }}
+                >
+                  DVC SMART SERVICE
+                </Title>
+
+                <Text
+                  c="#4B5563"
+                  style={{
+                    fontSize: "clamp(16px, 1.2vw, 22px)",
+                    lineHeight: 1.7,
+                    
+                  }}
+                >
+                  Solusi modern untuk penjualan dan servis perangkat komputer
+                  dengan fitur tiket servis, drop point, dan diagnosa AI.
+                </Text>
+              </Stack>
             </Group>
 
-            <Group gap={8} justify="center" wrap="nowrap">
-              <IconMapPin size={18} />
-              <Text size="md" c="#111111" ta="center">
-                Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
-              </Text>
-            </Group>
-
-            <Group gap={14} justify="center" mt={6}>
-              <Anchor
-                href="#"
-                underline="never"
+            {/* KANAN */}
+            <Stack
+              gap={14}
+              align="flex-end"
+              style={{
+                minWidth: 320,
+              }}
+            >
+              <Title
+                order={3}
                 c="#111111"
-                aria-label="Facebook"
+                style={{
+                  fontSize: "clamp(24px, 2vw, 34px)",
+                  fontWeight: 800,
+                  
+                }}
               >
-                <IconBrandFacebook size={28} />
-              </Anchor>
+                CONTACT
+              </Title>
 
-              <Anchor
-                href="#"
-                underline="never"
-                c="#111111"
-                aria-label="Instagram"
-              >
-                <IconBrandInstagram size={28} />
-              </Anchor>
+              <Group gap={8} wrap="nowrap">
+                <IconMapPin size={18} color="#111111" />
 
-              <Anchor
-                href="#"
-                underline="never"
-                c="#111111"
-                aria-label="Twitter"
-              >
-                <IconBrandTwitter size={28} />
-              </Anchor>
-            </Group>
-          </Stack>
+                <Text
+                  c="#4B5563"
+                  ta="right"
+                  style={{
+                    fontSize: "clamp(15px, 1vw, 18px)",
+                    lineHeight: 1.6,
+                    
+                  }}
+                >
+                  Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
+                </Text>
+              </Group>
+
+              <Group gap={8}>
+                <IconPhone size={18} color="#111111" />
+
+                <Text
+                  c="#4B5563"
+                  style={{
+                    fontSize: "clamp(15px, 1vw, 18px)",
+                  }}
+                >
+                  08174762502
+                </Text>
+              </Group>
+            </Stack>
+          </Group>
         </Container>
 
+        {/* COPYRIGHT */}
         <Box
-          mt={46}
           py={18}
           bg="#0D3F8F"
           style={{
             textAlign: "center",
           }}
         >
-          <Text c="white" size="sm">
-            © 2026 All rights reserved. DVC Smart Service
+          <Text c="white" size="sm" >
+            © 2026 DVC Smart Service. All rights reserved.
           </Text>
         </Box>
       </Box>

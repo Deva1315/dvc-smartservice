@@ -6,6 +6,7 @@ import {
   Button,
   Group,
   Modal,
+  Paper,
   Stack,
   Text,
   TextInput,
@@ -41,6 +42,45 @@ interface JabatanFormModalProps {
   ) => Promise<boolean>;
 }
 
+function FieldLabel({
+  label,
+  required,
+}: {
+  label: string;
+  required?: boolean;
+}) {
+  return (
+    <Text fw={700} fz="sm" c="#374151">
+      {label}
+      {required ? (
+        <Text span c="#EF4444" ml={2}>
+          *
+        </Text>
+      ) : null}
+    </Text>
+  );
+}
+
+const inputBaseStyle = {
+  backgroundColor: "#F9FAFB",
+  height: 46,
+  fontSize: 15,
+  color: "#111827",
+};
+
+const errorStyle = {
+  fontSize: 13,
+  marginTop: 6,
+};
+
+function getModalTitle(formType: FormType) {
+  return formType === "create" ? "Tambah Jabatan" : "Edit Jabatan";
+}
+
+function getSubmitLabel(formType: FormType) {
+  return formType === "create" ? "Simpan Jabatan" : "Update Jabatan";
+}
+
 export default function JabatanFormModal({
   opened,
   onClose,
@@ -53,7 +93,9 @@ export default function JabatanFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!opened) return;
+    if (!opened) {
+      return;
+    }
 
     setErrors({});
 
@@ -67,26 +109,26 @@ export default function JabatanFormModal({
     setForm(initialForm);
   }, [opened, formType, initialData]);
 
-  const clearFieldError = (field: string) => {
+  function clearFieldError(field: string) {
     setErrors((prev) => ({
       ...prev,
       [field]: "",
     }));
-  };
+  }
 
-  const handleChange = <K extends keyof FormState>(
+  function handleChange<K extends keyof FormState>(
     key: K,
     value: FormState[K]
-  ) => {
+  ) {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
 
     clearFieldError(key);
-  };
+  }
 
-  const handleReset = () => {
+  function handleReset() {
     setErrors({});
 
     if (formType === "edit" && initialData) {
@@ -97,9 +139,9 @@ export default function JabatanFormModal({
     }
 
     setForm(initialForm);
-  };
+  }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const parsed = validateWithZod(jabatanFormSchema, form);
@@ -128,19 +170,17 @@ export default function JabatanFormModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }
 
-  const modalTitle =
-    formType === "create" ? "Tambah Jabatan" : "Edit Jabatan";
-
-  const submitLabel = formType === "create" ? "Simpan" : "Update";
+  const modalTitle = getModalTitle(formType);
+  const submitLabel = getSubmitLabel(formType);
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
       centered
-      size="42rem"
+      size="46rem"
       radius="xl"
       closeOnClickOutside={!isSubmitting}
       closeButtonProps={{
@@ -148,101 +188,141 @@ export default function JabatanFormModal({
         radius: "xl",
       }}
       styles={{
-        body: {
-          padding: 0,
-          backgroundColor: "#D9D9D9",
+        content: {
+          backgroundColor: "#FFFFFF",
+          overflow: "hidden",
         },
         header: {
-          backgroundColor: "#D9D9D9",
-          paddingBottom: 0,
+          backgroundColor: "#FFFFFF",
+          padding: "26px 30px 10px",
+          borderBottom: "1px solid #F1F5F9",
         },
-        content: {
-          backgroundColor: "#D9D9D9",
+        body: {
+          padding: 0,
+          backgroundColor: "#FFFFFF",
+        },
+        title: {
+          color: "#111827",
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+        },
+        close: {
+          color: "#6B7280",
         },
       }}
-      title={
-        <Text fw={800} fz={26} c="#000000">
-          {modalTitle}
-        </Text>
-      }
+      title={modalTitle}
     >
       <Box
-        p="lg"
-        bg="#D9D9D9"
         style={{
-          border: "1px solid #D9D9D9",
-          borderRadius: 16,
+          maxHeight: "calc(100vh - 150px)",
+          overflowY: "auto",
+          backgroundColor: "#FFFFFF",
         }}
       >
-        <form onSubmit={handleSubmit}>
-          <Stack gap={28}>
-            <Stack gap={8}>
-              <Text fw={700} c="#6B7280" size="lg">
-                Nama Jabatan <span style={{ color: "red" }}>*</span>
-              </Text>
-
-              <TextInput
-                value={form.nama_roles}
-                onChange={(event) =>
-                  handleChange("nama_roles", event.currentTarget.value)
-                }
-                placeholder="Contoh: Admin Penjualan"
-                radius="md"
-                disabled={isSubmitting}
-                error={errors.nama_roles}
-                styles={{
-                  input: {
-                    backgroundColor: "#FFFFFF",
-                    border: errors.nama_roles ? "1px solid #FA5252" : "none",
-                    height: 58,
-                    fontSize: 18,
-                    color: "#111111",
-                  },
-                  error: {
-                    fontSize: 14,
-                    marginTop: 6,
-                  },
+        <Box px={{ base: 20, sm: 30 }} py={26}>
+          <form onSubmit={handleSubmit}>
+            <Stack gap={30}>
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
+                style={{
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
                 }}
-              />
+              >
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Informasi Jabatan
+                    </Text>
+
+                    <Text fz="sm" c="#6B7280">
+                      Lengkapi nama jabatan yang akan digunakan untuk pembagian
+                      role dan hak akses pegawai.
+                    </Text>
+                  </Stack>
+
+                  <Stack gap={6}>
+                    <FieldLabel label="Nama Jabatan" required />
+
+                    <TextInput
+                      value={form.nama_roles}
+                      onChange={(event) =>
+                        handleChange("nama_roles", event.currentTarget.value)
+                      }
+                      placeholder="Contoh: Admin Penjualan"
+                      radius="md"
+                      disabled={isSubmitting}
+                      error={errors.nama_roles}
+                      styles={{
+                        input: {
+                          ...inputBaseStyle,
+                          border: errors.nama_roles
+                            ? "1px solid #FA5252"
+                            : "1px solid #E5E7EB",
+                        },
+                        error: errorStyle,
+                      }}
+                    />
+                  </Stack>
+                </Stack>
+              </Paper>
+
+              <Group
+                justify="flex-end"
+                gap="md"
+                pt={8}
+                style={{
+                  position: "sticky",
+                  bottom: 0,
+                  backgroundColor: "#FFFFFF",
+                  paddingTop: 18,
+                  borderTop: "1px solid #F1F5F9",
+                  zIndex: 2,
+                }}
+              >
+                <Button
+                  type="button"
+                  onClick={() => {
+                    handleReset();
+                    onClose();
+                  }}
+                  radius="md"
+                  size="md"
+                  variant="outline"
+                  color="gray"
+                  disabled={isSubmitting}
+                  style={{
+                    minWidth: 130,
+                    height: 46,
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  Batal
+                </Button>
+
+                <Button
+                  type="submit"
+                  radius="md"
+                  size="md"
+                  loading={isSubmitting}
+                  style={{
+                    minWidth: 150,
+                    height: 46,
+                    backgroundColor: "#0D4CB5",
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  {submitLabel}
+                </Button>
+              </Group>
             </Stack>
-
-            <Group justify="flex-end" mt={8} gap="lg">
-              <Button
-                type="button"
-                onClick={() => {
-                  handleReset();
-                  onClose();
-                }}
-                radius="xl"
-                disabled={isSubmitting}
-                style={{
-                  minWidth: 140,
-                  height: 46,
-                  backgroundColor: "#FF1008",
-                  fontSize: 18,
-                  fontWeight: 700,
-                }}
-              >
-                Batal
-              </Button>
-
-              <Button
-                type="submit"
-                radius="xl"
-                loading={isSubmitting}
-                style={{
-                  minWidth: 140,
-                  height: 46,
-                  backgroundColor: "#0D4CB5",
-                  fontSize: 18,
-                  fontWeight: 700,
-                }}
-              >
-                {submitLabel}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
+          </form>
+        </Box>
       </Box>
     </Modal>
   );

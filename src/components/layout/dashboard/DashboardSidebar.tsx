@@ -168,7 +168,7 @@ export default function DashboardSidebar({
         color: "green",
       });
 
-      router.replace("/");
+      router.replace("/login");
       router.refresh();
     } catch {
       notifications.show({

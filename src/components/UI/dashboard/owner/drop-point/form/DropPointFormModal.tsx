@@ -6,6 +6,7 @@ import {
   Button,
   Group,
   Modal,
+  Paper,
   SimpleGrid,
   Stack,
   Text,
@@ -55,6 +56,45 @@ interface DropPointFormModalProps {
   ) => Promise<boolean>;
 }
 
+function FieldLabel({
+  label,
+  required,
+}: {
+  label: string;
+  required?: boolean;
+}) {
+  return (
+    <Text fw={700} fz="sm" c="#374151">
+      {label}
+      {required ? (
+        <Text span c="#EF4444" ml={2}>
+          *
+        </Text>
+      ) : null}
+    </Text>
+  );
+}
+
+const inputBaseStyle = {
+  backgroundColor: "#F9FAFB",
+  height: 46,
+  fontSize: 15,
+  color: "#111827",
+};
+
+const errorStyle = {
+  fontSize: 13,
+  marginTop: 6,
+};
+
+function getModalTitle(formType: FormType) {
+  return formType === "create" ? "Tambah Drop Point" : "Edit Drop Point";
+}
+
+function getSubmitLabel(formType: FormType) {
+  return formType === "create" ? "Simpan Drop Point" : "Update Drop Point";
+}
+
 export default function DropPointFormModal({
   opened,
   onClose,
@@ -67,7 +107,9 @@ export default function DropPointFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!opened) return;
+    if (!opened) {
+      return;
+    }
 
     setErrors({});
 
@@ -84,26 +126,26 @@ export default function DropPointFormModal({
     setForm(initialForm);
   }, [opened, formType, initialData]);
 
-  const clearFieldError = (field: string) => {
+  function clearFieldError(field: string) {
     setErrors((prev) => ({
       ...prev,
       [field]: "",
     }));
-  };
+  }
 
-  const handleChange = <K extends keyof FormState>(
+  function handleChange<K extends keyof FormState>(
     key: K,
     value: FormState[K]
-  ) => {
+  ) {
     setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
 
     clearFieldError(key);
-  };
+  }
 
-  const handleReset = () => {
+  function handleReset() {
     setErrors({});
 
     if (formType === "edit" && initialData) {
@@ -117,9 +159,9 @@ export default function DropPointFormModal({
     }
 
     setForm(initialForm);
-  };
+  }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const parsed = validateWithZod(dropPointFormSchema, form);
@@ -151,12 +193,10 @@ export default function DropPointFormModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }
 
-  const modalTitle =
-    formType === "create" ? "Tambah Drop Point" : "Edit Drop Point";
-
-  const submitLabel = formType === "create" ? "Simpan" : "Update";
+  const modalTitle = getModalTitle(formType);
+  const submitLabel = getSubmitLabel(formType);
 
   return (
     <Modal
@@ -171,196 +211,224 @@ export default function DropPointFormModal({
         radius: "xl",
       }}
       styles={{
-        body: {
-          padding: 0,
-          backgroundColor: "#D9D9D9",
+        content: {
+          backgroundColor: "#FFFFFF",
+          overflow: "hidden",
         },
         header: {
-          backgroundColor: "#D9D9D9",
-          paddingBottom: 0,
+          backgroundColor: "#FFFFFF",
+          padding: "26px 30px 10px",
+          borderBottom: "1px solid #F1F5F9",
         },
-        content: {
-          backgroundColor: "#D9D9D9",
+        body: {
+          padding: 0,
+          backgroundColor: "#FFFFFF",
+        },
+        title: {
+          color: "#111827",
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+        },
+        close: {
+          color: "#6B7280",
         },
       }}
-      title={
-        <Text fw={800} fz={26} c="#000000">
-          {modalTitle}
-        </Text>
-      }
+      title={modalTitle}
     >
       <Box
-        p="lg"
-        bg="#D9D9D9"
         style={{
-          border: "1px solid #D9D9D9",
-          borderRadius: 16,
+          maxHeight: "calc(100vh - 150px)",
+          overflowY: "auto",
+          backgroundColor: "#FFFFFF",
         }}
       >
-        <form onSubmit={handleSubmit}>
-          <Stack gap={28}>
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  Nama Drop Point <span style={{ color: "red" }}>*</span>
-                </Text>
-
-                <TextInput
-                  value={form.nama_drop_point}
-                  onChange={(event) =>
-                    handleChange("nama_drop_point", event.currentTarget.value)
-                  }
-                  radius="md"
-                  disabled={isSubmitting}
-                  error={errors.nama_drop_point}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.nama_drop_point
-                        ? "1px solid #FA5252"
-                        : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  No HP
-                </Text>
-
-                <TextInput
-                  value={form.phone}
-                  onChange={(event) =>
-                    handleChange("phone", event.currentTarget.value)
-                  }
-                  radius="md"
-                  disabled={isSubmitting}
-                  error={errors.phone}
-                  placeholder="Contoh: 081234567890"
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.phone ? "1px solid #FA5252" : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-            </SimpleGrid>
-
-            <Stack gap={8}>
-              <Text fw={700} c="#6B7280" size="lg">
-                Alamat <span style={{ color: "red" }}>*</span>
-              </Text>
-
-              <Textarea
-                value={form.alamat}
-                onChange={(event) =>
-                  handleChange("alamat", event.currentTarget.value)
-                }
-                placeholder="Masukkan alamat drop point..."
-                minRows={6}
-                radius="md"
-                disabled={isSubmitting}
-                error={errors.alamat}
-                styles={{
-                  input: {
-                    backgroundColor: "#FFFFFF",
-                    border: errors.alamat ? "1px solid #FA5252" : "none",
-                    fontSize: 18,
-                    color: "#111111",
-                  },
-                  error: {
-                    fontSize: 14,
-                    marginTop: 6,
-                  },
-                }}
-              />
-            </Stack>
-
-            <Stack gap={8}>
-              <Text fw={700} c="#6B7280" size="lg">
-                Jam Operasional
-              </Text>
-
-              <Textarea
-                value={form.jam_operasional}
-                onChange={(event) =>
-                  handleChange("jam_operasional", event.currentTarget.value)
-                }
-                placeholder="Contoh: Senin - Sabtu, 08.00 - 17.00"
-                minRows={4}
-                radius="md"
-                disabled={isSubmitting}
-                error={errors.jam_operasional}
-                styles={{
-                  input: {
-                    backgroundColor: "#FFFFFF",
-                    border: errors.jam_operasional
-                      ? "1px solid #FA5252"
-                      : "none",
-                    fontSize: 18,
-                    color: "#111111",
-                  },
-                  error: {
-                    fontSize: 14,
-                    marginTop: 6,
-                  },
-                }}
-              />
-            </Stack>
-
-            <Group justify="flex-end" mt={8} gap="lg">
-              <Button
-                type="button"
-                onClick={() => {
-                  handleReset();
-                  onClose();
-                }}
-                radius="xl"
-                disabled={isSubmitting}
+        <Box px={{ base: 20, sm: 30 }} py={26}>
+          <form onSubmit={handleSubmit}>
+            <Stack gap={30}>
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
                 style={{
-                  minWidth: 160,
-                  height: 46,
-                  backgroundColor: "#FF1008",
-                  fontSize: 18,
-                  fontWeight: 700,
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
                 }}
               >
-                Batal
-              </Button>
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Informasi Drop Point
+                    </Text>
 
-              <Button
-                type="submit"
-                radius="xl"
-                loading={isSubmitting}
+                    <Text fz="sm" c="#6B7280">
+                      Lengkapi nama, nomor telepon, jam operasional, dan alamat
+                      Drop Point untuk kebutuhan penerimaan perangkat servis.
+                    </Text>
+                  </Stack>
+
+                  <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+                    <Stack gap={6}>
+                      <FieldLabel label="Nama Drop Point" required />
+
+                      <TextInput
+                        value={form.nama_drop_point}
+                        onChange={(event) =>
+                          handleChange(
+                            "nama_drop_point",
+                            event.currentTarget.value
+                          )
+                        }
+                        placeholder="Contoh: Drop Point Sukawati"
+                        radius="md"
+                        disabled={isSubmitting}
+                        error={errors.nama_drop_point}
+                        styles={{
+                          input: {
+                            ...inputBaseStyle,
+                            border: errors.nama_drop_point
+                              ? "1px solid #FA5252"
+                              : "1px solid #E5E7EB",
+                          },
+                          error: errorStyle,
+                        }}
+                      />
+                    </Stack>
+
+                    <Stack gap={6}>
+                      <FieldLabel label="No HP" />
+
+                      <TextInput
+                        value={form.phone}
+                        onChange={(event) =>
+                          handleChange("phone", event.currentTarget.value)
+                        }
+                        placeholder="Contoh: 081234567890"
+                        radius="md"
+                        disabled={isSubmitting}
+                        error={errors.phone}
+                        styles={{
+                          input: {
+                            ...inputBaseStyle,
+                            border: errors.phone
+                              ? "1px solid #FA5252"
+                              : "1px solid #E5E7EB",
+                          },
+                          error: errorStyle,
+                        }}
+                      />
+                    </Stack>
+
+                    <Stack gap={6}>
+                      <FieldLabel label="Jam Operasional" />
+
+                      <TextInput
+                        value={form.jam_operasional}
+                        onChange={(event) =>
+                          handleChange(
+                            "jam_operasional",
+                            event.currentTarget.value
+                          )
+                        }
+                        placeholder="Contoh: 09.00 - 17.00"
+                        radius="md"
+                        disabled={isSubmitting}
+                        error={errors.jam_operasional}
+                        styles={{
+                          input: {
+                            ...inputBaseStyle,
+                            border: errors.jam_operasional
+                              ? "1px solid #FA5252"
+                              : "1px solid #E5E7EB",
+                          },
+                          error: errorStyle,
+                        }}
+                      />
+                    </Stack>
+                  </SimpleGrid>
+
+                  <Stack gap={6}>
+                    <FieldLabel label="Alamat" required />
+
+                    <Textarea
+                      value={form.alamat}
+                      onChange={(event) =>
+                        handleChange("alamat", event.currentTarget.value)
+                      }
+                      placeholder="Masukkan alamat lengkap Drop Point..."
+                      minRows={6}
+                      radius="md"
+                      disabled={isSubmitting}
+                      error={errors.alamat}
+                      styles={{
+                        input: {
+                          backgroundColor: "#F9FAFB",
+                          border: errors.alamat
+                            ? "1px solid #FA5252"
+                            : "1px solid #E5E7EB",
+                          fontSize: 15,
+                          color: "#111827",
+                        },
+                        error: errorStyle,
+                      }}
+                    />
+                  </Stack>
+                </Stack>
+              </Paper>
+
+              <Group
+                justify="flex-end"
+                gap="md"
+                pt={8}
                 style={{
-                  minWidth: 160,
-                  height: 46,
-                  backgroundColor: "#0D4CB5",
-                  fontSize: 18,
-                  fontWeight: 700,
+                  position: "sticky",
+                  bottom: 0,
+                  backgroundColor: "#FFFFFF",
+                  paddingTop: 18,
+                  borderTop: "1px solid #F1F5F9",
+                  zIndex: 2,
                 }}
               >
-                {submitLabel}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    handleReset();
+                    onClose();
+                  }}
+                  radius="md"
+                  size="md"
+                  variant="outline"
+                  color="gray"
+                  disabled={isSubmitting}
+                  style={{
+                    minWidth: 130,
+                    height: 46,
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  Batal
+                </Button>
+
+                <Button
+                  type="submit"
+                  radius="md"
+                  size="md"
+                  loading={isSubmitting}
+                  style={{
+                    minWidth: 170,
+                    height: 46,
+                    backgroundColor: "#0D4CB5",
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  {submitLabel}
+                </Button>
+              </Group>
+            </Stack>
+          </form>
+        </Box>
       </Box>
     </Modal>
   );

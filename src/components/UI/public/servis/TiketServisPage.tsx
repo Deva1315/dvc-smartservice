@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   ActionIcon,
-  Anchor,
   Badge,
   Box,
   Button,
@@ -15,27 +14,22 @@ import {
   Title,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import {
-  IconBrandFacebook,
-  IconBrandInstagram,
-  IconBrandTwitter,
-  IconEdit,
-  IconMapPin,
-  IconPhone,
-} from "@tabler/icons-react";
+import { IconEdit, IconMapPin, IconPhone } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 
 import type { FormType } from "@/types/form-types";
+import type {
+  TicketDropPointOption,
+  TicketRow,
+  TicketStatusServis,
+  TicketStatusVerifikasi,
+} from "@/types/tiket-servis-form.types";
+
 import CustomTableSearch, {
   type TableColumn,
 } from "@/components/table/custom-table-search/CustomTableSearch";
 
-import TiketServisFormModal, {
-  type TicketDropPointOption,
-  type TicketRow,
-  type TicketStatusServis,
-  type TicketStatusVerifikasi,
-} from "@/components/UI/public/form/TiketServisFormModal";
+import TiketServisFormModal from "@/components/UI/public/form/TiketServisFormModal";
 
 import {
   createPublicTiketServisRequest,
@@ -303,8 +297,8 @@ export default function TiketServisPage() {
       sortable: true,
       width: "12%",
       render: (row) => (
-        <Text fw={700} c="#111827" fz={15}>
-          {row.nomor_tiket}
+        <Text fw={700} c="#111827" fz={15} >
+          {row.nomor_tiket} 
         </Text>
       ),
     },
@@ -314,7 +308,7 @@ export default function TiketServisPage() {
       sortable: true,
       width: "16%",
       render: (row) => (
-        <Text c="#374151" fz={15}>
+        <Text c="#374151" fz={15} >
           {row.nama_cust}
         </Text>
       ),
@@ -324,7 +318,7 @@ export default function TiketServisPage() {
       label: "Perangkat",
       width: "11%",
       render: (row) => (
-        <Text c="#374151" fz={15}>
+        <Text c="#374151" fz={15} >
           {row.jenis_perangkat}
         </Text>
       ),
@@ -334,7 +328,7 @@ export default function TiketServisPage() {
       label: "Merk",
       width: "11%",
       render: (row) => (
-        <Text c="#374151" fz={15}>
+        <Text c="#374151" fz={15} >
           {row.merk_perangkat}
         </Text>
       ),
@@ -360,7 +354,7 @@ export default function TiketServisPage() {
       sortable: true,
       width: "11%",
       render: (row) => (
-        <Text c="#374151" fz={15}>
+        <Text c="#374151" fz={15} >
           {formatTanggalIndonesia(row.tanggal_masuk)}
         </Text>
       ),
@@ -431,6 +425,7 @@ export default function TiketServisPage() {
                 fontSize: "clamp(42px, 4vw, 64px)",
                 fontWeight: 900,
                 color: "#111111",
+                
               }}
             >
               Tiket Servis
@@ -465,6 +460,7 @@ export default function TiketServisPage() {
                 backgroundColor: "#0D4CB5",
                 fontSize: 20,
                 fontWeight: 700,
+                
               }}
             >
               Buat Tiket Servis
@@ -480,7 +476,7 @@ export default function TiketServisPage() {
         >
           <Box mt={36}>
             <Stack gap={18}>
-              <Title order={2} fw={800} c="#111111" ta="center">
+              <Title order={2} fw={800} c="#111111" ta="center" >
                 Tiket Yang Sudah Dibuat
               </Title>
 
@@ -509,84 +505,141 @@ export default function TiketServisPage() {
         onSubmit={handleSubmitTicket}
       />
 
-      {/* FOOTER TANPA ANIMASI */}
-      <Box bg="#F5F5F5" pt={40}>
-        <Container size="md">
-          <Stack align="center" gap={14}>
-            <Box
-              style={{
-                position: "relative",
-                width: 180,
-                height: 150,
-              }}
-            >
-              <Image
-                src="/Images/logo-dvc.png"
-                alt="DVC Computer"
-                fill
-                sizes="180px"
-                style={{ objectFit: "contain" }}
-              />
-            </Box>
-
-            <Group gap={8} justify="center">
-              <IconPhone size={18} />
-              <Text size="md" c="#111111">
-                Telp : 08174762502
-              </Text>
-            </Group>
-
-            <Group gap={8} justify="center" wrap="nowrap">
-              <IconMapPin size={18} />
-              <Text size="md" c="#111111" ta="center">
-                Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
-              </Text>
-            </Group>
-
-            <Group gap={14} justify="center" mt={6}>
-              <Anchor
-                href="#"
-                underline="never"
-                c="#111111"
-                aria-label="Facebook"
-              >
-                <IconBrandFacebook size={28} />
-              </Anchor>
-
-              <Anchor
-                href="#"
-                underline="never"
-                c="#111111"
-                aria-label="Instagram"
-              >
-                <IconBrandInstagram size={28} />
-              </Anchor>
-
-              <Anchor
-                href="#"
-                underline="never"
-                c="#111111"
-                aria-label="Twitter"
-              >
-                <IconBrandTwitter size={28} />
-              </Anchor>
-            </Group>
-          </Stack>
-        </Container>
-
-        <Box
-          mt={46}
-          py={18}
-          bg="#0D3F8F"
-          style={{
-            textAlign: "center",
-          }}
-        >
-          <Text c="white" size="sm">
-            © 2026 All rights reserved. DVC Smart Service
-          </Text>
-        </Box>
-      </Box>
+     {/* FOOTER TANPA ANIMASI */}
+                 <Box
+                   mt={60}
+                   style={{
+                     backgroundColor: "#F5F5F5",
+                   }}
+                 >
+                   <Container size="xl" py={60}>
+                     <Group
+                       justify="space-between"
+                       align="flex-start"
+                       gap={60}
+                       wrap="wrap"
+                     >
+                       {/* KIRI */}
+                       <Group
+                         align="flex-start"
+                         gap={24}
+                         wrap="nowrap"
+                         style={{
+                           flex: 1,
+                           minWidth: 320,
+                         }}
+                       >
+                         <Box
+                           style={{
+                             position: "relative",
+                             width: 110,
+                             height: 110,
+                             flexShrink: 0,
+                           }}
+                         >
+                           <Image
+                             src="/images/logo-dvc.png"
+                             alt="DVC Computer"
+                             fill
+                             sizes="110px"
+                             style={{ objectFit: "contain" }}
+                           />
+                         </Box>
+           
+                         <Stack gap={10} maw={520}>
+                           <Title
+                             order={3}
+                             c="#111111"
+                             style={{
+                               fontSize: "clamp(24px, 2vw, 34px)",
+                               fontWeight: 800,
+                               lineHeight: 1.2,
+                               
+                             }}
+                           >
+                             DVC SMART SERVICE
+                           </Title>
+           
+                           <Text
+                             c="#4B5563"
+                             style={{
+                               fontSize: "clamp(16px, 1.2vw, 22px)",
+                               lineHeight: 1.7,
+                               
+                             }}
+                           >
+                             Solusi modern untuk penjualan dan servis perangkat
+                             komputer dengan fitur tiket servis, drop point,
+                             dan diagnosa AI.
+                           </Text>
+                         </Stack>
+                       </Group>
+           
+                       {/* KANAN */}
+                       <Stack
+                         gap={14}
+                         align="flex-end"
+                         style={{
+                           minWidth: 320,
+                         }}
+                       >
+                         <Title
+                           order={3}
+                           c="#111111"
+                           style={{
+                             fontSize: "clamp(24px, 2vw, 34px)",
+                             fontWeight: 800,
+                             
+                           }}
+                         >
+                           CONTACT
+                         </Title>
+           
+                         <Group gap={8} wrap="nowrap">
+                           <IconMapPin size={18} color="#111111" />
+           
+                           <Text
+                             c="#4B5563"
+                             ta="right"
+                             style={{
+                               fontSize: "clamp(15px, 1vw, 18px)",
+                               lineHeight: 1.6,
+                             }}
+                           >
+                             Jl. Ciung Wanara, No. 99X,
+                             Kec. Sukawati Bali 80582
+                           </Text>
+                         </Group>
+           
+                         <Group gap={8}>
+                           <IconPhone size={18} color="#111111" />
+           
+                           <Text
+                             c="#4B5563"
+                             style={{
+                               fontSize: "clamp(15px, 1vw, 18px)",
+                             }}
+                           >
+                             08174762502
+                           </Text>
+                         </Group>
+                       </Stack>
+                     </Group>
+                   </Container>
+           
+                   {/* COPYRIGHT */}
+                   <Box
+                     py={18}
+                     bg="#0D3F8F"
+                     style={{
+                       textAlign: "center",
+                     }}
+                   >
+                     <Text c="white" size="sm">
+                       © 2026 DVC Smart Service. All rights reserved.
+                     </Text>
+                   </Box>
+                 </Box>
     </Box>
   );
 }

@@ -1,131 +1,26 @@
-/* eslint-disable @next/next/no-img-element */
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  ActionIcon,
-  Box,
-  Button,
-  Group,
-  Modal,
-  NumberInput,
-  Select,
-  SimpleGrid,
-  Stack,
-  Text,
-  TextInput,
-  Textarea,
-} from "@mantine/core";
-import { IconPlus, IconX } from "@tabler/icons-react";
-import type { FormType } from "@/types/form-types";
-import { formatCurrency } from "@/utils/currency-format/format-currency";
+import { useEffect, useState } from "react";
+import { Box, Button, Group, Modal, Stack } from "@mantine/core";
 import { barangFormSchema, validateWithZod } from "@/lib/validations";
+import {
+  initialBarangFormState,
+  type BarangFormModalProps,
+  type BarangFormState,
+} from "@/types/barang-form.types";
+import {
+  getBarangModalTitle,
+  getBarangSubmitLabel,
+} from "@/utils/admin-gudang/barang-form.helpers";
+import BarangMainInfoSection from "./BarangMainInfoSection";
+import BarangClassificationSection from "./BarangClassificationSection";
+import BarangDescriptionPhotoSection from "./BarangDescriptionPhotoSection";
 
-export type BarangFormInitialData = {
-  id: string;
-  nama: string;
-  kode: string;
-  merk: string;
-  stok: number;
-  harga: number;
-  kategori: string;
-  supplier: string;
-  deskripsi: string | null;
-  foto: string | null;
-};
-
-export type BarangFormPayload = {
-  nama: string;
-  kode: string;
-  merk: string;
-  stok: number;
-  harga: number;
-  kategori: string;
-  supplier: string;
-  deskripsi: string | null;
-  fotoBase64: string | null;
-};
-
-type BarangFormModalProps = {
-  opened: boolean;
-  onClose: () => void;
-  formType: FormType;
-  initialData: BarangFormInitialData | null;
-  kategoriOptions: { value: string; label: string }[];
-  supplierOptions: { value: string; label: string }[];
-  onSubmit: (
-    payload: BarangFormPayload,
-    formType: FormType
-  ) => Promise<boolean>;
-  isSubmitting?: boolean;
-};
-
-type BarangFormState = {
-  nama: string;
-  kode: string;
-  merk: string;
-  stok: number;
-  harga: number;
-  kategori: string | null;
-  supplier: string | null;
-  deskripsi: string;
-  fotoBase64: string | null;
-};
-
-const initialFormState: BarangFormState = {
-  nama: "",
-  kode: "",
-  merk: "",
-  stok: 0,
-  harga: 0,
-  kategori: null,
-  supplier: null,
-  deskripsi: "",
-  fotoBase64: null,
-};
-
-function getModalTitle(formType: FormType) {
-  return formType === "create" ? "Kelola Barang" : "Edit Barang";
-}
-
-function getSubmitLabel(formType: FormType) {
-  return formType === "create" ? "Simpan" : "Update";
-}
-
-function parseCurrencyInput(value: string) {
-  const digitsOnly = value.replace(/\D/g, "");
-  if (!digitsOnly) return 0;
-
-  const parsed = Number(digitsOnly);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function getFormattedHarga(value: number) {
-  if (!value || value <= 0) return "";
-
-  return formatCurrency(value, {
-    locale: "id-ID",
-    prefix: "Rp ",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-}
-
-function Label({
-  text,
-  required = false,
-}: {
-  text: string;
-  required?: boolean;
-}) {
-  return (
-    <Text fw={700} c="#6B7280" size="lg">
-      {text}{" "}
-      {required ? <span style={{ color: "red" }}>*</span> : null}
-    </Text>
-  );
-}
+export type {
+  BarangFormInitialData,
+  BarangFormPayload,
+} from "@/types/barang-form.types";
 
 export default function BarangFormModal({
   opened,
@@ -137,12 +32,13 @@ export default function BarangFormModal({
   onSubmit,
   isSubmitting = false,
 }: BarangFormModalProps) {
-  const [form, setForm] = useState<BarangFormState>(initialFormState);
+  const [form, setForm] = useState<BarangFormState>(initialBarangFormState);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (!opened) return;
+    if (!opened) {
+      return;
+    }
 
     if (formType === "edit" && initialData) {
       setForm({
@@ -156,11 +52,12 @@ export default function BarangFormModal({
         deskripsi: initialData.deskripsi ?? "",
         fotoBase64: initialData.foto,
       });
+
       setErrors({});
       return;
     }
 
-    setForm(initialFormState);
+    setForm(initialBarangFormState);
     setErrors({});
   }, [opened, formType, initialData]);
 
@@ -184,12 +81,8 @@ export default function BarangFormModal({
   }
 
   function handleReset() {
-    setForm(initialFormState);
+    setForm(initialBarangFormState);
     setErrors({});
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
   }
 
   function validate() {
@@ -204,9 +97,7 @@ export default function BarangFormModal({
     return parsed.data;
   }
 
-  async function handleFileChange(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.currentTarget.files?.[0];
     const inputElement = event.currentTarget;
 
@@ -249,10 +140,6 @@ export default function BarangFormModal({
     }
   }
 
-  function handleChooseImage() {
-    fileInputRef.current?.click();
-  }
-
   function handleRemoveImage() {
     setForm((prev) => ({
       ...prev,
@@ -260,10 +147,6 @@ export default function BarangFormModal({
     }));
 
     clearFieldError("fotoBase64");
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -301,8 +184,8 @@ export default function BarangFormModal({
     }
   }
 
-  const modalTitle = getModalTitle(formType);
-  const submitLabel = getSubmitLabel(formType);
+  const modalTitle = getBarangModalTitle(formType);
+  const submitLabel = getBarangSubmitLabel(formType);
 
   return (
     <Modal
@@ -317,383 +200,119 @@ export default function BarangFormModal({
         radius: "xl",
       }}
       styles={{
-        body: {
-          padding: 0,
-          backgroundColor: "#D9D9D9",
+        content: {
+          backgroundColor: "#FFFFFF",
+          overflow: "hidden",
         },
         header: {
-          backgroundColor: "#D9D9D9",
-          paddingBottom: 0,
+          backgroundColor: "#FFFFFF",
+          padding: "26px 30px 10px",
+          borderBottom: "1px solid #F1F5F9",
         },
-        content: {
-          backgroundColor: "#D9D9D9",
+        body: {
+          padding: 0,
+          backgroundColor: "#FFFFFF",
+        },
+        title: {
+          color: "#111827",
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+        },
+        close: {
+          color: "#6B7280",
         },
       }}
-      title={
-        <Text fw={800} fz={26} c="#000000">
-          {modalTitle}
-        </Text>
-      }
+      title={modalTitle}
     >
       <Box
-        p="lg"
-        bg="#D9D9D9"
         style={{
-          border: "1px solid #D9D9D9",
-          borderRadius: 16,
+          maxHeight: "calc(100vh - 150px)",
+          overflowY: "auto",
+          backgroundColor: "#FFFFFF",
         }}
       >
-        <form onSubmit={handleSubmit}>
-          <Stack gap={28}>
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
-              <Stack gap={8}>
-                <Label text="Nama" required />
-
-                <TextInput
-                  value={form.nama}
-                  onChange={(event) =>
-                    handleChange("nama", event.currentTarget.value)
-                  }
-                  radius="md"
-                  disabled={isSubmitting}
-                  error={errors.nama}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.nama ? "1px solid #FA5252" : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8}>
-                <Label text="Harga" required />
-
-                <TextInput
-                  value={getFormattedHarga(form.harga)}
-                  onChange={(event) =>
-                    handleChange(
-                      "harga",
-                      parseCurrencyInput(event.currentTarget.value)
-                    )
-                  }
-                  placeholder="Rp 0"
-                  radius="md"
-                  disabled={isSubmitting}
-                  error={errors.harga}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.harga ? "1px solid #FA5252" : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8}>
-                <Label text="Kode" required />
-
-                <TextInput
-                  value={form.kode}
-                  onChange={(event) =>
-                    handleChange("kode", event.currentTarget.value)
-                  }
-                  radius="md"
-                  disabled={isSubmitting}
-                  error={errors.kode}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.kode ? "1px solid #FA5252" : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8}>
-                <Label text="Stok" required />
-
-                <NumberInput
-                  value={form.stok}
-                  onChange={(value) =>
-                    handleChange("stok", typeof value === "number" ? value : 0)
-                  }
-                  allowDecimal={false}
-                  decimalScale={0}
-                  hideControls
-                  radius="md"
-                  disabled={isSubmitting}
-                  error={errors.stok}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.stok ? "1px solid #FA5252" : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8}>
-                <Label text="Merk" required />
-
-                <TextInput
-                  value={form.merk}
-                  onChange={(event) =>
-                    handleChange("merk", event.currentTarget.value)
-                  }
-                  radius="md"
-                  disabled={isSubmitting}
-                  error={errors.merk}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.merk ? "1px solid #FA5252" : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8} style={{ maxWidth: 360 }}>
-                <Label text="Kategori" required />
-
-                <Select
-                  value={form.kategori}
-                  onChange={(value) => handleChange("kategori", value)}
-                  data={kategoriOptions}
-                  radius="md"
-                  placeholder="Pilih kategori"
-                  disabled={isSubmitting}
-                  error={errors.kategori}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.kategori ? "1px solid #FA5252" : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    dropdown: {
-                      backgroundColor: "#FFFFFF",
-                    },
-                    option: {
-                      color: "#111111",
-                      fontSize: 16,
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8} style={{ maxWidth: 360 }}>
-                <Label text="Supplier" required />
-
-                <Select
-                  value={form.supplier}
-                  onChange={(value) => handleChange("supplier", value)}
-                  data={supplierOptions}
-                  radius="md"
-                  placeholder="Pilih supplier"
-                  searchable
-                  disabled={isSubmitting}
-                  error={errors.supplier}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.supplier ? "1px solid #FA5252" : "none",
-                      height: 58,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    dropdown: {
-                      backgroundColor: "#FFFFFF",
-                    },
-                    option: {
-                      color: "#111111",
-                      fontSize: 16,
-                    },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-            </SimpleGrid>
-
-            <Stack gap={8}>
-              <Label text="Deskripsi" />
-
-              <Textarea
-                value={form.deskripsi}
-                onChange={(event) =>
-                  handleChange("deskripsi", event.currentTarget.value)
-                }
-                placeholder="Masukkan deskripsi barang disini...."
-                minRows={7}
-                radius="md"
-                disabled={isSubmitting}
-                error={errors.deskripsi}
-                styles={{
-                  input: {
-                    backgroundColor: "#FFFFFF",
-                    border: errors.deskripsi ? "1px solid #FA5252" : "none",
-                    fontSize: 18,
-                    color: "#111111",
-                  },
-                    error: {
-                      fontSize: 14,
-                      marginTop: 6,
-                    },
-                }}
-              />
-            </Stack>
-
-            <Stack gap={8}>
-              <Label text="Foto" />
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={handleFileChange}
+        <Box px={{ base: 20, sm: 30 }} py={26}>
+          <form onSubmit={handleSubmit}>
+            <Stack gap={30}>
+              <BarangMainInfoSection
+                form={form}
+                errors={errors}
+                isSubmitting={isSubmitting}
+                handleChange={handleChange}
               />
 
-              <Box
-                onClick={isSubmitting ? undefined : handleChooseImage}
+              <BarangClassificationSection
+                form={form}
+                errors={errors}
+                isSubmitting={isSubmitting}
+                kategoriOptions={kategoriOptions}
+                supplierOptions={supplierOptions}
+                handleChange={handleChange}
+              />
+
+              <BarangDescriptionPhotoSection
+                form={form}
+                errors={errors}
+                isSubmitting={isSubmitting}
+                handleChange={handleChange}
+                handleFileChange={handleFileChange}
+                handleRemoveImage={handleRemoveImage}
+              />
+
+              <Group
+                justify="flex-end"
+                gap="md"
+                pt={8}
                 style={{
-                  width: "100%",
-                  minHeight: 190,
+                  position: "sticky",
+                  bottom: 0,
                   backgroundColor: "#FFFFFF",
-                  borderRadius: 12,
-                  cursor: isSubmitting ? "not-allowed" : "pointer",
-                  overflow: "hidden",
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: isSubmitting ? 0.7 : 1,
+                  paddingTop: 18,
+                  borderTop: "1px solid #F1F5F9",
+                  zIndex: 2,
                 }}
               >
-                {form.fotoBase64 ? (
-                  <>
-                    <img
-                      src={form.fotoBase64}
-                      alt="Preview foto barang"
-                      style={{
-                        width: "100%",
-                        height: 190,
-                        objectFit: "cover",
-                        display: "block",
-                      }}
-                    />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    handleReset();
+                    onClose();
+                  }}
+                  radius="md"
+                  size="md"
+                  variant="outline"
+                  color="gray"
+                  disabled={isSubmitting}
+                  style={{
+                    minWidth: 130,
+                    height: 46,
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  Batal
+                </Button>
 
-                    <ActionIcon
-                      variant="filled"
-                      color="red"
-                      radius="xl"
-                      size="md"
-                      style={{
-                        position: "absolute",
-                        top: 12,
-                        right: 12,
-                        zIndex: 2,
-                      }}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleRemoveImage();
-                      }}
-                    >
-                      <IconX size={16} />
-                    </ActionIcon>
-                  </>
-                ) : (
-                  <Stack align="center" gap={6}>
-                    <IconPlus size={72} stroke={1.6} color="#EAEAEA" />
-
-                    <Text c="#B0B0B0" size="sm">
-                      Klik untuk upload foto barang
-                    </Text>
-                  </Stack>
-                )}
-              </Box>
+                <Button
+                  type="submit"
+                  radius="md"
+                  size="md"
+                  loading={isSubmitting}
+                  style={{
+                    minWidth: 150,
+                    height: 46,
+                    backgroundColor: "#0D4CB5",
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  {submitLabel}
+                </Button>
+              </Group>
             </Stack>
-
-            <Group justify="flex-end" mt={8} gap="lg">
-              <Button
-                type="button"
-                onClick={() => {
-                  handleReset();
-                  onClose();
-                }}
-                radius="xl"
-                disabled={isSubmitting}
-                style={{
-                  minWidth: 160,
-                  height: 46,
-                  backgroundColor: "#FF1008",
-                  fontSize: 18,
-                  fontWeight: 700,
-                }}
-              >
-                Batal
-              </Button>
-
-              <Button
-                type="submit"
-                radius="xl"
-                loading={isSubmitting}
-                style={{
-                  minWidth: 160,
-                  height: 46,
-                  backgroundColor: "#0D4CB5",
-                  fontSize: 18,
-                  fontWeight: 700,
-                }}
-              >
-                {submitLabel}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
+          </form>
+        </Box>
       </Box>
     </Modal>
   );

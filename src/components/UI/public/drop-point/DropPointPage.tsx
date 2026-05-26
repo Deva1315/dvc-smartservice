@@ -31,6 +31,7 @@ import {
 } from "@/utils/public/public-drop-point.utils";
 
 const MotionDiv = motion.div;
+const globalFont = "Georgia, serif";
 
 type DropPointCardProps = {
   item: DropPointRow;
@@ -243,7 +244,7 @@ return (
               lineHeight: 1.05,
               color: "#000000",
               fontWeight: 700,
-              fontFamily: '"Trebuchet MS", "Comic Sans MS", cursive',
+              fontFamily: globalFont,
             }}
           >
             Drop Point
@@ -257,7 +258,7 @@ return (
               lineHeight: 1.25,
               color: "#7C808A",
               fontWeight: 700,
-              fontFamily: '"Trebuchet MS", "Comic Sans MS", cursive',
+  
             }}
           >
             Temukan Lokasi Drop Point Yang Tersedia Dari Kami
@@ -289,6 +290,7 @@ return (
                   borderColor: "#4A4A4A",
                   fontSize: 15,
                   backgroundColor: "#F5F5F5",
+                  fontFamily: globalFont,
                 },
               }}
             />
@@ -321,6 +323,7 @@ return (
                     style={{
                       fontSize: 18,
                       fontWeight: 600,
+                      fontFamily: globalFont,
                     }}
                   >
                     Memuat data drop point...
@@ -364,6 +367,7 @@ return (
                   style={{
                     fontSize: 18,
                     fontWeight: 600,
+                    fontFamily: globalFont,
                   }}
                 >
                   Drop point tidak ditemukan.

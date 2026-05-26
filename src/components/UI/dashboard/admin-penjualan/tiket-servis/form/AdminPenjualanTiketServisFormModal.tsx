@@ -1,106 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Box,
-  Button,
-  Group,
-  Modal,
-  Radio,
-  Select,
-  SimpleGrid,
-  Stack,
-  Text,
-  TextInput,
-  Textarea,
-} from "@mantine/core";
-import { DatePickerInput } from "@mantine/dates";
-import { IconCalendarEvent } from "@tabler/icons-react";
-import type { FormType } from "@/types/form-types";
+import { type FormEvent, useEffect, useState } from "react";
+import { Box, Button, Group, Modal, Stack } from "@mantine/core";
 import {
   adminPenjualanTiketServisFormSchema,
   validateWithZod,
 } from "@/lib/validations";
+import {
+  adminPenjualanTiketServisInitialForm,
+  type AdminPenjualanTicketRow,
+  type AdminPenjualanTiketServisFormModalProps,
+  type AdminPenjualanTiketServisFormState,
+} from "@/types/admin-penjualan-tiket-servis-form.types";
+import {
+  toAdminPenjualanTiketServisDate,
+  toAdminPenjualanTiketServisInputDateString,
+} from "@/utils/admin-penjualan/admin-penjualan-tiket-servis-form.helpers";
+import AdminPenjualanTiketServisInfoSection from "./AdminPenjualanTiketServisInfoSection";
+import AdminPenjualanTiketServisCustomerSection from "./AdminPenjualanTiketServisCustomerSection";
+import AdminPenjualanTiketServisDropPointSection from "./AdminPenjualanTiketServisDropPointSection";
+import AdminPenjualanTiketServisDeviceSection from "./AdminPenjualanTiketServisDeviceSection";
 
-export type TicketStatusVerifikasi = "Menunggu" | "Diterima" | "Ditolak";
-
-export type TicketStatusServis =
-  | "Belum Diproses"
-  | "Diproses"
-  | "Menunggu Sparepart"
-  | "Selesai"
-  | "Diambil"
-  | "Dibatalkan";
-
-export type TicketDropPointOption = {
-  value: string;
-  label: string;
-};
-
-export type TicketRow = {
-  id?: string;
-  nomor_tiket: string;
-  tanggal_masuk: Date;
-  nama_cust: string;
-  phone_cust: string;
-  alamat_cust: string;
-  jenis_perangkat: string;
-  merk_perangkat: string;
-  keluhan: string;
-  gunakan_drop_point: boolean;
-  drop_point_id: string | null;
-  drop_point_nama: string | null;
-  status_verifikasi: TicketStatusVerifikasi;
-  status_servis: TicketStatusServis;
-};
-
-type FormState = {
-  nama_cust: string;
-  phone_cust: string;
-  alamat_cust: string;
-  jenis_perangkat: string | null;
-  merk_perangkat: string;
-  keluhan: string;
-  gunakan_drop_point: "ya" | "tidak";
-  drop_point_id: string | null;
-};
-
-const initialForm: FormState = {
-  nama_cust: "",
-  phone_cust: "",
-  alamat_cust: "",
-  jenis_perangkat: null,
-  merk_perangkat: "",
-  keluhan: "",
-  gunakan_drop_point: "tidak",
-  drop_point_id: null,
-};
-
-interface TiketServisFormModalProps {
-  opened: boolean;
-  onClose: () => void;
-  formType: FormType;
-  nomorTiket: string;
-  tanggalMasuk: Date;
-  dropPointOptions: TicketDropPointOption[];
-  initialData?: TicketRow | null;
-  onSubmit: (ticket: TicketRow, formType: FormType) => Promise<boolean>;
-}
-
-function toInputDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function toDate(value: string): Date {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-export default function TiketServisFormModal({
+export default function AdminPenjualanTiketServisFormModal({
   opened,
   onClose,
   formType,
@@ -109,16 +30,20 @@ export default function TiketServisFormModal({
   dropPointOptions,
   initialData = null,
   onSubmit,
-}: TiketServisFormModalProps) {
-  const [form, setForm] = useState<FormState>(initialForm);
+}: AdminPenjualanTiketServisFormModalProps) {
+  const [form, setForm] = useState<AdminPenjualanTiketServisFormState>(
+    adminPenjualanTiketServisInitialForm
+  );
   const [tanggal, setTanggal] = useState<string | null>(
-    toInputDateString(tanggalMasuk)
+    toAdminPenjualanTiketServisInputDateString(tanggalMasuk)
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!opened) return;
+    if (!opened) {
+      return;
+    }
 
     setErrors({});
 
@@ -134,12 +59,14 @@ export default function TiketServisFormModal({
         drop_point_id: initialData.drop_point_id,
       });
 
-      setTanggal(toInputDateString(initialData.tanggal_masuk));
+      setTanggal(
+        toAdminPenjualanTiketServisInputDateString(initialData.tanggal_masuk)
+      );
       return;
     }
 
-    setForm(initialForm);
-    setTanggal(toInputDateString(tanggalMasuk));
+    setForm(adminPenjualanTiketServisInitialForm);
+    setTanggal(toAdminPenjualanTiketServisInputDateString(tanggalMasuk));
   }, [opened, formType, initialData, tanggalMasuk]);
 
   const clearFieldError = (field: string) => {
@@ -149,9 +76,9 @@ export default function TiketServisFormModal({
     }));
   };
 
-  const handleChange = <K extends keyof FormState>(
+  const handleChange = <K extends keyof AdminPenjualanTiketServisFormState>(
     key: K,
-    value: FormState[K]
+    value: AdminPenjualanTiketServisFormState[K]
   ) => {
     setForm((prev) => ({
       ...prev,
@@ -190,15 +117,17 @@ export default function TiketServisFormModal({
         drop_point_id: initialData.drop_point_id,
       });
 
-      setTanggal(toInputDateString(initialData.tanggal_masuk));
+      setTanggal(
+        toAdminPenjualanTiketServisInputDateString(initialData.tanggal_masuk)
+      );
       return;
     }
 
-    setForm(initialForm);
-    setTanggal(toInputDateString(tanggalMasuk));
+    setForm(adminPenjualanTiketServisInitialForm);
+    setTanggal(toAdminPenjualanTiketServisInputDateString(tanggalMasuk));
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const parsed = validateWithZod(adminPenjualanTiketServisFormSchema, {
@@ -227,17 +156,20 @@ export default function TiketServisFormModal({
 
     const selectedDropPoint =
       parsed.data.gunakan_drop_point === "ya"
-        ? dropPointOptions.find((item) => item.value === parsed.data.drop_point_id)
-            ?.label ?? null
+        ? dropPointOptions.find(
+            (item) => item.value === parsed.data.drop_point_id
+          )?.label ?? null
         : null;
 
-    const payload: TicketRow = {
+    const payload: AdminPenjualanTicketRow = {
       id: formType === "edit" && initialData ? initialData.id : undefined,
       nomor_tiket:
         formType === "edit" && initialData
           ? initialData.nomor_tiket
           : nomorTiket.trim(),
-      tanggal_masuk: toDate(String(parsed.data.tanggal_masuk)),
+      tanggal_masuk: toAdminPenjualanTiketServisDate(
+        String(parsed.data.tanggal_masuk)
+      ),
       nama_cust: parsed.data.nama_cust,
       phone_cust: parsed.data.phone_cust,
       alamat_cust: parsed.data.alamat_cust ?? "",
@@ -278,7 +210,7 @@ export default function TiketServisFormModal({
   const modalTitle =
     formType === "create" ? "Buat Tiket Servis" : "Edit Tiket Servis";
 
-  const submitLabel = formType === "create" ? "Simpan" : "Update";
+  const submitLabel = formType === "create" ? "Simpan Tiket" : "Update Tiket";
 
   const displayNoTiket =
     formType === "edit" && initialData
@@ -293,420 +225,136 @@ export default function TiketServisFormModal({
       size="xl"
       radius="xl"
       closeOnClickOutside={!isSubmitting}
+      zIndex={2000}
       styles={{
-        body: {
-          padding: 0,
-          backgroundColor: "#D9D9D9",
+        content: {
+          backgroundColor: "#FFFFFF",
+          overflow: "hidden",
         },
         header: {
-          backgroundColor: "#D9D9D9",
+          backgroundColor: "#FFFFFF",
+          padding: "26px 30px 10px",
+          borderBottom: "1px solid #F1F5F9",
+        },
+        body: {
+          padding: 0,
+          backgroundColor: "#FFFFFF",
+        },
+        title: {
+          color: "#111827",
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+        },
+        close: {
+          color: "#6B7280",
         },
       }}
-      title={
-        <Text fw={800} fz="xl" c="#000000">
-          {modalTitle}
-        </Text>
-      }
+      title={modalTitle}
     >
       <Box
-        p="md"
-        bg="#D9D9D9"
         style={{
-          border: "1px solid #D9D9D9",
-          borderRadius: 16,
+          maxHeight: "calc(100vh - 150px)",
+          overflowY: "auto",
+          backgroundColor: "#FFFFFF",
         }}
       >
-        <form onSubmit={handleSubmit}>
-          <Stack gap={26}>
-            <Text fw={800} fz="xl" c="#111111">
-              Informasi Tiket
-            </Text>
+        <Box px={{ base: 20, sm: 30 }} py={26}>
+          <form onSubmit={handleSubmit}>
+            <Stack gap={30}>
+              <AdminPenjualanTiketServisInfoSection
+                displayNoTiket={displayNoTiket}
+                tanggal={tanggal}
+                setTanggal={setTanggal}
+                clearFieldError={clearFieldError}
+                errors={errors}
+                isSubmitting={isSubmitting}
+              />
 
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl">
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  No Tiket
-                </Text>
+              <AdminPenjualanTiketServisCustomerSection
+                form={form}
+                errors={errors}
+                isSubmitting={isSubmitting}
+                handleChange={handleChange}
+              />
 
-                <TextInput
-                  value={displayNoTiket}
-                  placeholder="Nomor tiket akan dibuat otomatis setelah disimpan"
-                  readOnly
-                  radius={0}
-                  error={errors.nomor_tiket}
-                  styles={{
-                    input: {
-                      backgroundColor: "#EAE6E6",
-                      border: errors.nomor_tiket
-                        ? "1px solid #FA5252"
-                        : "none",
-                      height: 44,
-                      fontSize: 18,
-                      fontWeight: 700,
-                      color: "#6B7280",
-                    },
-                    error: {
-                      fontSize: 13,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
+              <AdminPenjualanTiketServisDropPointSection
+                form={form}
+                errors={errors}
+                isSubmitting={isSubmitting}
+                dropPointOptions={dropPointOptions}
+                handleChange={handleChange}
+                handleDropPointRadioChange={handleDropPointRadioChange}
+              />
 
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  Tanggal Masuk <span style={{ color: "red" }}>*</span>
-                </Text>
-
-                <DatePickerInput
-                  value={tanggal}
-                  onChange={(value) => {
-                    setTanggal(value);
-                    clearFieldError("tanggal_masuk");
-                  }}
-                  required
-                  valueFormat="DD/MM/YYYY"
-                  radius={0}
-                  disabled={isSubmitting}
-                  error={errors.tanggal_masuk}
-                  rightSection={
-                    <IconCalendarEvent size={18} stroke={1.8} color="#6B7280" />
-                  }
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.tanggal_masuk
-                        ? "1px solid #FA5252"
-                        : "none",
-                      height: 44,
-                      fontSize: 18,
-                      fontWeight: 700,
-                      color: "#6B7280",
-                    },
-                    error: {
-                      fontSize: 13,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-            </SimpleGrid>
-
-            <Text fw={800} fz="xl" c="#111111">
-              Data Customer
-            </Text>
-
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl">
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  Nama Customer <span style={{ color: "red" }}>*</span>
-                </Text>
-
-                <TextInput
-                  value={form.nama_cust}
-                  onChange={(event) =>
-                    handleChange("nama_cust", event.currentTarget.value)
-                  }
-                  radius={0}
-                  disabled={isSubmitting}
-                  error={errors.nama_cust}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.nama_cust ? "1px solid #FA5252" : "none",
-                      height: 44,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 13,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  No HP <span style={{ color: "red" }}>*</span>
-                </Text>
-
-                <TextInput
-                  value={form.phone_cust}
-                  onChange={(event) =>
-                    handleChange("phone_cust", event.currentTarget.value)
-                  }
-                  radius={0}
-                  disabled={isSubmitting}
-                  error={errors.phone_cust}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.phone_cust ? "1px solid #FA5252" : "none",
-                      height: 44,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 13,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-            </SimpleGrid>
-
-            <Stack gap={8}>
-              <Text fw={700} c="#6B7280" size="lg">
-                Alamat Customer{" "}
-                {form.gunakan_drop_point === "ya" ? (
-                  <span style={{ color: "red" }}>*</span>
-                ) : null}
-              </Text>
-
-              <TextInput
-                value={form.alamat_cust}
-                onChange={(event) =>
-                  handleChange("alamat_cust", event.currentTarget.value)
-                }
-                radius={0}
-                disabled={isSubmitting}
-                error={errors.alamat_cust}
-                placeholder="Wajib diisi jika menggunakan drop point"
-                styles={{
-                  input: {
-                    backgroundColor: "#FFFFFF",
-                    border: errors.alamat_cust ? "1px solid #FA5252" : "none",
-                    height: 44,
-                    fontSize: 18,
-                    color: "#111111",
-                  },
-                  error: {
-                    fontSize: 13,
-                    marginTop: 6,
-                  },
+              <Box
+                style={{
+                  height: 1,
+                  backgroundColor: "#E5E7EB",
+                  width: "100%",
                 }}
               />
-            </Stack>
 
-            <Stack gap={8}>
-              <Text fw={700} c="#6B7280" size="lg">
-                Gunakan Drop Point? <span style={{ color: "red" }}>*</span>
-              </Text>
-
-              <Radio.Group
-                value={form.gunakan_drop_point}
-                onChange={handleDropPointRadioChange}
-                error={errors.gunakan_drop_point}
-              >
-                <Group gap="xl">
-                  <Radio
-                    value="ya"
-                    label="Ya, gunakan Drop Point"
-                    color="blue"
-                  />
-                  <Radio value="tidak" label="Tidak" color="blue" />
-                </Group>
-              </Radio.Group>
-            </Stack>
-
-            {form.gunakan_drop_point === "ya" && (
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  Pilih Drop Point <span style={{ color: "red" }}>*</span>
-                </Text>
-
-                <Select
-                  value={form.drop_point_id}
-                  onChange={(value) => handleChange("drop_point_id", value)}
-                  data={dropPointOptions}
-                  placeholder="Pilih drop point"
-                  radius={0}
-                  disabled={isSubmitting}
-                  searchable
-                  error={errors.drop_point_id}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.drop_point_id
-                        ? "1px solid #FA5252"
-                        : "none",
-                      height: 44,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    dropdown: {
-                      backgroundColor: "#FFFFFF",
-                    },
-                    option: {
-                      color: "#000000",
-                      fontSize: 16,
-                    },
-                    error: {
-                      fontSize: 13,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-            )}
-
-            <Box
-              style={{
-                width: "100%",
-                height: 2,
-                backgroundColor: "#F4F4F4",
-                opacity: 0.95,
-              }}
-            />
-
-            <Text fw={800} fz="xl" c="#111111">
-              Data Perangkat
-            </Text>
-
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl">
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  Jenis Perangkat <span style={{ color: "red" }}>*</span>
-                </Text>
-
-                <Select
-                  value={form.jenis_perangkat}
-                  onChange={(value) => handleChange("jenis_perangkat", value)}
-                  data={[
-                    { value: "Laptop", label: "Laptop" },
-                    { value: "PC", label: "PC" },
-                    { value: "Monitor", label: "Monitor" },
-                    { value: "Printer", label: "Printer" },
-                    { value: "Aksesoris", label: "Aksesoris" },
-                  ]}
-                  radius={0}
-                  disabled={isSubmitting}
-                  error={errors.jenis_perangkat}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.jenis_perangkat
-                        ? "1px solid #FA5252"
-                        : "none",
-                      height: 44,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    dropdown: {
-                      backgroundColor: "#FFFFFF",
-                    },
-                    option: {
-                      color: "#000000",
-                      fontSize: 16,
-                    },
-                    error: {
-                      fontSize: 13,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-
-              <Stack gap={8}>
-                <Text fw={700} c="#6B7280" size="lg">
-                  Merk Perangkat <span style={{ color: "red" }}>*</span>
-                </Text>
-
-                <TextInput
-                  value={form.merk_perangkat}
-                  onChange={(event) =>
-                    handleChange("merk_perangkat", event.currentTarget.value)
-                  }
-                  radius={0}
-                  disabled={isSubmitting}
-                  error={errors.merk_perangkat}
-                  styles={{
-                    input: {
-                      backgroundColor: "#FFFFFF",
-                      border: errors.merk_perangkat
-                        ? "1px solid #FA5252"
-                        : "none",
-                      height: 44,
-                      fontSize: 18,
-                      color: "#111111",
-                    },
-                    error: {
-                      fontSize: 13,
-                      marginTop: 6,
-                    },
-                  }}
-                />
-              </Stack>
-            </SimpleGrid>
-
-            <Stack gap={8}>
-              <Text fw={700} c="#6B7280" size="lg">
-                Keluhan <span style={{ color: "red" }}>*</span>
-              </Text>
-
-              <Textarea
-                value={form.keluhan}
-                onChange={(event) =>
-                  handleChange("keluhan", event.currentTarget.value)
-                }
-                placeholder="Masukkan keluhan perangkat anda disini..."
-                minRows={6}
-                radius={0}
-                disabled={isSubmitting}
-                error={errors.keluhan}
-                styles={{
-                  input: {
-                    backgroundColor: "#FFFFFF",
-                    border: errors.keluhan ? "1px solid #FA5252" : "none",
-                    fontSize: 18,
-                    color: "#111111",
-                  },
-                  error: {
-                    fontSize: 13,
-                    marginTop: 6,
-                  },
-                }}
+              <AdminPenjualanTiketServisDeviceSection
+                form={form}
+                errors={errors}
+                isSubmitting={isSubmitting}
+                handleChange={handleChange}
               />
+
+              <Group
+                justify="flex-end"
+                gap="md"
+                pt={8}
+                style={{
+                  position: "sticky",
+                  bottom: 0,
+                  backgroundColor: "#FFFFFF",
+                  paddingTop: 18,
+                  borderTop: "1px solid #F1F5F9",
+                  zIndex: 2,
+                }}
+              >
+                <Button
+                  type="button"
+                  onClick={() => {
+                    handleReset();
+                    onClose();
+                  }}
+                  radius="md"
+                  size="md"
+                  variant="outline"
+                  color="gray"
+                  disabled={isSubmitting}
+                  style={{
+                    minWidth: 130,
+                    height: 46,
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  Batal
+                </Button>
+
+                <Button
+                  type="submit"
+                  radius="md"
+                  size="md"
+                  loading={isSubmitting}
+                  style={{
+                    minWidth: 150,
+                    height: 46,
+                    backgroundColor: "#0D4CB5",
+                    fontSize: 15,
+                    fontWeight: 700,
+                  }}
+                >
+                  {submitLabel}
+                </Button>
+              </Group>
             </Stack>
-
-            <Group justify="flex-end" mt={8} gap="lg">
-              <Button
-                type="button"
-                onClick={() => {
-                  handleReset();
-                  onClose();
-                }}
-                radius="md"
-                disabled={isSubmitting}
-                style={{
-                  minWidth: 160,
-                  height: 50,
-                  backgroundColor: "#FF1008",
-                  fontSize: 18,
-                  fontWeight: 700,
-                }}
-              >
-                Batal
-              </Button>
-
-              <Button
-                type="submit"
-                radius="md"
-                loading={isSubmitting}
-                style={{
-                  minWidth: 160,
-                  height: 50,
-                  backgroundColor: "#0D4CB5",
-                  fontSize: 18,
-                  fontWeight: 700,
-                }}
-              >
-                {submitLabel}
-              </Button>
-            </Group>
-          </Stack>
-        </form>
+          </form>
+        </Box>
       </Box>
     </Modal>
   );

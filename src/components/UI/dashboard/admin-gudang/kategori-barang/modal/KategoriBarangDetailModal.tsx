@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Box,
-  Modal,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { Box, Modal, Paper, SimpleGrid, Stack, Text } from "@mantine/core";
 
 type KategoriBarangDetailData = {
   id: string;
@@ -29,10 +24,19 @@ function FieldItem({
 }) {
   return (
     <Stack gap={6}>
-      <Text fw={700} fz={14} c="#6B7280">
+      <Text fw={700} fz="sm" c="#6B7280">
         {label}
       </Text>
-      <Text fw={600} fz={16} c="#111111">
+
+      <Text
+        fw={800}
+        fz={16}
+        c="#111827"
+        style={{
+          lineHeight: 1.5,
+          wordBreak: "break-word",
+        }}
+      >
         {value || "-"}
       </Text>
     </Stack>
@@ -56,38 +60,104 @@ export default function KategoriBarangDetailModal({
         radius: "xl",
       }}
       styles={{
-        body: {
-          padding: 0,
-          backgroundColor: "#D9D9D9",
+        content: {
+          backgroundColor: "#FFFFFF",
+          overflow: "hidden",
         },
         header: {
-          backgroundColor: "#D9D9D9",
-          paddingBottom: 0,
+          backgroundColor: "#FFFFFF",
+          padding: "26px 30px 10px",
+          borderBottom: "1px solid #F1F5F9",
         },
-        content: {
-          backgroundColor: "#D9D9D9",
+        body: {
+          padding: 0,
+          backgroundColor: "#FFFFFF",
+        },
+        title: {
+          color: "#111827",
+          fontWeight: 800,
+          fontSize: 24,
+          lineHeight: 1.2,
+        },
+        close: {
+          color: "#6B7280",
         },
       }}
-      title={
-        <Text fw={800} fz={26} c="#000000">
-          Detail Kategori Barang
-        </Text>
-      }
+      title="Detail Kategori Barang"
     >
       <Box
-        p="lg"
-        bg="#D9D9D9"
         style={{
-          border: "1px solid #D9D9D9",
-          borderRadius: 16,
+          maxHeight: "calc(100vh - 150px)",
+          overflowY: "auto",
+          backgroundColor: "#FFFFFF",
         }}
       >
-        {!data ? null : (
-          <Stack gap={24}>
-            <FieldItem label="Nama" value={data.nama} />
-            <FieldItem label="Deskripsi" value={data.deskripsi || "-"} />
-          </Stack>
-        )}
+        <Box px={{ base: 20, sm: 30 }} py={26}>
+          {!data ? null : (
+            <Stack gap={24}>
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
+                style={{
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#FFFFFF",
+                }}
+              >
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Informasi Kategori
+                    </Text>
+
+                    <Text fz="sm" c="#6B7280">
+                      Detail nama kategori barang yang digunakan untuk
+                      mengelompokkan data barang.
+                    </Text>
+                  </Stack>
+
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+                    <FieldItem label="No" value={data.no} />
+                    <FieldItem label="Nama Kategori" value={data.nama} />
+                  </SimpleGrid>
+                </Stack>
+              </Paper>
+
+              <Paper
+                radius="lg"
+                p={{ base: "md", sm: "lg" }}
+                withBorder
+                style={{
+                  borderColor: "#E5E7EB",
+                  backgroundColor: "#F9FAFB",
+                }}
+              >
+                <Stack gap="md">
+                  <Stack gap={4}>
+                    <Text fw={800} fz="lg" c="#111827">
+                      Deskripsi
+                    </Text>
+
+                    <Text fz="sm" c="#6B7280">
+                      Penjelasan singkat mengenai kategori barang.
+                    </Text>
+                  </Stack>
+
+                  <Text
+                    fz={15}
+                    c="#111827"
+                    style={{
+                      lineHeight: 1.7,
+                      whiteSpace: "pre-line",
+                    }}
+                  >
+                    {data.deskripsi || "-"}
+                  </Text>
+                </Stack>
+              </Paper>
+            </Stack>
+          )}
+        </Box>
       </Box>
     </Modal>
   );

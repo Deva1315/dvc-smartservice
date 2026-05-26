@@ -24,10 +24,13 @@ import {
 import CustomTable, {
   type TableColumn,
 } from "@/components/table/custom-table-search/CustomTableSearch";
-import TiketServisFormModal, {
-  type TicketDropPointOption,
-  type TicketRow,
-} from "@/components/UI/dashboard/admin-penjualan/tiket-servis/form/AdminPenjualanTiketServisFormModal";
+
+import type {
+  AdminPenjualanTicketDropPointOption,
+  AdminPenjualanTicketRow,
+  AdminPenjualanTicketStatusServis,
+  AdminPenjualanTicketStatusVerifikasi,
+} from "@/types/admin-penjualan-tiket-servis-form.types";
 import {
   createAdminPenjualanTiketServis,
   getAdminPenjualanNomorTiketRequest,
@@ -36,6 +39,7 @@ import {
   type StatusServis,
   type StatusVerifikasi,
 } from "@/lib/admin-penjualan/admin-penjualan-tiket-servis.client";
+import TiketServisFormModal from "@/components/UI/public/form/TiketServisFormModal";
 
 type AdminPenjualanTiketRow = {
   id: string;
@@ -62,7 +66,7 @@ const filterStatusServisOptions = [
   { value: "Dibatalkan", label: "Dibatalkan" },
 ];
 
-const dropPointOptions: TicketDropPointOption[] = [];
+const dropPointOptions: AdminPenjualanTicketDropPointOption[] = [];
 
 function formatDisplayDate(value: string) {
   const date = new Date(value);
@@ -147,8 +151,8 @@ function mapTiketServis(data: AdminPenjualanTiketApiItem[]) {
   });
 }
 
-function normalizeStatusServisForForm(status: StatusServis): TicketRow["status_servis"] {
-  const labels: Record<StatusServis, TicketRow["status_servis"]> = {
+function normalizeStatusServisForForm(status: StatusServis): AdminPenjualanTicketRow["status_servis"] {
+  const labels: Record<StatusServis, AdminPenjualanTicketRow["status_servis"]> = {
     Belum_Diproses: "Belum Diproses",
     Diproses: "Diproses",
     Menunggu_Sparepart: "Menunggu Sparepart",
@@ -249,7 +253,7 @@ export default function AdminPenjualanTiketServisPage() {
 }
 
   async function handleSubmitTiketServis(
-    ticket: TicketRow,
+    ticket: AdminPenjualanTicketRow,
     _formType: any
   ): Promise<boolean> {
     try {

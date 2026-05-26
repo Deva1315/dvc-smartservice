@@ -213,7 +213,7 @@ export default function CustomTable<T extends Record<string, unknown>>({
                 }}
               >
                 <Group justify="space-between" gap={8} wrap="nowrap">
-                  <Text fw={700} fz="md">
+                  <Text fw={700} fz="md" >
                     {column.label}
                   </Text>
 
@@ -261,7 +261,9 @@ export default function CustomTable<T extends Record<string, unknown>>({
             <Table.Tr>
               <Table.Td colSpan={columns.length}>
                 <Center py="lg">
-                  <Text c="dimmed">{emptyText}</Text>
+                  <Text c="dimmed" >
+                    {emptyText}
+                  </Text>
                 </Center>
               </Table.Td>
             </Table.Tr>
@@ -275,7 +277,9 @@ export default function CustomTable<T extends Record<string, unknown>>({
 
           <Group justify="space-between" wrap="wrap" p="md" bg="#FFFFFF">
             <Group gap="sm">
-              <Text size="sm">Rows per page</Text>
+              <Text size="sm" c="dimmed" >
+                Rows per page
+              </Text>
 
               <Select
                 data={perPageOptions.map((item) => ({
@@ -293,7 +297,7 @@ export default function CustomTable<T extends Record<string, unknown>>({
             </Group>
 
             <Group gap="md" wrap="wrap">
-              <Text c="dimmed" size="sm">
+              <Text c="dimmed" size="sm" >
                 Showing <b>{total === 0 ? 0 : startIndex + 1}</b> to <b>{endIndex}</b> of{" "}
                 <b>{total}</b>
               </Text>

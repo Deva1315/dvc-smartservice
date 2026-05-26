@@ -17,9 +17,6 @@ import {
   Title,
 } from "@mantine/core";
 import {
-  IconBrandFacebook,
-  IconBrandInstagram,
-  IconBrandTwitter,
   IconMapPin,
   IconPhone,
   IconSearch,
@@ -53,6 +50,7 @@ const staggerContainer = {
     },
   },
 };
+
 
 function formatRupiah(value: string | number) {
   const numberValue = Number(value);
@@ -273,6 +271,7 @@ export default function ProdukPage() {
               fontSize: 15,
               borderRadius: 14,
               transition: "all 0.25s ease",
+              
             },
           }}
         />
@@ -322,10 +321,10 @@ export default function ProdukPage() {
                   fontSize: "clamp(30px, 3vw, 52px)",
                   lineHeight: 1.25,
                   textShadow: "0 4px 18px rgba(0,0,0,0.35)",
+                  
                 }}
               >
-                Temukan Produk Komputer dan Perangkat Terbaik di DVC
-                SmartService
+                Temukan Produk Komputer dan Perangkat Terbaik
               </Text>
 
               <Text
@@ -354,6 +353,7 @@ export default function ProdukPage() {
               fontSize: "clamp(28px, 2.5vw, 44px)",
               fontWeight: 800,
               color: "#111111",
+              
             }}
           >
             Kategori Produk
@@ -371,6 +371,7 @@ export default function ProdukPage() {
                 color: "#FFFFFF",
                 fontSize: 20,
                 fontWeight: 700,
+                
                 opacity: activeKategoriId === "semua" ? 1 : 0.92,
                 boxShadow:
                   activeKategoriId === "semua"
@@ -398,6 +399,7 @@ export default function ProdukPage() {
                     color: "#FFFFFF",
                     fontSize: 20,
                     fontWeight: 700,
+                    
                     opacity: isActive ? 1 : 0.92,
                     boxShadow: isActive
                       ? "0 0 0 3px rgba(13, 76, 181, 0.15)"
@@ -415,7 +417,7 @@ export default function ProdukPage() {
             <Paper radius="md" p="xl" bg="#FFFFFF">
               <Stack align="center" gap={12}>
                 <Loader color="blue" />
-                <Text fw={600} c="dimmed">
+                <Text fw={600} c="dimmed" >
                   Memuat data produk...
                 </Text>
               </Stack>
@@ -446,7 +448,7 @@ export default function ProdukPage() {
 
               {filteredProducts.length === 0 && (
                 <Paper radius="md" p="xl" bg="#FFFFFF" ta="center">
-                  <Text fw={600} c="dimmed">
+                  <Text fw={600} c="dimmed" >
                     Produk tidak ditemukan
                   </Text>
                 </Paper>
@@ -456,79 +458,138 @@ export default function ProdukPage() {
         </Stack>
       </Container>
 
-      {/* FOOTER TANPA ANIMASI */}
-      <Box bg="#F5F5F5" pt={72}>
-        <Container size="md">
-          <Stack align="center" gap={14}>
-            <Box
+{/* FOOTER TANPA ANIMASI */}
+      <Box
+        mt={60}
+        style={{
+          backgroundColor: "#F5F5F5",
+        }}
+      >
+        <Container size="xl" py={60}>
+          <Group
+            justify="space-between"
+            align="flex-start"
+            gap={60}
+            wrap="wrap"
+          >
+            {/* KIRI */}
+            <Group
+              align="flex-start"
+              gap={24}
+              wrap="nowrap"
               style={{
-                position: "relative",
-                width: 180,
-                height: 150,
+                flex: 1,
+                minWidth: 320,
               }}
             >
-              <Image
-                src="/images/logo-dvc.png"
-                alt="DVC Computer"
-                fill
-                sizes="180px"
-                style={{ objectFit: "contain" }}
-              />
-            </Box>
+              <Box
+                style={{
+                  position: "relative",
+                  width: 110,
+                  height: 110,
+                  flexShrink: 0,
+                }}
+              >
+                <Image
+                  src="/images/logo-dvc.png"
+                  alt="DVC Computer"
+                  fill
+                  sizes="110px"
+                  style={{ objectFit: "contain" }}
+                />
+              </Box>
 
-            <Group gap={8} justify="center">
-              <IconPhone size={18} />
-              <Text size="md" c="#111111">
-                Telp : 08174762502
-              </Text>
+              <Stack gap={10} maw={520}>
+                <Title
+                  order={3}
+                  c="#111111"
+                  style={{
+                    fontSize: "clamp(24px, 2vw, 34px)",
+                    fontWeight: 800,
+                    lineHeight: 1.2,
+                    
+                  }}
+                >
+                  DVC SMART SERVICE
+                </Title>
+
+                <Text
+                  c="#4B5563"
+                  style={{
+                    fontSize: "clamp(16px, 1.2vw, 22px)",
+                    lineHeight: 1.7,
+                    
+                  }}
+                >
+                  Solusi modern untuk penjualan dan servis perangkat
+                  komputer dengan fitur tiket servis, drop point,
+                  dan diagnosa AI.
+                </Text>
+              </Stack>
             </Group>
 
-            <Group gap={8} justify="center" wrap="nowrap">
-              <IconMapPin size={18} />
-              <Text size="md" c="#111111" ta="center">
-                Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
-              </Text>
-            </Group>
-
-            <Group gap={14} justify="center" mt={6}>
-              <Anchor
-                href="#"
-                underline="never"
+            {/* KANAN */}
+            <Stack
+              gap={14}
+              align="flex-end"
+              style={{
+                minWidth: 320,
+              }}
+            >
+              <Title
+                order={3}
                 c="#111111"
-                aria-label="Facebook"
+                style={{
+                  fontSize: "clamp(24px, 2vw, 34px)",
+                  fontWeight: 800,
+                  
+                }}
               >
-                <IconBrandFacebook size={28} />
-              </Anchor>
+                CONTACT
+              </Title>
 
-              <Anchor
-                href="#"
-                underline="never"
-                c="#111111"
-                aria-label="Instagram"
-              >
-                <IconBrandInstagram size={28} />
-              </Anchor>
+              <Group gap={8} wrap="nowrap">
+                <IconMapPin size={18} color="#111111" />
 
-              <Anchor
-                href="#"
-                underline="never"
-                c="#111111"
-                aria-label="Twitter"
-              >
-                <IconBrandTwitter size={28} />
-              </Anchor>
-            </Group>
-          </Stack>
+                <Text
+                  c="#4B5563"
+                  ta="right"
+                  style={{
+                    fontSize: "clamp(15px, 1vw, 18px)",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Jl. Ciung Wanara, No. 99X,
+                  Kec. Sukawati Bali 80582
+                </Text>
+              </Group>
+
+              <Group gap={8}>
+                <IconPhone size={18} color="#111111" />
+
+                <Text
+                  c="#4B5563"
+                  style={{
+                    fontSize: "clamp(15px, 1vw, 18px)",
+                  }}
+                >
+                  08174762502
+                </Text>
+              </Group>
+            </Stack>
+          </Group>
         </Container>
 
+        {/* COPYRIGHT */}
         <Box
-          mt={46}
           py={18}
           bg="#0D3F8F"
-          style={{ textAlign: "center" }}
+          style={{
+            textAlign: "center",
+          }}
         >
           <Text c="white" size="sm">
-            © 2026 All rights reserved. DVC Smart Service
+            © 2026 DVC Smart Service. All rights reserved.
           </Text>
         </Box>
       </Box>

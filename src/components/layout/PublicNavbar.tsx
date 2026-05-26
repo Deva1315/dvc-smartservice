@@ -43,6 +43,10 @@ export default function PublicNavbar() {
                 width: "100%",
                 backgroundColor: "#2F63B8",
                 padding: "14px 28px",
+                position: "sticky",
+                top: 0,
+                zIndex: 50,
+                
             }}
         >
             <Group justify="space-between" align="center" wrap="nowrap">
@@ -77,6 +81,15 @@ export default function PublicNavbar() {
                         width={220}
                         radius="md"
                         withinPortal={false}
+                        styles={{
+                            dropdown: {
+                                
+                            },
+                            item: {
+                                
+                                fontSize: 16,
+                            },
+                        }}
                     >
                         <Menu.Target>
                             <Anchor
@@ -159,7 +172,21 @@ export default function PublicNavbar() {
                     Produk
                 </Anchor>
 
-                <Menu shadow="md" width={220} radius="md" withinPortal={false}>
+                <Menu
+                    shadow="md"
+                    width={220}
+                    radius="md"
+                    withinPortal={false}
+                    styles={{
+                        dropdown: {
+                            
+                        },
+                        item: {
+                            
+                            fontSize: 16,
+                        },
+                    }}
+                >
                     <Menu.Target>
                         <Anchor
                             component="button"

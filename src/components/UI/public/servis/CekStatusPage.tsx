@@ -182,7 +182,7 @@ return (
               lineHeight: 1.05,
               color: "#000000",
               fontWeight: 700,
-              fontFamily: '"Trebuchet MS", "Comic Sans MS", cursive',
+              
             }}
           >
             Cek Status Servis
@@ -196,7 +196,7 @@ return (
               lineHeight: 1.25,
               color: "#7C808A",
               fontWeight: 700,
-              fontFamily: '"Trebuchet MS", "Comic Sans MS", cursive',
+              
             }}
           >
             Masukkan Nomor Tiket Servis Anda Untuk Melacak Status
@@ -244,6 +244,7 @@ return (
                       paddingRight: 18,
                       backgroundColor: "transparent",
                       border: "none",
+                      
                     },
                   }}
                 />
@@ -259,6 +260,7 @@ return (
                     fontSize: 16,
                     fontWeight: 700,
                     minWidth: 130,
+                    
                   }}
                 >
                   Cek Status
@@ -267,7 +269,7 @@ return (
             </Paper>
 
             {errorMessage ? (
-              <Text mt={10} c="red.6" fw={600} size="sm">
+              <Text mt={10} c="red.6" fw={600} size="sm" > 
                 {errorMessage}
               </Text>
             ) : null}
@@ -307,9 +309,8 @@ return (
                   c="#2F3040"
                   style={{
                     fontSize: "clamp(22px, 3vw, 34px)",
-                    fontFamily:
-                      '"Trebuchet MS", "Comic Sans MS", cursive',
                     lineHeight: 1.1,
+                    
                   }}
                 >
                   Status Perbaikan
