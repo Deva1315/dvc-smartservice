@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Anchor, Box, Button, Group, Menu } from "@mantine/core";
+import { Anchor, Box, Group, Menu } from "@mantine/core";
 import { IconChevronDown } from "@tabler/icons-react";
 
 const serviceMenus = [
@@ -130,7 +130,7 @@ export default function PublicNavbar() {
                     </Anchor>
                 </Group>
 
-                <Button
+                {/* <Button
                     component="a"
                     href="/login"
                     radius="md"
@@ -147,7 +147,7 @@ export default function PublicNavbar() {
                     }}
                 >
                     Login
-                </Button>
+                </Button> */}
             </Group>
 
             <Group hiddenFrom="md" mt="md" gap="lg">

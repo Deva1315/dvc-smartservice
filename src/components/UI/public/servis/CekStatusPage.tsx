@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { motion } from "framer-motion";
 import {
   Box,
   Button,
@@ -23,6 +24,8 @@ import {
   getStatusPillColors,
   type TicketServisPublicRow,
 } from "@/utils/public/cek-status-servis.utils";
+
+const MotionDiv = motion.div;
 
 type StatusInfoRowProps = {
   label: string;
@@ -153,16 +156,23 @@ export default function CekStatusServisPage() {
     }
   };
 
-  return (
-    <Box
-      style={{
-        backgroundColor: "#EFEFEF",
-        minHeight: "calc(100vh - 140px)",
-      }}
-      py={{ base: 48, md: 72 }}
-    >
-      <Container size={1080}>
-        <Stack align="center" gap={0}>
+return (
+  <Box
+    style={{
+      backgroundColor: "#EFEFEF",
+      minHeight: "calc(100vh - 90px)",
+    }}
+    py={{ base: 48, md: 72 }}
+  >
+    <Container size={1080}>
+      <Stack align="center" gap={0}>
+        {/* HERO */}
+        <MotionDiv
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          style={{ width: "100%" }}
+        >
           <Title
             order={1}
             ta="center"
@@ -191,7 +201,15 @@ export default function CekStatusServisPage() {
           >
             Masukkan Nomor Tiket Servis Anda Untuk Melacak Status
           </Text>
+        </MotionDiv>
 
+        {/* SEARCH BOX */}
+        <MotionDiv
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9 }}
+          style={{ width: "100%", maxWidth: 820 }}
+        >
           <Box w="100%" maw={820} mb={14}>
             <Paper
               radius={20}
@@ -208,7 +226,9 @@ export default function CekStatusServisPage() {
               >
                 <InputBase
                   value={ticketNumber}
-                  onChange={(event) => setTicketNumber(event.currentTarget.value)}
+                  onChange={(event) =>
+                    setTicketNumber(event.currentTarget.value)
+                  }
                   onKeyDown={handleKeyDown}
                   placeholder="Masukkan nomor tiket disini..."
                   radius={16}
@@ -252,8 +272,16 @@ export default function CekStatusServisPage() {
               </Text>
             ) : null}
           </Box>
+        </MotionDiv>
 
-          {selectedTicket ? (
+        {/* RESULT CARD */}
+        {selectedTicket ? (
+          <MotionDiv
+            initial={{ opacity: 0, y: 50, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.7 }}
+            style={{ width: "100%", maxWidth: 820 }}
+          >
             <Paper
               w="100%"
               maw={820}
@@ -279,7 +307,8 @@ export default function CekStatusServisPage() {
                   c="#2F3040"
                   style={{
                     fontSize: "clamp(22px, 3vw, 34px)",
-                    fontFamily: '"Trebuchet MS", "Comic Sans MS", cursive',
+                    fontFamily:
+                      '"Trebuchet MS", "Comic Sans MS", cursive',
                     lineHeight: 1.1,
                   }}
                 >
@@ -316,7 +345,8 @@ export default function CekStatusServisPage() {
                       c="#3F4050"
                       style={{
                         fontSize: "clamp(20px, 2.2vw, 28px)",
-                        fontFamily: '"Trebuchet MS", "Comic Sans MS", cursive',
+                        fontFamily:
+                          '"Trebuchet MS", "Comic Sans MS", cursive',
                         lineHeight: 1.1,
                       }}
                     >
@@ -325,22 +355,35 @@ export default function CekStatusServisPage() {
 
                     <Stack gap={10}>
                       {ringkasanProgress.map((item, index) => (
-                        <Flex key={`${item}-${index}`} align="flex-start" gap={10}>
-                          <Box pt={4}>
-                            <IconPointFilled size={10} color="#D1A55A" />
-                          </Box>
+                        <MotionDiv
+                          key={`${item}-${index}`}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{
+                            duration: 0.4,
+                            delay: index * 0.1,
+                          }}
+                        >
+                          <Flex align="flex-start" gap={10}>
+                            <Box pt={4}>
+                              <IconPointFilled
+                                size={10}
+                                color="#D1A55A"
+                              />
+                            </Box>
 
-                          <Text
-                            c="#6C6C76"
-                            style={{
-                              fontSize: "clamp(15px, 1.8vw, 18px)",
-                              lineHeight: 1.45,
-                              fontWeight: 500,
-                            }}
-                          >
-                            {item}
-                          </Text>
-                        </Flex>
+                            <Text
+                              c="#6C6C76"
+                              style={{
+                                fontSize: "clamp(15px, 1.8vw, 18px)",
+                                lineHeight: 1.45,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {item}
+                            </Text>
+                          </Flex>
+                        </MotionDiv>
                       ))}
                     </Stack>
                   </Stack>
@@ -355,15 +398,18 @@ export default function CekStatusServisPage() {
 
                     <StatusInfoRow
                       label="Estimasi Biaya"
-                      value={formatRupiah(selectedTicket.estimasiBiaya) ?? "-"}
+                      value={
+                        formatRupiah(selectedTicket.estimasiBiaya) ?? "-"
+                      }
                     />
                   </Stack>
                 </Stack>
               </Box>
             </Paper>
-          ) : null}
-        </Stack>
-      </Container>
-    </Box>
-  );
+          </MotionDiv>
+        ) : null}
+      </Stack>
+    </Container>
+  </Box>
+);
 }

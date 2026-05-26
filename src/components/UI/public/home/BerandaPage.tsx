@@ -19,6 +19,7 @@ import {
   IconMapPin,
   IconPhone,
 } from "@tabler/icons-react";
+import { motion } from "framer-motion";
 import Image from "next/image";
 
 const popularCategories = [
@@ -64,9 +65,33 @@ const dvcCards = [
   },
 ];
 
+const fadeUp = {
+  hidden: {
+    opacity: 0,
+    y: 40,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.7,
+    },
+  },
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.2,
+    },
+  },
+};
+
 export default function BerandaPage() {
   return (
     <Box bg="#F5F5F5">
+      {/* HERO */}
       <Box
         style={{
           position: "relative",
@@ -82,7 +107,8 @@ export default function BerandaPage() {
             position: "absolute",
             inset: 0,
             background:
-              "linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.20) 45%, rgba(0,0,0,0.10) 100%)",
+              "linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.45) 45%, rgba(0,0,0,0.15) 100%)",
+            backdropFilter: "blur(2px)",
           }}
         />
 
@@ -96,21 +122,71 @@ export default function BerandaPage() {
             alignItems: "center",
           }}
         >
-          <Box maw={420}>
-            <Text
-              c="white"
-              fw={400}
-              style={{
-                fontSize: "clamp(24px, 2.4vw, 40px)",
-                lineHeight: 1.35,
-              }}
-            >
-              Buat tiket servis, cek kerusakan perangkat, dan pantau proses perbaikan dengan praktis.
-            </Text>
-          </Box>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
+          >
+            <Box maw={520}>
+              <Text
+                c="white"
+                fw={700}
+                style={{
+                  fontSize: "clamp(30px, 3vw, 52px)",
+                  lineHeight: 1.25,
+                  textShadow: "0 4px 18px rgba(0,0,0,0.35)",
+                }}
+              >
+                Servis perangkat jadi lebih mudah dan modern bersama DVC
+                SmartService
+              </Text>
+
+              <Text
+                mt={20}
+                c="rgba(255,255,255,0.88)"
+                style={{
+                  fontSize: "clamp(16px, 1.2vw, 22px)",
+                  lineHeight: 1.7,
+                }}
+              >
+                Buat tiket servis, cek kerusakan dengan AI, dan pantau proses
+                perbaikan secara real-time.
+              </Text>
+
+              <Group mt={28}>
+                <Button
+                  component="a"
+                  href="/tiket_servis"
+                  radius="md"
+                  size="lg"
+                  style={{
+                    backgroundColor: "#0D4CB5",
+                    fontWeight: 700,
+                  }}
+                >
+                  Buat Tiket
+                </Button>
+
+                <Button
+                  component="a"
+                  href="/diagnosa_ai"
+                  radius="md"
+                  size="lg"
+                  variant="white"
+                  color="dark"
+                  style={{
+                    fontWeight: 700,
+                  }}
+                >
+                  Diagnosa AI
+                </Button>
+              </Group>
+            </Box>
+          </motion.div>
         </Container>
       </Box>
 
+      {/* KATEGORI */}
       <Container size="xl" py={70}>
         <Stack gap={40}>
           <Title
@@ -125,49 +201,89 @@ export default function BerandaPage() {
             Telusuri Kategori Terpopuler
           </Title>
 
-          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={36}>
-            {popularCategories.map((item) => (
-              <Anchor
-                key={item.title}
-                href={item.href}
-                underline="never"
-                style={{ color: "inherit" }}
-              >
-                <Stack align="center" gap={18}>
-                  <Box
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      maxWidth: 360,
-                      aspectRatio: "1.25 / 1",
-                    }}
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
+            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={36}>
+              {popularCategories.map((item) => (
+                <motion.div
+                  key={item.title}
+                  variants={fadeUp}
+                  whileHover={{
+                    y: -8,
+                  }}
+                >
+                  <Anchor
+                    href={item.href}
+                    underline="never"
+                    style={{ color: "inherit" }}
                   >
-                    <Image
-                      src={item.image}
-                      alt={item.title}
-                      fill
-                      sizes="180px"
-                      style={{ objectFit: "contain" }}
-                    />
-                  </Box>
+                    <Stack
+                      align="center"
+                      gap={18}
+                      style={{
+                        backgroundColor: "#FFFFFF",
+                        borderRadius: 24,
+                        padding: 24,
+                        border: "1px solid #ECECEC",
+                        transition: "all 0.3s ease",
+                      }}
+                    >
+                      <Box
+                        style={{
+                          position: "relative",
+                          width: "100%",
+                          maxWidth: 360,
+                          aspectRatio: "1.25 / 1",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <motion.div
+                          whileHover={{
+                            scale: 1.06,
+                          }}
+                          transition={{
+                            duration: 0.3,
+                          }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            position: "relative",
+                          }}
+                        >
+                          <Image
+                            src={item.image}
+                            alt={item.title}
+                            fill
+                            sizes="180px"
+                            style={{ objectFit: "contain" }}
+                          />
+                        </motion.div>
+                      </Box>
 
-                  <Text
-                    fw={800}
-                    ta="center"
-                    style={{
-                      fontSize: "clamp(28px, 2vw, 40px)",
-                      color: "#111111",
-                    }}
-                  >
-                    {item.title}
-                  </Text>
-                </Stack>
-              </Anchor>
-            ))}
-          </SimpleGrid>
+                      <Text
+                        fw={800}
+                        ta="center"
+                        style={{
+                          fontSize: "clamp(28px, 2vw, 40px)",
+                          color: "#111111",
+                        }}
+                      >
+                        {item.title}
+                      </Text>
+                    </Stack>
+                  </Anchor>
+                </motion.div>
+              ))}
+            </SimpleGrid>
+          </motion.div>
         </Stack>
       </Container>
 
+      {/* DVC CARDS */}
       <Container size="xl" py={50}>
         <Stack gap={36}>
           <Title
@@ -184,155 +300,196 @@ export default function BerandaPage() {
 
           <SimpleGrid cols={{ base: 1, lg: 2 }} spacing={28}>
             {dvcCards.map((card) => (
-              <Paper
+              <motion.div
                 key={card.title}
-                radius={34}
-                p={{ base: 24, md: 32 }}
-                shadow="sm"
-                style={{
-                  minHeight: 280,
-                  backgroundColor: card.background,
-                  border: card.bordered ? "1px solid rgba(0, 0, 0, 0.10)" : "none",
-                  overflow: "hidden",
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={fadeUp}
+                whileHover={{
+                  y: -8,
                 }}
               >
-                <Group
-                  align="stretch"
-                  justify="space-between"
-                  wrap="nowrap"
-                  style={{ height: "100%" }}
+                <Paper
+                  radius={34}
+                  p={{ base: 24, md: 32 }}
+                  shadow="sm"
+                  style={{
+                    minHeight: 280,
+                    backgroundColor: card.background,
+                    border: card.bordered
+                      ? "1px solid rgba(0, 0, 0, 0.10)"
+                      : "none",
+                    overflow: "hidden",
+                    transition: "all 0.3s ease",
+                  }}
                 >
-                  <Stack
+                  <Group
+                    align="stretch"
                     justify="space-between"
-                    gap={24}
-                    style={{ flex: 1, minWidth: 0 }}
+                    wrap="nowrap"
+                    style={{ height: "100%" }}
                   >
-                    <Box>
-                      <Text
-                        fw={800}
+                    <Stack
+                      justify="space-between"
+                      gap={24}
+                      style={{ flex: 1, minWidth: 0 }}
+                    >
+                      <Box>
+                        <Text
+                          fw={800}
+                          style={{
+                            fontSize: "clamp(24px, 2vw, 34px)",
+                            color: card.textColor,
+                            marginBottom: 14,
+                          }}
+                        >
+                          {card.title}
+                        </Text>
+
+                        <Text
+                          style={{
+                            fontSize: "clamp(18px, 1.5vw, 28px)",
+                            lineHeight: 1.4,
+                            color: card.textColor,
+                            opacity:
+                              card.title === "Diagnosa AI" ? 0.95 : 1,
+                          }}
+                        >
+                          {card.description}
+                        </Text>
+                      </Box>
+
+                      <Button
+                        component="a"
+                        href={card.href}
+                        radius="md"
+                        size="xl"
                         style={{
-                          fontSize: "clamp(24px, 2vw, 34px)",
-                          color: card.textColor,
-                          marginBottom: 14,
+                          width: 190,
+                          height: 56,
+                          backgroundColor: "#0D4CB5",
+                          fontSize: 20,
+                          fontWeight: 700,
                         }}
                       >
-                        {card.title}
-                      </Text>
+                        {card.buttonLabel}
+                      </Button>
+                    </Stack>
 
-                      <Text
-                        style={{
-                          fontSize: "clamp(18px, 1.5vw, 28px)",
-                          lineHeight: 1.4,
-                          color: card.textColor,
-                          opacity: card.title === "Diagnosa AI" ? 0.95 : 1,
-                        }}
-                      >
-                        {card.description}
-                      </Text>
-                    </Box>
-
-                    <Button
-                      component="a"
-                      href={card.href}
-                      radius="md"
-                      size="xl"
-                      style={{
-                        width: 190,
-                        height: 56,
-                        backgroundColor: "#0D4CB5",
-                        fontSize: 20,
-                        fontWeight: 700,
+                    <motion.div
+                      whileHover={{
+                        scale: 1.05,
+                      }}
+                      transition={{
+                        duration: 0.3,
                       }}
                     >
-                      {card.buttonLabel}
-                    </Button>
-                  </Stack>
-
-                  <Box
-                    visibleFrom="sm"
-                    style={{
-                      position: "relative",
-                      width: 180,
-                      minWidth: 180,
-                      alignSelf: "end",
-                      aspectRatio: "1 / 1",
-                    }}
-                  >
-                    <Image
-                      src={card.image}
-                      alt={card.title}
-                      fill
-                      style={{ objectFit: "contain" }}
-                    />
-                  </Box>
-                </Group>
-              </Paper>
+                      <Box
+                        visibleFrom="sm"
+                        style={{
+                          position: "relative",
+                          width: 180,
+                          minWidth: 180,
+                          alignSelf: "end",
+                          aspectRatio: "1 / 1",
+                        }}
+                      >
+                        <Image
+                          src={card.image}
+                          alt={card.title}
+                          fill
+                          style={{ objectFit: "contain" }}
+                        />
+                      </Box>
+                    </motion.div>
+                  </Group>
+                </Paper>
+              </motion.div>
             ))}
           </SimpleGrid>
         </Stack>
       </Container>
 
-      <Box bg="#A9C8EB" mt={30}>
-        <Container size="xl" py={44}>
-          <SimpleGrid cols={{ base: 1, lg: 2 }} spacing={24} verticalSpacing={24}>
-            <Stack justify="center" gap={18}>
-              <Title
-                order={2}
-                style={{
-                  fontSize: "clamp(28px, 2.5vw, 44px)",
-                  fontWeight: 800,
-                  color: "#111111",
-                }}
-              >
-                Drop Point untuk Kemudahan Servis
-              </Title>
-
-              <Text
-                c="white"
-                style={{
-                  fontSize: "clamp(18px, 1.55vw, 28px)",
-                  lineHeight: 1.5,
-                }}
-              >
-                Menyediakan informasi lokasi drop point untuk memudahkan pengguna dalam pengiriman perangkat servis secara efisien.
-              </Text>
-
-              <Button
-                component="a"
-                href="/drop-point"
-                radius="md"
-                size="xl"
-                style={{
-                  width: 160,
-                  height: 58,
-                  backgroundColor: "#0D4CB5",
-                  fontSize: 20,
-                  fontWeight: 700,
-                }}
-              >
-                Lihat
-              </Button>
-            </Stack>
-
-            <Box
-              style={{
-                position: "relative",
-                width: "100%",
-                minHeight: 280,
-              }}
+      {/* DROP POINT */}
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        variants={fadeUp}
+      >
+        <Box bg="#A9C8EB" mt={30}>
+          <Container size="xl" py={44}>
+            <SimpleGrid
+              cols={{ base: 1, lg: 2 }}
+              spacing={24}
+              verticalSpacing={24}
             >
-              <Image
-                src="/images/drop-point-section.png"
-                alt="Drop Point"
-                fill
-                sizes="(max-width: 62em) 100vw, 50vw"
-                style={{ objectFit: "contain", objectPosition: "center right" }}
-              />
-            </Box>
-          </SimpleGrid>
-        </Container>
-      </Box>
+              <Stack justify="center" gap={18}>
+                <Title
+                  order={2}
+                  style={{
+                    fontSize: "clamp(28px, 2.5vw, 44px)",
+                    fontWeight: 800,
+                    color: "#111111",
+                  }}
+                >
+                  Drop Point untuk Kemudahan Servis
+                </Title>
 
+                <Text
+                  c="white"
+                  style={{
+                    fontSize: "clamp(18px, 1.55vw, 28px)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Menyediakan informasi lokasi drop point untuk memudahkan
+                  pengguna dalam pengiriman perangkat servis secara efisien.
+                </Text>
+
+                <Button
+                  component="a"
+                  href="/drop-point"
+                  radius="md"
+                  size="xl"
+                  style={{
+                    width: 160,
+                    height: 58,
+                    backgroundColor: "#0D4CB5",
+                    fontSize: 20,
+                    fontWeight: 700,
+                  }}
+                >
+                  Lihat
+                </Button>
+              </Stack>
+
+              <Box
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  minHeight: 280,
+                }}
+              >
+                <Image
+                  src="/images/drop-point-section.png"
+                  alt="Drop Point"
+                  fill
+                  sizes="(max-width: 62em) 100vw, 50vw"
+                  style={{
+                    objectFit: "contain",
+                    objectPosition: "center right",
+                    filter: "drop-shadow(0 10px 25px rgba(0,0,0,0.10))",
+                  }}
+                />
+              </Box>
+            </SimpleGrid>
+          </Container>
+        </Box>
+      </motion.div>
+
+      {/* FOOTER TANPA ANIMASI */}
       <Box bg="#F5F5F5" pt={52}>
         <Container size="md">
           <Stack align="center" gap={14}>
@@ -375,6 +532,7 @@ export default function BerandaPage() {
               >
                 <IconBrandFacebook size={28} />
               </Anchor>
+
               <Anchor
                 href="#"
                 underline="never"
@@ -383,6 +541,7 @@ export default function BerandaPage() {
               >
                 <IconBrandInstagram size={28} />
               </Anchor>
+
               <Anchor
                 href="#"
                 underline="never"

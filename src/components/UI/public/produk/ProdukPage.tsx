@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -25,11 +24,35 @@ import {
   IconPhone,
   IconSearch,
 } from "@tabler/icons-react";
+import { motion } from "framer-motion";
 import {
   getPublicProdukListRequest,
   type PublicKategoriProduk,
   type PublicProdukItem,
 } from "@/lib/public/public-produk.client";
+
+const fadeUp = {
+  hidden: {
+    opacity: 0,
+    y: 40,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.7,
+    },
+  },
+};
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.15,
+    },
+  },
+};
 
 function formatRupiah(value: string | number) {
   const numberValue = Number(value);
@@ -60,74 +83,97 @@ function getProductImageSource(image: string | null) {
 
 function ProductCard({ item }: { item: PublicProdukItem }) {
   return (
-    <Anchor
-      href={`/produk/${item.slug}`}
-      underline="never"
-      style={{ color: "inherit" }}
+    <motion.div
+      variants={fadeUp}
+      whileHover={{
+        y: -8,
+      }}
+      transition={{
+        duration: 0.25,
+      }}
     >
-      <Paper
-        radius="md"
-        p="md"
-        bg="#E6E8EB"
-        shadow="xs"
-        style={{
-          minHeight: 220,
-          border: "1px solid rgba(0,0,0,0.04)",
-          cursor: "pointer",
-        }}
+      <Anchor
+        href={`/produk/${item.slug}`}
+        underline="never"
+        style={{ color: "inherit" }}
       >
-        <Stack align="center" justify="space-between" gap={10} h="100%">
-          <Text
-            ta="center"
-            fw={700}
-            c="#111111"
-            style={{
-              fontSize: 15,
-              lineHeight: 1.2,
-              minHeight: 36,
-            }}
-          >
-            {item.nama_barang}
-          </Text>
-
-          <Box
-            style={{
-              position: "relative",
-              width: "100%",
-              maxWidth: 180,
-              height: 110,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <img
-              src={getProductImageSource(item.gambar)}
-              alt={item.nama_barang}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-              }}
-            />
-          </Box>
-
-          <Stack gap={2} align="center">
+        <Paper
+          radius="xl"
+          p="lg"
+          bg="#FFFFFF"
+          shadow="sm"
+          style={{
+            minHeight: 260,
+            border: "1px solid rgba(0,0,0,0.06)",
+            cursor: "pointer",
+            overflow: "hidden",
+            transition: "all 0.3s ease",
+          }}
+        >
+          <Stack align="center" justify="space-between" gap={14} h="100%">
             <Text
               ta="center"
-              fw={800}
+              fw={700}
               c="#111111"
               style={{
-                fontSize: 18,
-                lineHeight: 1.2,
+                fontSize: 16,
+                lineHeight: 1.35,
+                minHeight: 42,
               }}
             >
-              {formatRupiah(item.harga)}
+              {item.nama_barang}
             </Text>
+
+            <Box
+              style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: 200,
+                height: 130,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+              }}
+            >
+              <motion.img
+                src={getProductImageSource(item.gambar)}
+                alt={item.nama_barang}
+                whileHover={{
+                  scale: 1.08,
+                }}
+                transition={{
+                  duration: 0.3,
+                }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                }}
+              />
+            </Box>
+
+            <Stack gap={4} align="center">
+              <Text
+                ta="center"
+                fw={800}
+                c="#0D4CB5"
+                style={{
+                  fontSize: 22,
+                  lineHeight: 1.2,
+                }}
+              >
+                {formatRupiah(item.harga)}
+              </Text>
+
+              <Text size="sm" c="dimmed" ta="center">
+                {item.kategori_barang?.nama_kategori ?? "Produk"}
+              </Text>
+            </Stack>
           </Stack>
-        </Stack>
-      </Paper>
-    </Anchor>
+        </Paper>
+      </Anchor>
+    </motion.div>
   );
 }
 
@@ -210,6 +256,7 @@ export default function ProdukPage() {
 
   return (
     <Box bg="#F5F5F5">
+      {/* SEARCH */}
       <Container size="xl" py={18}>
         <TextInput
           value={search}
@@ -220,15 +267,18 @@ export default function ProdukPage() {
           size="md"
           styles={{
             input: {
-              height: 48,
-              border: "2px solid #7B7B7B",
+              height: 52,
+              border: "2px solid #D9D9D9",
               backgroundColor: "#FFFFFF",
               fontSize: 15,
+              borderRadius: 14,
+              transition: "all 0.25s ease",
             },
           }}
         />
       </Container>
 
+      {/* HERO */}
       <Box
         style={{
           position: "relative",
@@ -236,6 +286,7 @@ export default function ProdukPage() {
           backgroundImage: "url('/images/hero-banner.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
+          overflow: "hidden",
         }}
       >
         <Box
@@ -243,7 +294,8 @@ export default function ProdukPage() {
             position: "absolute",
             inset: 0,
             background:
-              "linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.18) 45%, rgba(0,0,0,0.08) 100%)",
+              "linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.45) 45%, rgba(0,0,0,0.15) 100%)",
+            backdropFilter: "blur(2px)",
           }}
         />
 
@@ -257,21 +309,42 @@ export default function ProdukPage() {
             alignItems: "center",
           }}
         >
-          <Box maw={400}>
-            <Text
-              c="white"
-              style={{
-                fontSize: "clamp(24px, 2.3vw, 42px)",
-                lineHeight: 1.35,
-              }}
-            >
-              Buat tiket servis, cek kerusakan perangkat, dan pantau proses
-              perbaikan dengan praktis.
-            </Text>
-          </Box>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
+          >
+            <Box maw={520}>
+              <Text
+                c="white"
+                fw={700}
+                style={{
+                  fontSize: "clamp(30px, 3vw, 52px)",
+                  lineHeight: 1.25,
+                  textShadow: "0 4px 18px rgba(0,0,0,0.35)",
+                }}
+              >
+                Temukan Produk Komputer dan Perangkat Terbaik di DVC
+                SmartService
+              </Text>
+
+              <Text
+                mt={20}
+                c="rgba(255,255,255,0.88)"
+                style={{
+                  fontSize: "clamp(16px, 1.2vw, 22px)",
+                  lineHeight: 1.7,
+                }}
+              >
+                Cari berbagai kebutuhan perangkat komputer, aksesoris, dan
+                perlengkapan teknologi dengan mudah.
+              </Text>
+            </Box>
+          </motion.div>
         </Container>
       </Box>
 
+      {/* PRODUK */}
       <Container size="xl" py={34}>
         <Stack gap={28}>
           <Title
@@ -303,6 +376,7 @@ export default function ProdukPage() {
                   activeKategoriId === "semua"
                     ? "0 0 0 3px rgba(13, 76, 181, 0.15)"
                     : "none",
+                transition: "all 0.25s ease",
               }}
             >
               Semua
@@ -328,6 +402,7 @@ export default function ProdukPage() {
                     boxShadow: isActive
                       ? "0 0 0 3px rgba(13, 76, 181, 0.15)"
                       : "none",
+                    transition: "all 0.25s ease",
                   }}
                 >
                   {item.nama_kategori}
@@ -353,11 +428,21 @@ export default function ProdukPage() {
             </Paper>
           ) : (
             <>
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing={24}>
-                {filteredProducts.map((item) => (
-                  <ProductCard key={item.id} item={item} />
-                ))}
-              </SimpleGrid>
+              <motion.div
+                variants={staggerContainer}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+              >
+                <SimpleGrid
+                  cols={{ base: 1, sm: 2, lg: 4 }}
+                  spacing={24}
+                >
+                  {filteredProducts.map((item) => (
+                    <ProductCard key={item.id} item={item} />
+                  ))}
+                </SimpleGrid>
+              </motion.div>
 
               {filteredProducts.length === 0 && (
                 <Paper radius="md" p="xl" bg="#FFFFFF" ta="center">
@@ -371,6 +456,7 @@ export default function ProdukPage() {
         </Stack>
       </Container>
 
+      {/* FOOTER TANPA ANIMASI */}
       <Box bg="#F5F5F5" pt={72}>
         <Container size="md">
           <Stack align="center" gap={14}>
@@ -413,6 +499,7 @@ export default function ProdukPage() {
               >
                 <IconBrandFacebook size={28} />
               </Anchor>
+
               <Anchor
                 href="#"
                 underline="never"
@@ -421,6 +508,7 @@ export default function ProdukPage() {
               >
                 <IconBrandInstagram size={28} />
               </Anchor>
+
               <Anchor
                 href="#"
                 underline="never"
@@ -433,7 +521,12 @@ export default function ProdukPage() {
           </Stack>
         </Container>
 
-        <Box mt={46} py={18} bg="#0D3F8F" style={{ textAlign: "center" }}>
+        <Box
+          mt={46}
+          py={18}
+          bg="#0D3F8F"
+          style={{ textAlign: "center" }}
+        >
           <Text c="white" size="sm">
             © 2026 All rights reserved. DVC Smart Service
           </Text>

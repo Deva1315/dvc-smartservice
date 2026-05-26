@@ -23,6 +23,7 @@ import {
   IconPhone,
   IconSearch,
 } from "@tabler/icons-react";
+import { motion } from "framer-motion";
 import CustomTable, {
   type TableColumn,
 } from "@/components/table/custom-table-search/CustomTableSearch";
@@ -38,6 +39,20 @@ type LayananServisRow = Record<string, unknown> & {
   harga: string;
   harga_sort: number;
   jam_operasional: string | null;
+};
+
+const fadeUp = {
+  hidden: {
+    opacity: 0,
+    y: 40,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.7,
+    },
+  },
 };
 
 function formatRupiah(value: string | number) {
@@ -134,7 +149,7 @@ export default function LayananServisPage() {
       sortable: true,
       width: "36%",
       render: (row) => (
-        <Text fw={500} c="#111111" fz={18}>
+        <Text fw={600} c="#111111" fz={18}>
           {row.nama_jasa_servis}
         </Text>
       ),
@@ -144,7 +159,7 @@ export default function LayananServisPage() {
       label: "Deskripsi",
       width: "34%",
       render: (row) => (
-        <Text c="#374151" fz={17}>
+        <Text c="#374151" fz={16}>
           {row.deskripsi ?? "-"}
         </Text>
       ),
@@ -155,7 +170,7 @@ export default function LayananServisPage() {
       sortable: true,
       width: "15%",
       render: (row) => (
-        <Text fw={500} c="#111111" fz={18}>
+        <Text fw={700} c="#0D4CB5" fz={18}>
           {formatRupiah(row.harga)}
         </Text>
       ),
@@ -165,7 +180,7 @@ export default function LayananServisPage() {
       label: "Jam Operasional",
       width: "15%",
       render: (row) => (
-        <Text c="#374151" fz={17}>
+        <Text c="#374151" fz={16}>
           {row.jam_operasional ?? "-"}
         </Text>
       ),
@@ -174,97 +189,207 @@ export default function LayananServisPage() {
 
   return (
     <Box bg="#F5F5F5" mih="100vh">
-      <Container size="xl" py={48}>
-        <Stack gap={10} align="center">
-          <Title
-            order={1}
-            ta="center"
-            style={{
-              fontSize: "clamp(42px, 4vw, 64px)",
-              fontWeight: 900,
-              color: "#111111",
-            }}
-          >
-            Layanan Servis
-          </Title>
+      {/* HERO */}
+      <Box
+        style={{
+          position: "relative",
+          minHeight: 500,
+          backgroundImage: "url('/images/hero-banner.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          overflow: "hidden",
+        }}
+      >
+        <Box
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.45) 45%, rgba(0,0,0,0.15) 100%)",
+          }}
+        />
 
-          <Text
-            ta="center"
-            fw={700}
-            c="#7A7F87"
-            style={{
-              fontSize: "clamp(20px, 2vw, 34px)",
-            }}
+        <Container
+          size="xl"
+          style={{
+            position: "relative",
+            zIndex: 2,
+            minHeight: 500,
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
           >
-            Temukan Layanan Servis Yang Tersedia Di Toko Kami
-          </Text>
-        </Stack>
+            <Box maw={560}>
+              <Text
+                c="white"
+                fw={800}
+                style={{
+                  fontSize: "clamp(34px, 3vw, 56px)",
+                  lineHeight: 1.2,
+                  marginBottom: 18,
+                }}
+              >
+                Layanan Servis Profesional untuk Berbagai Perangkat
+              </Text>
 
-        <Container size="md" px={0} mt={22}>
-          <TextInput
-            value={search}
-            onChange={(event) => setSearch(event.currentTarget.value)}
-            placeholder="Search..."
-            leftSection={<IconSearch size={18} />}
-            radius="sm"
-            size="md"
-            styles={{
-              input: {
-                height: 48,
-                border: "2px solid #7B7B7B",
-                backgroundColor: "#FFFFFF",
-                fontSize: 15,
-              },
-            }}
-          />
+              <Text
+                c="rgba(255,255,255,0.88)"
+                style={{
+                  fontSize: "clamp(18px, 1.3vw, 24px)",
+                  lineHeight: 1.7,
+                }}
+              >
+                Temukan layanan servis komputer, laptop, printer, dan perangkat
+                lainnya dengan proses cepat dan transparan.
+              </Text>
+            </Box>
+          </motion.div>
         </Container>
+      </Box>
 
-        <Box mt={36}>
-          {errorMessage ? (
-            <Paper radius="md" p="xl" bg="#FFFFFF" ta="center">
-              <Text fw={600} c="red">
-                {errorMessage}
-              </Text>
-            </Paper>
-          ) : (
-            <CustomTable
-              data={filteredData}
-              columns={columns}
-              isLoading={isLoading}
-              searchable={false}
-              showFooter={false}
-              emptyText="Layanan servis tidak ditemukan"
+      {/* CONTENT */}
+      <Container size="xl" py={50}>
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeUp}
+        >
+          <Stack gap={10} align="center">
+            <Title
+              order={1}
+              ta="center"
+              style={{
+                fontSize: "clamp(42px, 4vw, 64px)",
+                fontWeight: 900,
+                color: "#111111",
+              }}
+            >
+              Layanan Servis
+            </Title>
+
+            <Text
+              ta="center"
+              fw={700}
+              c="#7A7F87"
+              style={{
+                fontSize: "clamp(20px, 2vw, 34px)",
+              }}
+            >
+              Temukan Layanan Servis Yang Tersedia Di Toko Kami
+            </Text>
+          </Stack>
+        </motion.div>
+
+        {/* SEARCH */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeUp}
+        >
+          <Container size="md" px={0} mt={28}>
+            <TextInput
+              value={search}
+              onChange={(event) => setSearch(event.currentTarget.value)}
+              placeholder="Search layanan servis..."
+              leftSection={<IconSearch size={18} />}
+              radius="md"
+              size="md"
+              styles={{
+                input: {
+                  height: 52,
+                  border: "2px solid #D9D9D9",
+                  backgroundColor: "#FFFFFF",
+                  fontSize: 15,
+                  borderRadius: 14,
+                  transition: "all 0.25s ease",
+                },
+              }}
             />
-          )}
+          </Container>
+        </motion.div>
 
-          {isLoading ? (
-            <Stack align="center" mt={18} gap={8}>
-              <Loader color="blue" size="sm" />
-              <Text size="sm" c="dimmed" fw={600}>
-                Memuat data layanan servis...
-              </Text>
-            </Stack>
-          ) : null}
-        </Box>
+        {/* TABLE */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeUp}
+        >
+          <Box mt={40}>
+            {errorMessage ? (
+              <Paper radius="xl" p="xl" bg="#FFFFFF" ta="center">
+                <Text fw={600} c="red">
+                  {errorMessage}
+                </Text>
+              </Paper>
+            ) : (
+              <Paper
+                radius="2xl"
+                shadow="sm"
+                p="md"
+                bg="#FFFFFF"
+                style={{
+                  overflow: "hidden",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                }}
+              >
+                <CustomTable
+                  data={filteredData}
+                  columns={columns}
+                  isLoading={isLoading}
+                  searchable={false}
+                  showFooter={false}
+                  emptyText="Layanan servis tidak ditemukan"
+                />
+              </Paper>
+            )}
 
-        <Group justify="center" mt={36}>
-          <Button
-            component="a"
-            href="/tiket_servis"
-            radius="md"
-            style={{
-              minWidth: 280,
-              height: 64,
-              backgroundColor: "#0D4CB5",
-              fontSize: 20,
-              fontWeight: 700,
-            }}
-          >
-            Buat Tiket Servis
-          </Button>
-        </Group>
+            {isLoading ? (
+              <Stack align="center" mt={18} gap={8}>
+                <Loader color="blue" size="sm" />
+                <Text size="sm" c="dimmed" fw={600}>
+                  Memuat data layanan servis...
+                </Text>
+              </Stack>
+            ) : null}
+          </Box>
+        </motion.div>
+
+        {/* BUTTON */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeUp}
+        >
+          <Group justify="center" mt={42}>
+            <Button
+              component="a"
+              href="/tiket_servis"
+              radius="xl"
+              style={{
+                minWidth: 280,
+                height: 64,
+                backgroundColor: "#0D4CB5",
+                fontSize: 20,
+                fontWeight: 700,
+                transition: "all 0.25s ease",
+              }}
+            >
+              Buat Tiket Servis
+            </Button>
+          </Group>
+        </motion.div>
       </Container>
 
+      {/* FOOTER TANPA ANIMASI */}
       <Box bg="#F5F5F5" pt={72}>
         <Container size="md">
           <Stack align="center" gap={14}>
@@ -307,6 +432,7 @@ export default function LayananServisPage() {
               >
                 <IconBrandFacebook size={28} />
               </Anchor>
+
               <Anchor
                 href="#"
                 underline="never"
@@ -315,6 +441,7 @@ export default function LayananServisPage() {
               >
                 <IconBrandInstagram size={28} />
               </Anchor>
+
               <Anchor
                 href="#"
                 underline="never"
@@ -327,7 +454,12 @@ export default function LayananServisPage() {
           </Stack>
         </Container>
 
-        <Box mt={46} py={18} bg="#0D3F8F" style={{ textAlign: "center" }}>
+        <Box
+          mt={46}
+          py={18}
+          bg="#0D3F8F"
+          style={{ textAlign: "center" }}
+        >
           <Text c="white" size="sm">
             © 2026 All rights reserved. DVC Smart Service
           </Text>

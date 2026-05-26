@@ -12,9 +12,15 @@ import {
   ThemeIcon,
   Title,
 } from "@mantine/core";
-import { IconAlertCircle, IconHome2, IconLogin2 } from "@tabler/icons-react";
+import {
+  IconAlertCircle,
+  IconArrowLeft,
+} from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
 
 export default function NotFoundPage() {
+  const router = useRouter();
+
   return (
     <Box
       style={{
@@ -84,47 +90,17 @@ export default function NotFoundPage() {
               </Text>
             </Stack>
 
-            <Paper
-              radius="lg"
-              p="md"
-              style={{
-                width: "100%",
-                backgroundColor: "#EEF4FF",
-                border: "1px solid #D6E5FF",
-              }}
-            >
-              <Text ta="center" c="#2F63B8" fw={600}>
-                Periksa kembali alamat halaman atau kembali ke halaman utama DVC
-                SmartService
-              </Text>
-            </Paper>
-
             <Group justify="center" gap="md" mt={8}>
               <Button
-                component="a"
-                href="/"
+                onClick={() => router.back()}
                 radius="md"
-                leftSection={<IconHome2 size={18} />}
+                leftSection={<IconArrowLeft size={18} />}
                 style={{
                   backgroundColor: "#2F63B8",
                   minWidth: 180,
                 }}
               >
-                Kembali ke Beranda
-              </Button>
-
-              <Button
-                component="a"
-                href="/login"
-                radius="md"
-                variant="outline"
-                color="blue"
-                leftSection={<IconLogin2 size={18} />}
-                style={{
-                  minWidth: 160,
-                }}
-              >
-                Login
+                Kembali
               </Button>
             </Group>
 

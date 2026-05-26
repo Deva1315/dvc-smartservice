@@ -23,16 +23,20 @@ import {
   IconMapPin,
   IconPhone,
 } from "@tabler/icons-react";
+import { motion } from "framer-motion";
+
 import type { FormType } from "@/types/form-types";
 import CustomTableSearch, {
   type TableColumn,
 } from "@/components/table/custom-table-search/CustomTableSearch";
+
 import TiketServisFormModal, {
   type TicketDropPointOption,
   type TicketRow,
   type TicketStatusServis,
   type TicketStatusVerifikasi,
 } from "@/components/UI/public/form/TiketServisFormModal";
+
 import {
   createPublicTiketServisRequest,
   getPublicTiketServisListRequest,
@@ -41,12 +45,16 @@ import {
   type PublicTicketRow,
   type PublicTicketStatusServis,
 } from "@/lib/public/public-tiket-servis.client";
+
 import { getPublicDropPointListRequest } from "@/lib/public/public-drop-point.client";
+
+const MotionDiv = motion.div;
 
 function formatTanggalIndonesia(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const year = date.getFullYear();
+
   return `${day}/${month}/${year}`;
 }
 
@@ -119,12 +127,17 @@ export default function TiketServisPage() {
   const [opened, setOpened] = useState(false);
   const [formType, setFormType] = useState<FormType>("create");
   const [selectedTicket, setSelectedTicket] = useState<TicketRow | null>(null);
+
   const [tickets, setTickets] = useState<TicketRow[]>([]);
-  const [dropPointOptions, setDropPointOptions] = useState<TicketDropPointOption[]>([]);
+  const [dropPointOptions, setDropPointOptions] = useState<
+    TicketDropPointOption[]
+  >([]);
+
   const [isLoading, setIsLoading] = useState(false);
 
-const [nomorTiket, setNomorTiket] = useState("");
-const tanggalMasuk = useMemo(() => new Date(), []);
+  const [nomorTiket, setNomorTiket] = useState("");
+
+  const tanggalMasuk = useMemo(() => new Date(), []);
 
   useEffect(() => {
     void loadInitialData();
@@ -156,47 +169,51 @@ const tanggalMasuk = useMemo(() => new Date(), []);
           color: "red",
         });
       } else {
-setDropPointOptions(
-  dropPointResult.dropPoints.map((item) => ({
-    value: item.id,
-    label: item.nama_drop_point,
-    originalLabel: item.nama_drop_point,
-    alamat: item.alamat,
-    jarakKm: null,
-    jarakLabel: null,
-  }))
-);
+        setDropPointOptions(
+          dropPointResult.dropPoints.map((item) => ({
+            value: item.id,
+            label: item.nama_drop_point,
+            originalLabel: item.nama_drop_point,
+            alamat: item.alamat,
+            jarakKm: null,
+            jarakLabel: null,
+          }))
+        );
       }
     } finally {
       setIsLoading(false);
     }
   }
-async function prepareNomorTiket(date = new Date()) {
-  setNomorTiket("");
 
-  const result = await getTiketServisNomorRequest({
-    tanggal_masuk: date.toISOString(),
-  });
+  async function prepareNomorTiket(date = new Date()) {
+    setNomorTiket("");
 
-  if (!result.success) {
-    notifications.show({
-      title: "Gagal",
-      message: result.message,
-      color: "red",
+    const result = await getTiketServisNomorRequest({
+      tanggal_masuk: date.toISOString(),
     });
-    return;
+
+    if (!result.success) {
+      notifications.show({
+        title: "Gagal",
+        message: result.message,
+        color: "red",
+      });
+
+      return;
+    }
+
+    setNomorTiket(result.nomor_tiket);
   }
 
-  setNomorTiket(result.nomor_tiket);
-}
-const handleOpenCreate = () => {
-  const now = new Date();
+  const handleOpenCreate = () => {
+    const now = new Date();
 
-  setFormType("create");
-  setSelectedTicket(null);
-  setOpened(true);
-  void prepareNomorTiket(now);
-};
+    setFormType("create");
+    setSelectedTicket(null);
+    setOpened(true);
+
+    void prepareNomorTiket(now);
+  };
 
   const handleOpenEdit = (ticket: TicketRow) => {
     setFormType("edit");
@@ -208,18 +225,20 @@ const handleOpenCreate = () => {
     ticket: TicketRow,
     type: FormType
   ): Promise<boolean> {
-const payload = {
-  nomor_tiket: ticket.nomor_tiket,
-  tanggal_masuk: ticket.tanggal_masuk.toISOString(),
-  nama_cust: ticket.nama_cust,
-  phone_cust: ticket.phone_cust,
-  alamat_cust: ticket.alamat_cust || null,
-  jenis_perangkat: ticket.jenis_perangkat,
-  merk_perangkat: ticket.merk_perangkat || null,
-  keluhan: ticket.keluhan,
-  gunakan_drop_point: ticket.gunakan_drop_point,
-  drop_point_id: ticket.gunakan_drop_point ? ticket.drop_point_id : null,
-};
+    const payload = {
+      nomor_tiket: ticket.nomor_tiket,
+      tanggal_masuk: ticket.tanggal_masuk.toISOString(),
+      nama_cust: ticket.nama_cust,
+      phone_cust: ticket.phone_cust,
+      alamat_cust: ticket.alamat_cust || null,
+      jenis_perangkat: ticket.jenis_perangkat,
+      merk_perangkat: ticket.merk_perangkat || null,
+      keluhan: ticket.keluhan,
+      gunakan_drop_point: ticket.gunakan_drop_point,
+      drop_point_id: ticket.gunakan_drop_point
+        ? ticket.drop_point_id
+        : null,
+    };
 
     if (type === "create") {
       const result = await createPublicTiketServisRequest(payload);
@@ -230,6 +249,7 @@ const payload = {
           message: result.message,
           color: "red",
         });
+
         return false;
       }
 
@@ -244,7 +264,10 @@ const payload = {
       return true;
     }
 
-    const result = await updatePublicTiketServisRequest(ticket.nomor_tiket, payload);
+    const result = await updatePublicTiketServisRequest(
+      ticket.nomor_tiket,
+      payload
+    );
 
     if (!result.success) {
       notifications.show({
@@ -252,6 +275,7 @@ const payload = {
         message: result.message,
         color: "red",
       });
+
       return false;
     }
 
@@ -394,62 +418,84 @@ const payload = {
   return (
     <Box bg="#F5F5F5" mih="100vh">
       <Container size="lg" py={44}>
-        <Stack gap={10} align="center">
-          <Title
-            order={1}
-            ta="center"
-            style={{
-              fontSize: "clamp(42px, 4vw, 64px)",
-              fontWeight: 900,
-              color: "#111111",
-            }}
-          >
-            Tiket Servis
-          </Title>
+        <MotionDiv
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+        >
+          <Stack gap={10} align="center">
+            <Title
+              order={1}
+              ta="center"
+              style={{
+                fontSize: "clamp(42px, 4vw, 64px)",
+                fontWeight: 900,
+                color: "#111111",
+              }}
+            >
+              Tiket Servis
+            </Title>
 
-          <Text
-            ta="center"
-            fw={700}
-            c="#7A7F87"
-            style={{
-              fontSize: "clamp(20px, 2vw, 34px)",
-            }}
-          >
-            Lihat tiket yang telah dibuat atau buat tiket servis baru
-          </Text>
-        </Stack>
+            <Text
+              ta="center"
+              fw={700}
+              c="#7A7F87"
+              style={{
+                fontSize: "clamp(20px, 2vw, 34px)",
+              }}
+            >
+              Lihat tiket yang telah dibuat atau buat tiket servis baru
+            </Text>
+          </Stack>
+        </MotionDiv>
 
-        <Group justify="center" mt={28}>
-          <Button
-            onClick={handleOpenCreate}
-            radius="md"
-            style={{
-              minWidth: 260,
-              height: 58,
-              backgroundColor: "#0D4CB5",
-              fontSize: 20,
-              fontWeight: 700,
-            }}
-          >
-            Buat Tiket Servis
-          </Button>
-        </Group>
+        <MotionDiv
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+        >
+          <Group justify="center" mt={28}>
+            <Button
+              onClick={handleOpenCreate}
+              radius="md"
+              style={{
+                minWidth: 260,
+                height: 58,
+                backgroundColor: "#0D4CB5",
+                fontSize: 20,
+                fontWeight: 700,
+              }}
+            >
+              Buat Tiket Servis
+            </Button>
+          </Group>
+        </MotionDiv>
 
-        <Stack mt={36} gap={18}>
-          <Title order={2} fw={800} c="#111111" ta="center">
-            Tiket Yang Sudah Dibuat
-          </Title>
+        <MotionDiv
+          initial={{ opacity: 0, y: 45 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <Box mt={36}>
+            <Stack gap={18}>
+              <Title order={2} fw={800} c="#111111" ta="center">
+                Tiket Yang Sudah Dibuat
+              </Title>
 
-          <CustomTableSearch
-            data={tickets}
-            columns={columns}
-            searchable
-            isLoading={isLoading}
-            searchPlaceholder="Cari nomor tiket atau nama customer..."
-            showFooter={false}
-            emptyText="Belum ada tiket yang dibuat"
-          />
-        </Stack>
+              <CustomTableSearch
+                data={tickets}
+                columns={columns}
+                searchable
+                isLoading={isLoading}
+                searchPlaceholder="Cari nomor tiket atau nama customer..."
+                showFooter={false}
+                emptyText="Belum ada tiket yang dibuat"
+              />
+            </Stack>
+          </Box>
+        </MotionDiv>
       </Container>
 
       <TiketServisFormModal
@@ -463,6 +509,7 @@ const payload = {
         onSubmit={handleSubmitTicket}
       />
 
+      {/* FOOTER TANPA ANIMASI */}
       <Box bg="#F5F5F5" pt={40}>
         <Container size="md">
           <Stack align="center" gap={14}>
@@ -497,20 +544,44 @@ const payload = {
             </Group>
 
             <Group gap={14} justify="center" mt={6}>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Facebook">
+              <Anchor
+                href="#"
+                underline="never"
+                c="#111111"
+                aria-label="Facebook"
+              >
                 <IconBrandFacebook size={28} />
               </Anchor>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Instagram">
+
+              <Anchor
+                href="#"
+                underline="never"
+                c="#111111"
+                aria-label="Instagram"
+              >
                 <IconBrandInstagram size={28} />
               </Anchor>
-              <Anchor href="#" underline="never" c="#111111" aria-label="Twitter">
+
+              <Anchor
+                href="#"
+                underline="never"
+                c="#111111"
+                aria-label="Twitter"
+              >
                 <IconBrandTwitter size={28} />
               </Anchor>
             </Group>
           </Stack>
         </Container>
 
-        <Box mt={46} py={18} bg="#0D3F8F" style={{ textAlign: "center" }}>
+        <Box
+          mt={46}
+          py={18}
+          bg="#0D3F8F"
+          style={{
+            textAlign: "center",
+          }}
+        >
           <Text c="white" size="sm">
             © 2026 All rights reserved. DVC Smart Service
           </Text>

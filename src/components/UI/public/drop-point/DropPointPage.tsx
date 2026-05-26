@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import {
   Box,
   Button,
@@ -28,6 +29,8 @@ import {
   generateDropPointSlug,
   type DropPointRow,
 } from "@/utils/public/public-drop-point.utils";
+
+const MotionDiv = motion.div;
 
 type DropPointCardProps = {
   item: DropPointRow;
@@ -213,17 +216,24 @@ export default function DropPointPage() {
     });
   }, [search, dropPoints]);
 
-  return (
-    <Box
-      style={{
-        backgroundColor: "#EFEFEF",
-        minHeight: "calc(100vh - 90px)",
-      }}
-      pt={{ base: 46, md: 58 }}
-      pb={{ base: 70, md: 90 }}
-    >
-      <Container size={1080}>
-        <Stack align="center" gap={0}>
+return (
+  <Box
+    style={{
+      backgroundColor: "#EFEFEF",
+      minHeight: "calc(100vh - 90px)",
+    }}
+    pt={{ base: 46, md: 58 }}
+    pb={{ base: 70, md: 90 }}
+  >
+    <Container size={1080}>
+      <Stack align="center" gap={0}>
+        {/* HERO */}
+        <MotionDiv
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          style={{ width: "100%" }}
+        >
           <Title
             order={1}
             ta="center"
@@ -252,8 +262,20 @@ export default function DropPointPage() {
           >
             Temukan Lokasi Drop Point Yang Tersedia Dari Kami
           </Text>
+        </MotionDiv>
 
-          <Box w="100%" maw={720} mb={34}>
+        {/* SEARCH */}
+        <MotionDiv
+          initial={{ opacity: 0, y: 35 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9 }}
+          style={{
+            width: "100%",
+            maxWidth: 720,
+            marginBottom: 34,
+          }}
+        >
+          <Box w="100%" maw={720}>
             <TextInput
               value={search}
               onChange={(event) => setSearch(event.currentTarget.value)}
@@ -271,9 +293,16 @@ export default function DropPointPage() {
               }}
             />
           </Box>
+        </MotionDiv>
 
-          <Stack w="100%" maw={920} gap={36}>
-            {isLoading ? (
+        {/* CONTENT */}
+        <Stack w="100%" maw={920} gap={36}>
+          {isLoading ? (
+            <MotionDiv
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
               <Paper
                 radius={20}
                 px={24}
@@ -285,6 +314,7 @@ export default function DropPointPage() {
               >
                 <Stack align="center" gap={12}>
                   <Loader color="blue" />
+
                   <Text
                     ta="center"
                     c="#6B7280"
@@ -297,11 +327,28 @@ export default function DropPointPage() {
                   </Text>
                 </Stack>
               </Paper>
-            ) : filteredDropPoints.length > 0 ? (
-              filteredDropPoints.map((item) => (
-                <DropPointCard key={item.id} item={item} />
-              ))
-            ) : (
+            </MotionDiv>
+          ) : filteredDropPoints.length > 0 ? (
+            filteredDropPoints.map((item, index) => (
+              <MotionDiv
+                key={item.id}
+                initial={{ opacity: 0, y: 45 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{
+                  duration: 0.6,
+                  delay: index * 0.12,
+                }}
+              >
+                <DropPointCard item={item} />
+              </MotionDiv>
+            ))
+          ) : (
+            <MotionDiv
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+            >
               <Paper
                 radius={20}
                 px={24}
@@ -322,10 +369,11 @@ export default function DropPointPage() {
                   Drop point tidak ditemukan.
                 </Text>
               </Paper>
-            )}
-          </Stack>
+            </MotionDiv>
+          )}
         </Stack>
-      </Container>
-    </Box>
-  );
+      </Stack>
+    </Container>
+  </Box>
+);
 }
