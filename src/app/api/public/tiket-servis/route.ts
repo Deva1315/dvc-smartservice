@@ -205,7 +205,7 @@ export async function POST(request: Request) {
                 tanggal_masuk: new Date(tanggalMasukRaw),
                 nama_cust,
                 phone_cust,
-                alamat_cust: alamat_cust || null,
+                alamat_cust: alamat_cust ?? undefined,
                 jenis_perangkat,
                 merk_perangkat: merk_perangkat || null,
                 keluhan,

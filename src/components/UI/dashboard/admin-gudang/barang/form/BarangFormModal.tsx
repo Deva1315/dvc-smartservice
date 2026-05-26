@@ -30,6 +30,7 @@ export type BarangFormInitialData = {
   stok: number;
   harga: number;
   kategori: string;
+  supplier: string;
   deskripsi: string | null;
   foto: string | null;
 };
@@ -41,6 +42,7 @@ export type BarangFormPayload = {
   stok: number;
   harga: number;
   kategori: string;
+  supplier: string;
   deskripsi: string | null;
   fotoBase64: string | null;
 };
@@ -51,6 +53,7 @@ type BarangFormModalProps = {
   formType: FormType;
   initialData: BarangFormInitialData | null;
   kategoriOptions: { value: string; label: string }[];
+  supplierOptions: { value: string; label: string }[];
   onSubmit: (
     payload: BarangFormPayload,
     formType: FormType
@@ -65,6 +68,7 @@ type BarangFormState = {
   stok: number;
   harga: number;
   kategori: string | null;
+  supplier: string | null;
   deskripsi: string;
   fotoBase64: string | null;
 };
@@ -76,6 +80,7 @@ const initialFormState: BarangFormState = {
   stok: 0,
   harga: 0,
   kategori: null,
+  supplier: null,
   deskripsi: "",
   fotoBase64: null,
 };
@@ -128,6 +133,7 @@ export default function BarangFormModal({
   formType,
   initialData,
   kategoriOptions,
+  supplierOptions,
   onSubmit,
   isSubmitting = false,
 }: BarangFormModalProps) {
@@ -146,6 +152,7 @@ export default function BarangFormModal({
         stok: initialData.stok,
         harga: initialData.harga,
         kategori: initialData.kategori,
+        supplier: initialData.supplier,
         deskripsi: initialData.deskripsi ?? "",
         fotoBase64: initialData.foto,
       });
@@ -277,6 +284,7 @@ export default function BarangFormModal({
           stok: validated.stok,
           harga: validated.harga,
           kategori: validated.kategori,
+          supplier: validated.supplier,
           deskripsi: validated.deskripsi ?? null,
           fotoBase64: validated.fotoBase64 ?? null,
         },
@@ -495,6 +503,41 @@ export default function BarangFormModal({
                     input: {
                       backgroundColor: "#FFFFFF",
                       border: errors.kategori ? "1px solid #FA5252" : "none",
+                      height: 58,
+                      fontSize: 18,
+                      color: "#111111",
+                    },
+                    dropdown: {
+                      backgroundColor: "#FFFFFF",
+                    },
+                    option: {
+                      color: "#111111",
+                      fontSize: 16,
+                    },
+                    error: {
+                      fontSize: 14,
+                      marginTop: 6,
+                    },
+                  }}
+                />
+              </Stack>
+
+              <Stack gap={8} style={{ maxWidth: 360 }}>
+                <Label text="Supplier" required />
+
+                <Select
+                  value={form.supplier}
+                  onChange={(value) => handleChange("supplier", value)}
+                  data={supplierOptions}
+                  radius="md"
+                  placeholder="Pilih supplier"
+                  searchable
+                  disabled={isSubmitting}
+                  error={errors.supplier}
+                  styles={{
+                    input: {
+                      backgroundColor: "#FFFFFF",
+                      border: errors.supplier ? "1px solid #FA5252" : "none",
                       height: 58,
                       fontSize: 18,
                       color: "#111111",

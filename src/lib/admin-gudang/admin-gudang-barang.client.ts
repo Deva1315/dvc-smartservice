@@ -1,6 +1,7 @@
 export type BarangApiItem = {
   id: string;
   id_kategori: string;
+  id_supplier: string;
   nama_barang: string;
   kode_barang: string;
   merk_barang: string | null;
@@ -13,10 +14,17 @@ export type BarangApiItem = {
     nama_kategori: string;
     deskripsi: string | null;
   };
+  suppliers?: {
+    id: string;
+    nama_supplier: string;
+    alamat: string | null;
+    phone: string | null;
+  };
 };
 
 export type BarangPayload = {
   id_kategori: string;
+  id_supplier: string;
   nama_barang: string;
   kode_barang: string;
   merk_barang?: string | null;

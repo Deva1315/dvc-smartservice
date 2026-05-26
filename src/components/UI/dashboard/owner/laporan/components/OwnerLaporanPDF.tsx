@@ -1,9 +1,11 @@
+/* eslint-disable jsx-a11y/alt-text */
 import {
   Document,
   Page,
   Text,
   View,
   StyleSheet,
+  Image,
 } from "@react-pdf/renderer";
 import type { PeriodeLaporan } from "@/lib/owner/owner-laporan.client";
 
@@ -22,10 +24,11 @@ type OwnerLaporanPDFProps = {
   summary: Record<string, unknown> | null;
 };
 
+const LOGO_DVC_PATH = "/Images/logo-dvc.png";
+
 function getPeriodeLabel(periode: PeriodeLaporan) {
   const labels: Record<PeriodeLaporan, string> = {
     harian: "Harian",
-    mingguan: "Mingguan",
     bulanan: "Bulanan",
     tahunan: "Tahunan",
   };
@@ -137,7 +140,16 @@ export default function OwnerLaporanPDF({
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.header} fixed>
-          <Text style={styles.companyName}>DVC SmartService</Text>
+          <View style={styles.brandWrapper}>
+            <Image src={LOGO_DVC_PATH} style={styles.logo} />
+            <View style={styles.brandTextWrapper}>
+              <Text style={styles.companyName}>DVC Komputer</Text>
+              <Text style={styles.companyAddress}>
+                Jl. Ciung Wanara No. 99X, Sukawati
+              </Text>
+            </View>
+          </View>
+
           <Text style={styles.title}>{title}</Text>
 
           <View style={styles.metaWrapper}>
@@ -148,7 +160,9 @@ export default function OwnerLaporanPDF({
 
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Tanggal Filter</Text>
-              <Text style={styles.metaValue}>{formatDateIndonesian(tanggal)}</Text>
+              <Text style={styles.metaValue}>
+                {formatDateIndonesian(tanggal)}
+              </Text>
             </View>
 
             <View style={styles.metaItem}>
@@ -171,7 +185,11 @@ export default function OwnerLaporanPDF({
 
           {rows.length > 0 ? (
             rows.map((row, index) => (
-              <View key={`${row.id || index}`} style={styles.tableRow} wrap={false}>
+              <View
+                key={`${row.id || index}`}
+                style={styles.tableRow}
+                wrap={false}
+              >
                 <Text style={[styles.td, styles.noColumn]}>{index + 1}</Text>
 
                 {columns.map((column) => (
@@ -230,10 +248,28 @@ const styles = StyleSheet.create({
     borderBottomColor: "#D1D5DB",
     paddingBottom: 10,
   },
+  brandWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  logo: {
+    width: 42,
+    height: 42,
+    objectFit: "contain",
+    marginRight: 10,
+  },
+  brandTextWrapper: {
+    flexDirection: "column",
+  },
   companyName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 700,
-    marginBottom: 4,
+    marginBottom: 2,
+  },
+  companyAddress: {
+    fontSize: 8,
+    color: "#4B5563",
   },
   title: {
     fontSize: 16,

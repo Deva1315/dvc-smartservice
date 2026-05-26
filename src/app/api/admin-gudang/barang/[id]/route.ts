@@ -32,7 +32,13 @@ function parsePositiveBigInt(value: unknown, fieldName: string) {
     throw new Error(`${fieldName} harus berupa angka`);
   }
 
-  return BigInt(stringValue);
+  const parsed = BigInt(stringValue);
+
+  if (parsed <= BigInt(0)) {
+    throw new Error(`${fieldName} tidak valid`);
+  }
+
+  return parsed;
 }
 
 function parseDecimalNumber(value: unknown, fieldName: string) {
@@ -65,6 +71,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       },
       include: {
         kategori_barang: true,
+        suppliers: true,
         _count: {
           select: {
             detail_stock_mutasi: true,
@@ -110,6 +117,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const idBarang = BigInt(id);
     const idKategori = parsePositiveBigInt(body.id_kategori, "Kategori barang");
+    const idSupplier = parsePositiveBigInt(body.id_supplier, "Supplier");
     const namaBarang = body.nama_barang?.trim();
     const kodeBarang = body.kode_barang?.trim();
     const merkBarang = body.merk_barang?.trim() || null;
@@ -156,17 +164,34 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const kategori = await prisma.kategori_barang.findUnique({
-      where: {
-        id: idKategori,
-      },
-    });
+    const [kategori, supplier] = await Promise.all([
+      prisma.kategori_barang.findUnique({
+        where: {
+          id: idKategori,
+        },
+      }),
+      prisma.suppliers.findUnique({
+        where: {
+          id: idSupplier,
+        },
+      }),
+    ]);
 
     if (!kategori) {
       return NextResponse.json(
         {
           success: false,
           message: "Kategori barang tidak ditemukan",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (!supplier) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Supplier tidak ditemukan",
         },
         { status: 404 }
       );
@@ -197,6 +222,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       },
       data: {
         id_kategori: idKategori,
+        id_supplier: idSupplier,
         nama_barang: namaBarang,
         kode_barang: kodeBarang,
         merk_barang: merkBarang,
@@ -207,6 +233,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       },
       include: {
         kategori_barang: true,
+        suppliers: true,
       },
     });
 

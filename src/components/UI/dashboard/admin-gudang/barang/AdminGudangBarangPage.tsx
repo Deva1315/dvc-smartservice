@@ -28,17 +28,23 @@ import {
   getKategoriBarang,
   type KategoriBarang,
 } from "@/lib/admin-gudang/admin-gudang-kategori-barang.client";
+import {
+  getSuppliers,
+  type SupplierApiItem,
+} from "@/lib/admin-gudang/admin-gudang-suppliers.client";
 import { formatCurrency } from "@/utils/currency-format/format-currency";
 
 type BarangRow = {
   id: string;
   idKategori: string;
+  idSupplier: string;
   nama: string;
   kode: string;
   merk: string;
   stok: number;
   harga: number;
   kategori: string;
+  supplier: string;
   deskripsi: string | null;
   foto: string | null;
 };
@@ -48,16 +54,23 @@ type KategoriOption = {
   label: string;
 };
 
+type SupplierOption = {
+  value: string;
+  label: string;
+};
+
 function mapBarang(data: BarangApiItem[]): BarangRow[] {
   return data.map((item) => ({
     id: item.id,
     idKategori: item.id_kategori,
+    idSupplier: item.id_supplier,
     nama: item.nama_barang,
     kode: item.kode_barang,
     merk: item.merk_barang || "-",
     stok: Number(item.stock || 0),
     harga: Number(item.harga || 0),
     kategori: item.kategori_barang?.nama_kategori || "-",
+    supplier: item.suppliers?.nama_supplier || "-",
     deskripsi: item.deskripsi,
     foto: item.gambar,
   }));
@@ -70,9 +83,17 @@ function mapKategoriOptions(data: KategoriBarang[]): KategoriOption[] {
   }));
 }
 
+function mapSupplierOptions(data: SupplierApiItem[]): SupplierOption[] {
+  return data.map((item) => ({
+    value: item.id,
+    label: item.nama_supplier,
+  }));
+}
+
 export default function AdminGudangBarangPage() {
   const [barang, setBarang] = useState<BarangRow[]>([]);
   const [kategoriOptions, setKategoriOptions] = useState<KategoriOption[]>([]);
+  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
   const [openedForm, setOpenedForm] = useState(false);
   const [openedDetail, setOpenedDetail] = useState(false);
   const [formType, setFormType] = useState<FormType>("create");
@@ -118,9 +139,26 @@ export default function AdminGudangBarangPage() {
     }
   }
 
+  async function fetchSupplierOptions() {
+    try {
+      const result = await getSuppliers();
+      setSupplierOptions(mapSupplierOptions(result.data || []));
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data supplier.",
+        color: "red",
+      });
+    }
+  }
+
   useEffect(() => {
     fetchBarang();
     fetchKategoriOptions();
+    fetchSupplierOptions();
   }, []);
 
   function handleTambahBarang() {
@@ -139,6 +177,7 @@ export default function AdminGudangBarangPage() {
       stok: row.stok,
       harga: row.harga,
       kategori: row.idKategori,
+      supplier: row.idSupplier,
       deskripsi: row.deskripsi,
       foto: row.foto,
     });
@@ -207,6 +246,7 @@ export default function AdminGudangBarangPage() {
 
       const requestPayload = {
         id_kategori: payload.kategori,
+        id_supplier: payload.supplier,
         nama_barang: payload.nama,
         kode_barang: payload.kode,
         merk_barang: payload.merk,
@@ -317,6 +357,17 @@ export default function AdminGudangBarangPage() {
       ),
     },
     {
+      key: "supplier",
+      label: "Supplier",
+      sortable: true,
+      width: "14%",
+      render: (row) => (
+        <Text fz={17} c="#222222">
+          {row.supplier}
+        </Text>
+      ),
+    },
+    {
       key: "stok",
       label: "Stok",
       sortable: true,
@@ -417,6 +468,7 @@ export default function AdminGudangBarangPage() {
         formType={formType}
         initialData={selectedBarang}
         kategoriOptions={kategoriOptions}
+        supplierOptions={supplierOptions}
         onSubmit={handleSubmitBarang}
         isSubmitting={isSubmitting}
       />

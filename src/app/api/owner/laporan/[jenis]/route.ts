@@ -413,33 +413,149 @@ async function getLaporanServis(startDate: Date, endDate: Date) {
   };
 }
 
-async function getLaporanStockBarang() {
-  const data = await prisma.barang.findMany({
-    orderBy: {
-      nama_barang: "asc",
-    },
-    include: {
-      kategori_barang: true,
-    },
-  });
+async function getLaporanStockBarang(startDate: Date, endDate: Date) {
+  const [barangData, mutasiPeriode, mutasiSetelahPeriode] = await Promise.all([
+    prisma.barang.findMany({
+      orderBy: {
+        nama_barang: "asc",
+      },
+      include: {
+        kategori_barang: true,
+      },
+    }),
 
-  const rows = data.map((item) => ({
-    id: `LSB-${item.id.toString()}`,
-    id_barang: item.id,
-    kode_barang: item.kode_barang,
-    nama_barang: item.nama_barang,
-    kategori: item.kategori_barang.nama_kategori,
-    stok: toNumber(item.stock),
-    status: getStatusStock(item.stock),
-    harga: item.harga,
-    harga_display: formatCurrency(item.harga),
-  }));
+    prisma.detail_stock_mutasi.findMany({
+      where: {
+        id_barang: {
+          not: null,
+        },
+        stock_mutasi: {
+          tanggal_mutasi: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+      },
+      include: {
+        stock_mutasi: true,
+      },
+    }),
+
+    prisma.detail_stock_mutasi.findMany({
+      where: {
+        id_barang: {
+          not: null,
+        },
+        stock_mutasi: {
+          tanggal_mutasi: {
+            gte: endDate,
+          },
+        },
+      },
+      include: {
+        stock_mutasi: true,
+      },
+    }),
+  ]);
+
+  const masukPeriodeMap = new Map<string, number>();
+  const keluarPeriodeMap = new Map<string, number>();
+  const masukSetelahPeriodeMap = new Map<string, number>();
+  const keluarSetelahPeriodeMap = new Map<string, number>();
+
+  for (const detail of mutasiPeriode) {
+    if (!detail.id_barang) continue;
+
+    const barangId = detail.id_barang.toString();
+    const jumlah = toNumber(detail.jumlah);
+    const jenisMutasi = detail.stock_mutasi.jenis_mutasi.trim().toLowerCase();
+
+    if (jenisMutasi === "barang masuk") {
+      masukPeriodeMap.set(
+        barangId,
+        (masukPeriodeMap.get(barangId) || 0) + jumlah
+      );
+    }
+
+    if (jenisMutasi === "barang keluar") {
+      keluarPeriodeMap.set(
+        barangId,
+        (keluarPeriodeMap.get(barangId) || 0) + jumlah
+      );
+    }
+  }
+
+  for (const detail of mutasiSetelahPeriode) {
+    if (!detail.id_barang) continue;
+
+    const barangId = detail.id_barang.toString();
+    const jumlah = toNumber(detail.jumlah);
+    const jenisMutasi = detail.stock_mutasi.jenis_mutasi.trim().toLowerCase();
+
+    if (jenisMutasi === "barang masuk") {
+      masukSetelahPeriodeMap.set(
+        barangId,
+        (masukSetelahPeriodeMap.get(barangId) || 0) + jumlah
+      );
+    }
+
+    if (jenisMutasi === "barang keluar") {
+      keluarSetelahPeriodeMap.set(
+        barangId,
+        (keluarSetelahPeriodeMap.get(barangId) || 0) + jumlah
+      );
+    }
+  }
+
+  const rows = barangData.map((item) => {
+    const barangId = item.id.toString();
+
+    const stokSaatIni = toNumber(item.stock);
+
+    const barangMasuk = masukPeriodeMap.get(barangId) || 0;
+    const barangKeluar = keluarPeriodeMap.get(barangId) || 0;
+
+    const barangMasukSetelahPeriode = masukSetelahPeriodeMap.get(barangId) || 0;
+    const barangKeluarSetelahPeriode = keluarSetelahPeriodeMap.get(barangId) || 0;
+
+    const stokAkhir =
+      stokSaatIni - barangMasukSetelahPeriode + barangKeluarSetelahPeriode;
+
+    const stokAwal = stokAkhir - barangMasuk + barangKeluar;
+
+    return {
+      id: `LSB-${item.id.toString()}`,
+      id_barang: item.id,
+      kode_barang: item.kode_barang,
+      nama_barang: item.nama_barang,
+      kategori: item.kategori_barang.nama_kategori,
+      stok_awal: stokAwal,
+      barang_masuk: barangMasuk,
+      barang_keluar: barangKeluar,
+      stok_akhir: stokAkhir,
+      status: getStatusStock(stokAkhir),
+      harga: item.harga,
+      harga_display: formatCurrency(item.harga),
+    };
+  });
 
   return {
     data: rows,
     summary: {
       total_data: rows.length,
-      total_stok: rows.reduce((total, item) => total + item.stok, 0),
+      total_stok_awal: rows.reduce((total, item) => total + item.stok_awal, 0),
+      total_barang_masuk: rows.reduce(
+        (total, item) => total + item.barang_masuk,
+        0
+      ),
+      total_barang_keluar: rows.reduce(
+        (total, item) => total + item.barang_keluar,
+        0
+      ),
+      total_stok_akhir: rows.reduce(
+        (total, item) => total + item.stok_akhir,
+        0
+      ),
       total_aman: rows.filter((item) => item.status === "Aman").length,
       total_menipis: rows.filter((item) => item.status === "Menipis").length,
       total_habis: rows.filter((item) => item.status === "Habis").length,
@@ -447,33 +563,152 @@ async function getLaporanStockBarang() {
   };
 }
 
-async function getLaporanStockSparepart() {
-  const data = await prisma.sparepart.findMany({
-    orderBy: {
-      nama_sparepart: "asc",
-    },
-    include: {
-      suppliers: true,
-    },
-  });
+async function getLaporanStockSparepart(startDate: Date, endDate: Date) {
+  const [sparepartData, mutasiPeriode, mutasiSetelahPeriode] =
+    await Promise.all([
+      prisma.sparepart.findMany({
+        orderBy: {
+          nama_sparepart: "asc",
+        },
+        include: {
+          suppliers: true,
+        },
+      }),
 
-  const rows = data.map((item) => ({
-    id: `LSS-${item.id.toString()}`,
-    id_sparepart: item.id,
-    kode_sparepart: item.kode_sparepart,
-    nama_sparepart: item.nama_sparepart,
-    supplier: item.suppliers.nama_supplier,
-    stok: toNumber(item.stock),
-    status: getStatusStock(item.stock),
-    harga: item.harga,
-    harga_display: formatCurrency(item.harga),
-  }));
+      prisma.detail_stock_mutasi.findMany({
+        where: {
+          id_sparepart: {
+            not: null,
+          },
+          stock_mutasi: {
+            tanggal_mutasi: {
+              gte: startDate,
+              lt: endDate,
+            },
+          },
+        },
+        include: {
+          stock_mutasi: true,
+        },
+      }),
+
+      prisma.detail_stock_mutasi.findMany({
+        where: {
+          id_sparepart: {
+            not: null,
+          },
+          stock_mutasi: {
+            tanggal_mutasi: {
+              gte: endDate,
+            },
+          },
+        },
+        include: {
+          stock_mutasi: true,
+        },
+      }),
+    ]);
+
+  const masukPeriodeMap = new Map<string, number>();
+  const keluarPeriodeMap = new Map<string, number>();
+  const masukSetelahPeriodeMap = new Map<string, number>();
+  const keluarSetelahPeriodeMap = new Map<string, number>();
+
+  for (const detail of mutasiPeriode) {
+    if (!detail.id_sparepart) continue;
+
+    const sparepartId = detail.id_sparepart.toString();
+    const jumlah = toNumber(detail.jumlah);
+    const jenisMutasi = detail.stock_mutasi.jenis_mutasi.trim().toLowerCase();
+
+    if (jenisMutasi === "barang masuk") {
+      masukPeriodeMap.set(
+        sparepartId,
+        (masukPeriodeMap.get(sparepartId) || 0) + jumlah
+      );
+    }
+
+    if (jenisMutasi === "barang keluar") {
+      keluarPeriodeMap.set(
+        sparepartId,
+        (keluarPeriodeMap.get(sparepartId) || 0) + jumlah
+      );
+    }
+  }
+
+  for (const detail of mutasiSetelahPeriode) {
+    if (!detail.id_sparepart) continue;
+
+    const sparepartId = detail.id_sparepart.toString();
+    const jumlah = toNumber(detail.jumlah);
+    const jenisMutasi = detail.stock_mutasi.jenis_mutasi.trim().toLowerCase();
+
+    if (jenisMutasi === "barang masuk") {
+      masukSetelahPeriodeMap.set(
+        sparepartId,
+        (masukSetelahPeriodeMap.get(sparepartId) || 0) + jumlah
+      );
+    }
+
+    if (jenisMutasi === "barang keluar") {
+      keluarSetelahPeriodeMap.set(
+        sparepartId,
+        (keluarSetelahPeriodeMap.get(sparepartId) || 0) + jumlah
+      );
+    }
+  }
+
+  const rows = sparepartData.map((item) => {
+    const sparepartId = item.id.toString();
+
+    const stokSaatIni = toNumber(item.stock);
+
+    const barangMasuk = masukPeriodeMap.get(sparepartId) || 0;
+    const barangKeluar = keluarPeriodeMap.get(sparepartId) || 0;
+
+    const barangMasukSetelahPeriode =
+      masukSetelahPeriodeMap.get(sparepartId) || 0;
+    const barangKeluarSetelahPeriode =
+      keluarSetelahPeriodeMap.get(sparepartId) || 0;
+
+    const stokAkhir =
+      stokSaatIni - barangMasukSetelahPeriode + barangKeluarSetelahPeriode;
+
+    const stokAwal = stokAkhir - barangMasuk + barangKeluar;
+
+    return {
+      id: `LSS-${item.id.toString()}`,
+      id_sparepart: item.id,
+      kode_sparepart: item.kode_sparepart,
+      nama_sparepart: item.nama_sparepart,
+      supplier: item.suppliers.nama_supplier,
+      stok_awal: stokAwal,
+      barang_masuk: barangMasuk,
+      barang_keluar: barangKeluar,
+      stok_akhir: stokAkhir,
+      status: getStatusStock(stokAkhir),
+      harga: item.harga,
+      harga_display: formatCurrency(item.harga),
+    };
+  });
 
   return {
     data: rows,
     summary: {
       total_data: rows.length,
-      total_stok: rows.reduce((total, item) => total + item.stok, 0),
+      total_stok_awal: rows.reduce((total, item) => total + item.stok_awal, 0),
+      total_barang_masuk: rows.reduce(
+        (total, item) => total + item.barang_masuk,
+        0
+      ),
+      total_barang_keluar: rows.reduce(
+        (total, item) => total + item.barang_keluar,
+        0
+      ),
+      total_stok_akhir: rows.reduce(
+        (total, item) => total + item.stok_akhir,
+        0
+      ),
       total_aman: rows.filter((item) => item.status === "Aman").length,
       total_menipis: rows.filter((item) => item.status === "Menipis").length,
       total_habis: rows.filter((item) => item.status === "Habis").length,
@@ -545,8 +780,8 @@ async function getLaporanPendapatanGabungan(startDate: Date, endDate: Date) {
     tanggal: formatDateDisplay(item.tanggal_pembayaran),
     tanggal_raw: item.tanggal_pembayaran,
     sumber: "Servis" as const,
-    referensi: item.tiket_servis.nomor_tiket,
-    keterangan: `Servis ${getPerangkatDisplay(item.tiket_servis)}`,
+    referensi: buildNomorNotaServis(item.id, item.tanggal_pembayaran),
+    keterangan: `Servis ${getPerangkatDisplay(item.tiket_servis)} - Tiket ${item.tiket_servis.nomor_tiket}`,
     nominal: formatCurrency(item.total_pembayaran),
     nominal_number: toNumber(item.total_pembayaran),
   }));
@@ -618,9 +853,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     } else if (jenisLaporan === "servis") {
       result = await getLaporanServis(startDate, endDate);
     } else if (jenisLaporan === "stock-barang") {
-      result = await getLaporanStockBarang();
+      result = await getLaporanStockBarang(startDate, endDate);
     } else if (jenisLaporan === "stock-sparepart") {
-      result = await getLaporanStockSparepart();
+      result = await getLaporanStockSparepart(startDate, endDate);
     } else {
       result = await getLaporanPendapatanGabungan(startDate, endDate);
     }

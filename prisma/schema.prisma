@@ -10,6 +10,7 @@ datasource db {
 model barang {
   id                  BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
   id_kategori         BigInt                @db.UnsignedBigInt
+  id_supplier         BigInt                @db.UnsignedBigInt
   nama_barang         String                @db.VarChar(150)
   kode_barang         String                @unique(map: "kode_barang") @db.VarChar(100)
   merk_barang         String?               @db.VarChar(150)
@@ -18,11 +19,13 @@ model barang {
   stock               BigInt                @default(0)
   gambar              String?               @db.LongText
   kategori_barang     kategori_barang       @relation(fields: [id_kategori], references: [id], map: "fk_barang_kategori")
+  suppliers           suppliers             @relation(fields: [id_supplier], references: [id], onUpdate: Restrict, map: "fk_barang_supplier")
   detail_stock_mutasi detail_stock_mutasi[]
   detail_stock_opname detail_stock_opname[]
   detail_transaksi    detail_transaksi[]
 
   @@index([id_kategori], map: "fk_barang_kategori")
+  @@index([id_supplier], map: "fk_barang_supplier")
 }
 
 model detail_stock_mutasi {
@@ -224,6 +227,7 @@ model suppliers {
   nama_supplier String         @db.VarChar(150)
   alamat        String?        @db.Text
   phone         String?        @db.VarChar(25)
+  barang        barang[]
   sparepart     sparepart[]
   stock_mutasi  stock_mutasi[]
 }

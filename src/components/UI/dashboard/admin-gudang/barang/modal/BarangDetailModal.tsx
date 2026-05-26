@@ -18,6 +18,7 @@ type BarangDetailData = {
   stok: number;
   harga: number;
   kategori: string;
+  supplier: string;
   deskripsi: string | null;
   foto: string | null;
 } | null;
@@ -154,6 +155,10 @@ export default function BarangDetailModal({
 
             <Grid.Col span={{ base: 12, md: 6 }}>
               <FieldItem label="Kategori" value={data.kategori} />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <FieldItem label="Supplier" value={data.supplier} />
             </Grid.Col>
 
             <Grid.Col span={12}>

@@ -32,7 +32,13 @@ function parsePositiveBigInt(value: unknown, fieldName: string) {
     throw new Error(`${fieldName} harus berupa angka`);
   }
 
-  return BigInt(stringValue);
+  const parsed = BigInt(stringValue);
+
+  if (parsed <= BigInt(0)) {
+    throw new Error(`${fieldName} tidak valid`);
+  }
+
+  return parsed;
 }
 
 function parseDecimalNumber(value: unknown, fieldName: string) {
@@ -55,6 +61,7 @@ export async function GET(request: NextRequest) {
 
     const search = searchParams.get("search") || "";
     const idKategori = searchParams.get("id_kategori");
+    const idSupplier = searchParams.get("id_supplier");
     const page = Number(searchParams.get("page") || 1);
     const limit = Number(searchParams.get("limit") || 10);
     const skip = (page - 1) * limit;
@@ -84,12 +91,24 @@ export async function GET(request: NextRequest) {
                     contains: search,
                   },
                 },
+                {
+                  suppliers: {
+                    nama_supplier: {
+                      contains: search,
+                    },
+                  },
+                },
               ],
             }
           : {},
         idKategori
           ? {
               id_kategori: BigInt(idKategori),
+            }
+          : {},
+        idSupplier
+          ? {
+              id_supplier: BigInt(idSupplier),
             }
           : {},
       ],
@@ -105,6 +124,7 @@ export async function GET(request: NextRequest) {
         },
         include: {
           kategori_barang: true,
+          suppliers: true,
           _count: {
             select: {
               detail_stock_mutasi: true,
@@ -148,6 +168,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const idKategori = parsePositiveBigInt(body.id_kategori, "Kategori barang");
+    const idSupplier = parsePositiveBigInt(body.id_supplier, "Supplier");
     const namaBarang = body.nama_barang?.trim();
     const kodeBarang = body.kode_barang?.trim();
     const merkBarang = body.merk_barang?.trim() || null;
@@ -178,17 +199,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const kategori = await prisma.kategori_barang.findUnique({
-      where: {
-        id: idKategori,
-      },
-    });
+    const [kategori, supplier] = await Promise.all([
+      prisma.kategori_barang.findUnique({
+        where: {
+          id: idKategori,
+        },
+      }),
+      prisma.suppliers.findUnique({
+        where: {
+          id: idSupplier,
+        },
+      }),
+    ]);
 
     if (!kategori) {
       return NextResponse.json(
         {
           success: false,
           message: "Kategori barang tidak ditemukan",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (!supplier) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Supplier tidak ditemukan",
         },
         { status: 404 }
       );
@@ -213,6 +251,7 @@ export async function POST(request: NextRequest) {
     const barangBaru = await prisma.barang.create({
       data: {
         id_kategori: idKategori,
+        id_supplier: idSupplier,
         nama_barang: namaBarang,
         kode_barang: kodeBarang,
         merk_barang: merkBarang,
@@ -223,6 +262,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         kategori_barang: true,
+        suppliers: true,
       },
     });
 

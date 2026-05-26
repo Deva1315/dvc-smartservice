@@ -16,6 +16,7 @@ export const barangFormSchema = z.object({
   stok: positiveInteger("Stok"),
   harga: positiveNumber("Harga"),
   kategori: requiredSelect("Kategori"),
+  supplier: requiredSelect("Supplier"),
   deskripsi: optionalString(),
   fotoBase64: optionalString(),
 });
