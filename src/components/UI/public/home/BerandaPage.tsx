@@ -19,7 +19,7 @@ import Image from "next/image";
 
 type PopularCategory = {
   title: string;
-  image: string;
+  image: string |  null;
   href: string;
   totalTerjual?: number;
 };
@@ -93,6 +93,13 @@ function normalizePopularCategories(payload: unknown): PopularCategory[] {
     .map((item) => {
       const value = item as Record<string, unknown>;
 
+      const id =
+        typeof value.id === "string"
+          ? value.id
+          : typeof value.id === "number" || typeof value.id === "bigint"
+            ? String(value.id)
+            : undefined;
+
       const title =
         typeof value.title === "string"
           ? value.title
@@ -105,15 +112,15 @@ function normalizePopularCategories(payload: unknown): PopularCategory[] {
                 : "";
 
       const image =
-        typeof value.image === "string"
+        typeof value.image === "string" && value.image.trim() !== ""
           ? value.image
-          : typeof value.image_url === "string"
+          : typeof value.image_url === "string" && value.image_url.trim() !== ""
             ? value.image_url
-            : typeof value.imageUrl === "string"
+            : typeof value.imageUrl === "string" && value.imageUrl.trim() !== ""
               ? value.imageUrl
-              : typeof value.gambar === "string"
+              : typeof value.gambar === "string" && value.gambar.trim() !== ""
                 ? value.gambar
-                : "";
+                : null;
 
       const href = typeof value.href === "string" ? value.href : "/produk";
 
@@ -129,6 +136,7 @@ function normalizePopularCategories(payload: unknown): PopularCategory[] {
                 : undefined;
 
       return {
+        id,
         title,
         image,
         href,
@@ -137,7 +145,7 @@ function normalizePopularCategories(payload: unknown): PopularCategory[] {
           : undefined,
       };
     })
-    .filter((item) => item.title !== "" && item.image !== "")
+    .filter((item) => item.title !== "")
     .slice(0, 3);
 }
 
@@ -359,37 +367,43 @@ export default function BerandaPage() {
                           transition: "all 0.3s ease",
                         }}
                       >
-                        <Box
-                          style={{
-                            position: "relative",
-                            width: "100%",
-                            maxWidth: 360,
-                            aspectRatio: "1.25 / 1",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <motion.div
-                            whileHover={{
-                              scale: 1.06,
-                            }}
-                            transition={{
-                              duration: 0.3,
-                            }}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              position: "relative",
-                            }}
-                          >
-                            <Image
-                              src={item.image}
-                              alt={item.title}
-                              fill
-                              sizes="180px"
-                              style={{ objectFit: "contain" }}
-                            />
-                          </motion.div>
-                        </Box>
+<Box
+  style={{
+    position: "relative",
+    width: 180,
+    height: 180,
+    margin: "0 auto",
+  }}
+>
+  {item.image ? (
+    <Image
+      src={item.image}
+      alt={item.title}
+      fill
+      sizes="180px"
+      style={{
+        objectFit: "contain",
+      }}
+    />
+  ) : (
+    <Box
+      style={{
+        width: "100%",
+        height: "100%",
+        borderRadius: 18,
+        backgroundColor: "#F3F4F6",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "1px solid #E5E7EB",
+      }}
+    >
+      <Text fw={700} fz="sm" c="#9CA3AF" ta="center">
+        Tidak ada gambar
+      </Text>
+    </Box>
+  )}
+</Box>
 
                         <Stack gap={4} align="center">
                           <Text

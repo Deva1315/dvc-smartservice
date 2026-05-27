@@ -165,6 +165,7 @@ model pembayaran_servis {
   metode_pembayaran  String                              @db.VarChar(50)
   status_pembayaran  pembayaran_servis_status_pembayaran @default(Belum_Bayar)
   tiket_servis       tiket_servis                        @relation(fields: [id_tiket_servis], references: [id], map: "fk_pembayaran_servis_tiket")
+  users              users                               @relation(fields: [id_user], references: [id], map: "fk_pembayaran_servis_user")
 
   @@index([id_tiket_servis], map: "fk_pembayaran_servis_tiket")
   @@index([id_user], map: "fk_pembayaran_servis_user")
@@ -294,6 +295,7 @@ model users {
   photo_profile_path  String?               @db.LongText
   diagnosa_lanjutan   diagnosa_lanjutan[]
   garansi             garansi[]
+  pembayaran_servis   pembayaran_servis[]
   stock_mutasi        stock_mutasi[]
   stock_opname        stock_opname[]
   tiket_servis        tiket_servis[]

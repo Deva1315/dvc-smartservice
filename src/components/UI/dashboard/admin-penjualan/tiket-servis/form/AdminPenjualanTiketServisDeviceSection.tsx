@@ -53,42 +53,49 @@ export default function AdminPenjualanTiketServisDeviceSection({
             </Text>
 
             <Select
-              value={form.jenis_perangkat}
-              onChange={(value) => handleChange("jenis_perangkat", value)}
-              data={[
-                { value: "Laptop", label: "Laptop" },
-                { value: "PC", label: "PC" },
-                { value: "Monitor", label: "Monitor" },
-                { value: "Printer", label: "Printer" },
-                { value: "Aksesoris", label: "Aksesoris" },
-              ]}
-              placeholder="Pilih jenis perangkat"
-              radius="md"
-              disabled={isSubmitting}
-              error={errors.jenis_perangkat}
-              styles={{
-                input: {
-                  backgroundColor: "#F9FAFB",
-                  border: errors.jenis_perangkat
-                    ? "1px solid #FA5252"
-                    : "1px solid #E5E7EB",
-                  height: 46,
-                  fontSize: 15,
-                  color: "#111827",
-                },
-                dropdown: {
-                  backgroundColor: "#FFFFFF",
-                },
-                option: {
-                  color: "#111827",
-                  fontSize: 14,
-                },
-                error: {
-                  fontSize: 13,
-                  marginTop: 6,
-                },
-              }}
-            />
+  value={form.jenis_perangkat}
+  onChange={(value) => {
+    handleChange("jenis_perangkat", value);
+  }}
+  data={[
+    { value: "Laptop", label: "Laptop" },
+    { value: "PC", label: "PC" },
+    { value: "Monitor", label: "Monitor" },
+    { value: "Printer", label: "Printer" },
+    { value: "Aksesoris", label: "Aksesoris" },
+  ]}
+  placeholder="Pilih jenis perangkat"
+  radius="md"
+  disabled={isSubmitting}
+  error={errors.jenis_perangkat}
+  comboboxProps={{
+    withinPortal: true,
+    zIndex: 3000,
+  }}
+  styles={{
+    input: {
+      backgroundColor: "#F9FAFB",
+      border: errors.jenis_perangkat
+        ? "1px solid #FA5252"
+        : "1px solid #E5E7EB",
+      height: 46,
+      fontSize: 15,
+      color: "#111827",
+    },
+    dropdown: {
+      backgroundColor: "#FFFFFF",
+      zIndex: 3000,
+    },
+    option: {
+      color: "#111827",
+      fontSize: 14,
+    },
+    error: {
+      fontSize: 13,
+      marginTop: 6,
+    },
+  }}
+/>
           </Stack>
 
           <Stack gap={6}>

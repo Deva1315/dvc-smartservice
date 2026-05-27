@@ -124,7 +124,6 @@ export default function JasaServisDetailModal({
                       label="Jam Operasional"
                       value={data.jamOperasional}
                     />
-                    <DetailItem label="Slug" value={data.slug} />
                   </SimpleGrid>
                 </Stack>
               </Paper>

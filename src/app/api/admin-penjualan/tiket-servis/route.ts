@@ -216,3 +216,133 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    const nomorTiket = body.nomor_tiket?.trim();
+    const namaCust = body.nama_cust?.trim();
+    const phoneCust = body.phone_cust?.trim();
+    const alamatCust = body.alamat_cust?.trim() || null;
+    const jenisPerangkat = body.jenis_perangkat?.trim();
+    const merkPerangkat = body.merk_perangkat?.trim() || null;
+    const keluhan = body.keluhan?.trim();
+
+    const rawDropPointId = body.id_drop_point ?? body.drop_point_id ?? null;
+    const idDropPoint = rawDropPointId ? BigInt(rawDropPointId) : null;
+
+    if (!nomorTiket) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Nomor tiket wajib dikirim untuk update tiket servis.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!namaCust || !phoneCust || !jenisPerangkat || !keluhan) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Nama, no HP, jenis perangkat, dan keluhan wajib diisi.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const existingTicket = await prisma.tiket_servis.findUnique({
+      where: {
+        nomor_tiket: nomorTiket,
+      },
+      select: {
+        id: true,
+        nomor_tiket: true,
+      },
+    });
+
+    if (!existingTicket) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Tiket servis tidak ditemukan.",
+        },
+        { status: 404 }
+      );
+    }
+
+    if (idDropPoint) {
+      const dropPoint = await prisma.drop_point.findUnique({
+        where: {
+          id: idDropPoint,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!dropPoint) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Drop Point tidak ditemukan.",
+          },
+          { status: 404 }
+        );
+      }
+    }
+
+    const updatedTicket = await prisma.tiket_servis.update({
+      where: {
+        nomor_tiket: nomorTiket,
+      },
+      data: {
+        nama_cust: namaCust,
+        phone_cust: phoneCust,
+        alamat_cust: alamatCust,
+        jenis_perangkat: jenisPerangkat,
+        merk_perangkat: merkPerangkat,
+        keluhan,
+        id_drop_point: idDropPoint,
+      },
+      include: {
+        drop_point: true,
+        diagnosa_ai: true,
+        detail_tiket_servis: {
+          include: {
+            jasa_servis: true,
+            sparepart: true,
+          },
+        },
+        diagnosa_lanjutan: {
+          include: {
+            users: {
+              select: {
+                id: true,
+                nama: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Tiket servis berhasil diperbarui.",
+      data: serializeData(updatedTicket),
+    });
+  } catch (error) {
+    console.error("PUT ADMIN PENJUALAN TIKET ERROR:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Gagal memperbarui tiket servis.",
+      },
+      { status: 500 }
+    );
+  }
+}

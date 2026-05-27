@@ -48,6 +48,17 @@ export type CreateTiketServisPayload = {
   id_drop_point?: string | null;
 };
 
+export type UpdateTiketServisPayload = {
+  nomor_tiket: string;
+  nama_cust: string;
+  phone_cust: string;
+  alamat_cust?: string | null;
+  jenis_perangkat: string;
+  merk_perangkat?: string | null;
+  keluhan: string;
+  id_drop_point?: string | null;
+};
+
 export type GetAdminPenjualanNomorTiketResponse =
   | {
       success: true;
@@ -136,6 +147,26 @@ export async function createAdminPenjualanTiketServis(
 
   if (!response.ok) {
     throw new Error(result.message || "Gagal membuat tiket servis");
+  }
+
+  return result;
+}
+
+export async function updateAdminPenjualanTiketServis(
+  payload: UpdateTiketServisPayload
+) {
+  const response = await fetch(BASE_URL, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Gagal memperbarui tiket servis");
   }
 
   return result;

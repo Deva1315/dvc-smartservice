@@ -27,8 +27,6 @@ import {
   type DropPointRow,
 } from "@/utils/public/public-drop-point.utils";
 
-const globalFont = "Georgia, serif";
-
 type DropPointDetailPageProps = {
   dropPointId: string;
 };
@@ -237,7 +235,6 @@ export default function DropPointDetailPage({
                 lineHeight: 1.08,
                 color: "#000000",
                 fontWeight: 700,
-                fontFamily: globalFont,
               }}
             >
               Detail Drop Point
@@ -296,7 +293,6 @@ export default function DropPointDetailPage({
                     style={{
                       fontSize: "clamp(24px, 2.7vw, 34px)",
                       lineHeight: 1.15,
-                      fontFamily: globalFont,
                     }}
                   >
                     {dropPoint.namaDropPoint}
@@ -335,7 +331,6 @@ export default function DropPointDetailPage({
                       style={{
                         fontSize: "clamp(16px, 1.8vw, 20px)",
                         lineHeight: 1.35,
-                        fontFamily: globalFont,
                         whiteSpace: "pre-line",
                       }}
                     >
@@ -359,7 +354,6 @@ export default function DropPointDetailPage({
                     fontSize: 18,
                     fontWeight: 700,
                     boxShadow: "none",
-                    fontFamily: globalFont,
                   }}
                 >
                   Buka di Google Maps
@@ -384,7 +378,6 @@ export default function DropPointDetailPage({
                 style={{
                   fontSize: 24,
                   lineHeight: 1.2,
-                  fontFamily: globalFont,
                 }}
               >
                 Informasi Lokasi

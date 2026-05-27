@@ -282,7 +282,7 @@ export default function SuppliersFormModal({
                     </Stack>
 
                     <Stack gap={6}>
-                      <FieldLabel label="No HP" />
+                      <FieldLabel label="No HP"  required/>
 
                       <TextInput
                         value={form.phone}
@@ -307,7 +307,7 @@ export default function SuppliersFormModal({
                   </SimpleGrid>
 
                   <Stack gap={6}>
-                    <FieldLabel label="Alamat" />
+                    <FieldLabel label="Alamat" required />
 
                     <Textarea
                       value={form.address}
