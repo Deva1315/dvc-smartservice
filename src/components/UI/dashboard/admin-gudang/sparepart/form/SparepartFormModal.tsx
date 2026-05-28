@@ -28,6 +28,12 @@ export type {
   SparepartFormPayload,
 } from "@/types/sparepart-form.types";
 
+import {
+  fileToDataUrl,
+  IMAGE_UPLOAD_LIMITS,
+  validateImageFile,
+} from "@/utils/shared/image-upload.helpers";
+
 export default function SparepartFormModal({
   opened,
   onClose,
@@ -112,48 +118,47 @@ export default function SparepartFormModal({
     return parsed.data;
   }
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const selectedFile = event.currentTarget.files?.[0];
-    const inputElement = event.currentTarget;
+async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  const selectedFile = event.currentTarget.files?.[0];
+  const inputElement = event.currentTarget;
 
-    if (!selectedFile) {
-      return;
-    }
-
-    if (!selectedFile.type.startsWith("image/")) {
-      alert("File harus berupa gambar.");
-      inputElement.value = "";
-      return;
-    }
-
-    try {
-      const reader = new FileReader();
-
-      const previewUrl = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          if (typeof reader.result === "string") {
-            resolve(reader.result);
-            return;
-          }
-
-          reject(new Error("Gagal membaca file"));
-        };
-
-        reader.onerror = () => reject(new Error("Gagal membaca file"));
-        reader.readAsDataURL(selectedFile);
-      });
-
-      setForm((prev) => ({
-        ...prev,
-        fotoBase64: previewUrl,
-      }));
-
-      clearFieldError("fotoBase64");
-    } catch {
-      alert("Gagal membaca file gambar.");
-      inputElement.value = "";
-    }
+  if (!selectedFile) {
+    return;
   }
+
+  const validation = validateImageFile({
+    file: selectedFile,
+    maxSizeMb: IMAGE_UPLOAD_LIMITS.SPAREPART_MB,
+  });
+
+  if (!validation.valid) {
+    setErrors((prev) => ({
+      ...prev,
+      fotoBase64: validation.message,
+    }));
+
+    inputElement.value = "";
+    return;
+  }
+
+  try {
+    const previewUrl = await fileToDataUrl(selectedFile);
+
+    setForm((prev) => ({
+      ...prev,
+      fotoBase64: previewUrl,
+    }));
+
+    clearFieldError("fotoBase64");
+  } catch {
+    setErrors((prev) => ({
+      ...prev,
+      fotoBase64: "Gagal membaca file gambar.",
+    }));
+
+    inputElement.value = "";
+  }
+}
 
   function handleChooseImage() {
     if (isSubmitting) {

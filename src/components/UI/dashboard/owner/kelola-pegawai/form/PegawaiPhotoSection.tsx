@@ -19,6 +19,7 @@ type PegawaiPhotoSectionProps = {
   handleImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
   handleChooseImage: () => void;
   handleRemoveImage: () => void;
+  error?: string;
 };
 
 function FieldLabel({ label }: { label: string }) {
@@ -36,6 +37,7 @@ export default function PegawaiPhotoSection({
   handleImageChange,
   handleChooseImage,
   handleRemoveImage,
+  error,
 }: PegawaiPhotoSectionProps) {
   return (
     <Paper
@@ -155,6 +157,11 @@ export default function PegawaiPhotoSection({
               </Stack>
             )}
           </Box>
+          {error ? (
+            <Text fz={13} c="red" fw={600}>
+              {error}
+            </Text>
+          ) : null}
         </Stack>
       </Stack>
     </Paper>

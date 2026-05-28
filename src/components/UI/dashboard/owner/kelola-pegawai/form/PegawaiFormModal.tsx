@@ -17,7 +17,6 @@ import {
 } from "@/types/pegawai-form.types";
 import {
   buildPegawaiEditFormState,
-  fileToDataUrl,
   getPegawaiModalTitle,
   getPegawaiSubmitLabel,
 } from "@/utils/owner/pegawai-form.helpers";
@@ -30,6 +29,12 @@ export type {
   PegawaiFormPayload,
   PegawaiRoleOption,
 } from "@/types/pegawai-form.types";
+
+import {
+  fileToDataUrl,
+  IMAGE_UPLOAD_LIMITS,
+  validateImageFile,
+} from "@/utils/shared/image-upload.helpers";
 
 export default function PegawaiFormModal({
   opened,
@@ -120,34 +125,49 @@ export default function PegawaiFormModal({
     }
   }
 
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const inputElement = event.currentTarget;
-    const selectedFile = inputElement.files?.[0];
+async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+  const inputElement = event.currentTarget;
+  const selectedFile = inputElement.files?.[0];
 
-    if (!selectedFile) {
-      return;
-    }
-
-    if (!selectedFile.type.startsWith("image/")) {
-      alert("File harus berupa gambar.");
-      inputElement.value = "";
-      return;
-    }
-
-    try {
-      const previewUrl = await fileToDataUrl(selectedFile);
-
-      setForm((prev) => ({
-        ...prev,
-        photoFile: selectedFile,
-        photoPreviewUrl: previewUrl,
-        removePhoto: false,
-      }));
-    } catch {
-      alert("Gagal membaca file gambar.");
-      inputElement.value = "";
-    }
+  if (!selectedFile) {
+    return;
   }
+
+  const validation = validateImageFile({
+    file: selectedFile,
+    maxSizeMb: IMAGE_UPLOAD_LIMITS.PEGAWAI_MB,
+  });
+
+  if (!validation.valid) {
+    setErrors((prev) => ({
+      ...prev,
+      photoFile: validation.message,
+    }));
+
+    inputElement.value = "";
+    return;
+  }
+
+  try {
+    const previewUrl = await fileToDataUrl(selectedFile);
+
+    setForm((prev) => ({
+      ...prev,
+      photoFile: selectedFile,
+      photoPreviewUrl: previewUrl,
+      removePhoto: false,
+    }));
+
+    clearFieldError("photoFile");
+  } catch {
+    setErrors((prev) => ({
+      ...prev,
+      photoFile: "Gagal membaca file gambar.",
+    }));
+
+    inputElement.value = "";
+  }
+}
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -262,6 +282,7 @@ export default function PegawaiFormModal({
                 handleImageChange={handleImageChange}
                 handleChooseImage={handleChooseImage}
                 handleRemoveImage={handleRemoveImage}
+                error={errors.photoFile}
               />
 
               <Group

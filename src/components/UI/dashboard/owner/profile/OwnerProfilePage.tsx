@@ -36,6 +36,12 @@ import {
   type OwnerProfileUser,
 } from "@/lib/owner/owner-profile-client";
 
+import {
+  fileToDataUrl,
+  IMAGE_UPLOAD_LIMITS,
+  validateImageFile,
+} from "@/utils/shared/image-upload.helpers";
+
 type OwnerProfilePageProps = {
   user: DashboardSessionUser;
 };
@@ -49,23 +55,6 @@ type ProfileFormState = {
   photoFile: File | null;
 };
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-        return;
-      }
-
-      reject(new Error("Gagal membaca file"));
-    };
-
-    reader.onerror = () => reject(new Error("Gagal membaca file"));
-    reader.readAsDataURL(file);
-  });
-}
 
 function ProfileFieldView({
   label,
@@ -208,43 +197,50 @@ export default function OwnerProfilePage({ user }: OwnerProfilePageProps) {
     fileInputRef.current?.click();
   };
 
-  const handleImageChange = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const inputElement = event.currentTarget;
-    const selectedFile = inputElement.files?.[0];
+const handleImageChange = async (
+  event: React.ChangeEvent<HTMLInputElement>
+) => {
+  const inputElement = event.currentTarget;
+  const selectedFile = inputElement.files?.[0];
 
-    if (!selectedFile) {
-      return;
-    }
+  if (!selectedFile) {
+    return;
+  }
 
-    if (!selectedFile.type.startsWith("image/")) {
-      notifications.show({
-        title: "Gagal",
-        message: "File yang dipilih harus berupa gambar.",
-        color: "red",
-      });
-      inputElement.value = "";
-      return;
-    }
+  const validation = validateImageFile({
+    file: selectedFile,
+    maxSizeMb: IMAGE_UPLOAD_LIMITS.PROFILE_OWNER_MB,
+  });
 
-    try {
-      const previewUrl = await fileToDataUrl(selectedFile);
+  if (!validation.valid) {
+    notifications.show({
+      title: "Gagal",
+      message: validation.message,
+      color: "red",
+    });
 
-      setForm((prev) => ({
-        ...prev,
-        photoFile: selectedFile,
-        avatarUrl: previewUrl,
-      }));
-    } catch {
-      notifications.show({
-        title: "Gagal",
-        message: "Gagal membaca file gambar.",
-        color: "red",
-      });
-      inputElement.value = "";
-    }
-  };
+    inputElement.value = "";
+    return;
+  }
+
+  try {
+    const previewUrl = await fileToDataUrl(selectedFile);
+
+    setForm((prev) => ({
+      ...prev,
+      photoFile: selectedFile,
+      avatarUrl: previewUrl,
+    }));
+  } catch {
+    notifications.show({
+      title: "Gagal",
+      message: "Gagal membaca file gambar.",
+      color: "red",
+    });
+
+    inputElement.value = "";
+  }
+};
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.email.trim()) {

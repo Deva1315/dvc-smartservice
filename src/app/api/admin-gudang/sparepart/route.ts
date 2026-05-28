@@ -49,6 +49,28 @@ function parseDecimalNumber(value: unknown, fieldName: string) {
   return numberValue;
 }
 
+const MAX_SPAREPART_IMAGE_SIZE_MB = 2;
+const MAX_SPAREPART_IMAGE_SIZE_BYTES = MAX_SPAREPART_IMAGE_SIZE_MB * 1024 * 1024;
+
+function getBase64SizeBytes(value: string) {
+  const base64 = value.includes(",") ? value.split(",")[1] : value;
+  return Math.ceil((base64.length * 3) / 4);
+}
+
+function validateSparepartImageSize(gambar: string | null) {
+  if (!gambar) {
+    return null;
+  }
+
+  const sizeBytes = getBase64SizeBytes(gambar);
+
+  if (sizeBytes > MAX_SPAREPART_IMAGE_SIZE_BYTES) {
+    return `Ukuran gambar melebihi maksimal ${MAX_SPAREPART_IMAGE_SIZE_MB} MB.`;
+  }
+
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -142,6 +164,18 @@ export async function POST(request: NextRequest) {
         ? BigInt(0)
         : parsePositiveBigInt(body.stock, "Stock");
     const gambar = body.gambar || null;
+
+    const gambarError = validateSparepartImageSize(gambar);
+
+if (gambarError) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: gambarError,
+    },
+    { status: 413 }
+  );
+}
 
     if (!namaSparepart) {
       return NextResponse.json(
