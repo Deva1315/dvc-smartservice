@@ -19,7 +19,7 @@ import Image from "next/image";
 
 type PopularCategory = {
   title: string;
-  image: string |  null;
+  image: string | null;
   href: string;
   totalTerjual?: number;
 };
@@ -244,7 +244,7 @@ export default function BerandaPage() {
                   fontSize: "clamp(30px, 3vw, 52px)",
                   lineHeight: 1.25,
                   textShadow: "0 4px 18px rgba(0,0,0,0.35)",
-                  
+
                 }}
               >
                 Servis perangkat jadi lebih mudah dan modern
@@ -271,7 +271,7 @@ export default function BerandaPage() {
                   style={{
                     backgroundColor: "#0D4CB5",
                     fontWeight: 700,
-                    
+
                   }}
                 >
                   Buat Tiket
@@ -286,7 +286,7 @@ export default function BerandaPage() {
                   color="dark"
                   style={{
                     fontWeight: 700,
-                    
+
                   }}
                 >
                   Diagnosa AI
@@ -307,7 +307,7 @@ export default function BerandaPage() {
               fontSize: "clamp(28px, 2.6vw, 44px)",
               fontWeight: 800,
               color: "#111111",
-              
+
             }}
           >
             Telusuri Kategori Terpopuler
@@ -325,7 +325,7 @@ export default function BerandaPage() {
                 c="#6B7280"
                 style={{
                   fontSize: 18,
-                  
+
                 }}
               >
                 Memuat kategori terpopuler...
@@ -336,17 +336,29 @@ export default function BerandaPage() {
                 c="#6B7280"
                 style={{
                   fontSize: 18,
-                  
+
                 }}
               >
                 Belum ada data kategori terpopuler.
               </Text>
             ) : (
               <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing={36}>
-                {popularCategories.map((item) => (
+                {popularCategories.map((item, index) => (
                   <motion.div
-                    key={item.title}
-                    variants={fadeUp}
+                    key={`${item.title}-${index}`}
+                    initial={{
+                      opacity: 0,
+                      y: 40,
+                    }}
+                    whileInView={{
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    viewport={{ once: true, amount: 0.2 }}
+                    transition={{
+                      duration: 0.5,
+                      delay: index * 0.12,
+                    }}
                     whileHover={{
                       y: -8,
                     }}
@@ -354,56 +366,61 @@ export default function BerandaPage() {
                     <Anchor
                       href={item.href}
                       underline="never"
-                      style={{ color: "inherit" }}
+                      style={{
+                        color: "inherit",
+                        display: "block",
+                      }}
                     >
                       <Stack
                         align="center"
                         gap={18}
                         style={{
+                          minHeight: 320,
                           backgroundColor: "#FFFFFF",
                           borderRadius: 24,
                           padding: 24,
                           border: "1px solid #ECECEC",
+                          boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
                           transition: "all 0.3s ease",
                         }}
                       >
-<Box
-  style={{
-    position: "relative",
-    width: 180,
-    height: 180,
-    margin: "0 auto",
-  }}
->
-  {item.image ? (
-    <Image
-      src={item.image}
-      alt={item.title}
-      fill
-      sizes="180px"
-      style={{
-        objectFit: "contain",
-      }}
-    />
-  ) : (
-    <Box
-      style={{
-        width: "100%",
-        height: "100%",
-        borderRadius: 18,
-        backgroundColor: "#F3F4F6",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "1px solid #E5E7EB",
-      }}
-    >
-      <Text fw={700} fz="sm" c="#9CA3AF" ta="center">
-        Tidak ada gambar
-      </Text>
-    </Box>
-  )}
-</Box>
+                        <Box
+                          style={{
+                            position: "relative",
+                            width: 180,
+                            height: 180,
+                            margin: "0 auto",
+                          }}
+                        >
+                          {item.image ? (
+                            <Image
+                              src={item.image}
+                              alt={item.title}
+                              fill
+                              sizes="180px"
+                              style={{
+                                objectFit: "contain",
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                borderRadius: 18,
+                                backgroundColor: "#F3F4F6",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "1px solid #E5E7EB",
+                              }}
+                            >
+                              <Text fw={700} fz="sm" c="#9CA3AF" ta="center">
+                                Tidak ada gambar
+                              </Text>
+                            </Box>
+                          )}
+                        </Box>
 
                         <Stack gap={4} align="center">
                           <Text
@@ -412,7 +429,6 @@ export default function BerandaPage() {
                             style={{
                               fontSize: "clamp(28px, 2vw, 40px)",
                               color: "#111111",
-                              
                             }}
                           >
                             {item.title}
@@ -451,7 +467,7 @@ export default function BerandaPage() {
               fontSize: "clamp(28px, 2.6vw, 44px)",
               fontWeight: 800,
               color: "#111111",
-              
+
             }}
           >
             Temukan Lebih Banyak Hal dengan DVC
@@ -499,7 +515,7 @@ export default function BerandaPage() {
                           fw={800}
                           style={{
                             fontSize: "clamp(24px, 2vw, 34px)",
-                            
+
                             color: card.textColor,
                             marginBottom: 14,
                           }}
@@ -530,7 +546,7 @@ export default function BerandaPage() {
                           backgroundColor: "#0D4CB5",
                           fontSize: 20,
                           fontWeight: 700,
-                          
+
                         }}
                       >
                         {card.buttonLabel}
@@ -592,7 +608,7 @@ export default function BerandaPage() {
                     fontSize: "clamp(28px, 2.5vw, 44px)",
                     fontWeight: 800,
                     color: "#111111",
-                    
+
                   }}
                 >
                   Drop Point untuk Kemudahan Servis
@@ -620,7 +636,7 @@ export default function BerandaPage() {
                     backgroundColor: "#0D4CB5",
                     fontSize: 20,
                     fontWeight: 700,
-                    
+
                   }}
                 >
                   Lihat
@@ -700,7 +716,7 @@ export default function BerandaPage() {
                     fontSize: "clamp(24px, 2vw, 34px)",
                     fontWeight: 800,
                     lineHeight: 1.2,
-                    
+
                   }}
                 >
                   DVC SMART SERVICE
@@ -711,7 +727,7 @@ export default function BerandaPage() {
                   style={{
                     fontSize: "clamp(16px, 1.2vw, 22px)",
                     lineHeight: 1.7,
-                    
+
                   }}
                 >
                   Solusi modern untuk penjualan dan servis perangkat komputer
@@ -734,7 +750,7 @@ export default function BerandaPage() {
                 style={{
                   fontSize: "clamp(24px, 2vw, 34px)",
                   fontWeight: 800,
-                  
+
                 }}
               >
                 CONTACT
@@ -749,7 +765,7 @@ export default function BerandaPage() {
                   style={{
                     fontSize: "clamp(15px, 1vw, 18px)",
                     lineHeight: 1.6,
-                    
+
                   }}
                 >
                   Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582

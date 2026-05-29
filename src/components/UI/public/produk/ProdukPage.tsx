@@ -42,15 +42,6 @@ const fadeUp = {
   },
 };
 
-const staggerContainer = {
-  hidden: {},
-  visible: {
-    transition: {
-      staggerChildren: 0.15,
-    },
-  },
-};
-
 
 function formatRupiah(value: string | number) {
   const numberValue = Number(value);
@@ -79,21 +70,35 @@ function getProductImageSource(image: string | null) {
   return `data:image/jpeg;base64,${image}`;
 }
 
-function ProductCard({ item }: { item: PublicProdukItem }) {
+function ProductCard({
+  item,
+  index,
+}: {
+  item: PublicProdukItem;
+  index: number;
+}) {
   return (
     <motion.div
-      variants={fadeUp}
-      whileHover={{
-        y: -8,
+      initial={{
+        opacity: 0,
+        y: 32,
+      }}
+      animate={{
+        opacity: 1,
+        y: 0,
       }}
       transition={{
-        duration: 0.25,
+        duration: 0.35,
+        delay: Math.min(index * 0.04, 0.24),
+      }}
+      whileHover={{
+        y: -8,
       }}
     >
       <Anchor
         href={`/produk/${item.slug}`}
         underline="never"
-        style={{ color: "inherit" }}
+        style={{ color: "inherit", display: "block" }}
       >
         <Paper
           radius="xl"
@@ -430,21 +435,20 @@ export default function ProdukPage() {
             </Paper>
           ) : (
             <>
-              <motion.div
-                variants={staggerContainer}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-              >
-                <SimpleGrid
-                  cols={{ base: 1, sm: 2, lg: 4 }}
-                  spacing={24}
-                >
-                  {filteredProducts.map((item) => (
-                    <ProductCard key={item.id} item={item} />
-                  ))}
-                </SimpleGrid>
-              </motion.div>
+<Box key={activeKategoriId}>
+  <SimpleGrid
+    cols={{ base: 1, sm: 2, lg: 4 }}
+    spacing={24}
+  >
+    {filteredProducts.map((item, index) => (
+      <ProductCard
+        key={`${activeKategoriId}-${item.id}`}
+        item={item}
+        index={index}
+      />
+    ))}
+  </SimpleGrid>
+</Box>
 
               {filteredProducts.length === 0 && (
                 <Paper radius="md" p="xl" bg="#FFFFFF" ta="center">
