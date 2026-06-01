@@ -433,19 +433,6 @@ export default function BerandaPage() {
                           >
                             {item.title}
                           </Text>
-
-                          {typeof item.totalTerjual === "number" && (
-                            <Text
-                              ta="center"
-                              c="#6B7280"
-                              style={{
-                                fontSize: 14,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {item.totalTerjual} produk terjual
-                            </Text>
-                          )}
                         </Stack>
                       </Stack>
                     </Anchor>

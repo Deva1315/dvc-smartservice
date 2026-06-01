@@ -15,6 +15,71 @@ import {
 
 export const runtime = "nodejs";
 
+function getRouteErrorStatus(error: unknown) {
+  if (typeof error === "object" && error !== null && "status" in error) {
+    const status = Number((error as { status?: unknown }).status);
+
+    if (
+      [
+        400, 401, 403, 404, 408, 409, 413, 422, 429, 500, 502, 503, 504,
+      ].includes(status)
+    ) {
+      return status;
+    }
+  }
+
+  if (error instanceof Error) {
+    if (
+      error.message.includes('"code":503') ||
+      error.message.includes('"status":"UNAVAILABLE"') ||
+      error.message.includes("ServiceUnavailable") ||
+      error.message.includes("UNAVAILABLE")
+    ) {
+      return 503;
+    }
+
+    if (
+      error.message.includes('"code":429') ||
+      error.message.includes('"status":"RESOURCE_EXHAUSTED"') ||
+      error.message.includes("RESOURCE_EXHAUSTED")
+    ) {
+      return 429;
+    }
+
+    if (error.message.includes('"code":502')) {
+      return 502;
+    }
+
+    if (error.message.includes('"code":504')) {
+      return 504;
+    }
+  }
+
+  return 500;
+}
+
+function getRouteErrorMessage(error: unknown, status: number) {
+  const errorMessage = error instanceof Error ? error.message : "";
+
+  if (errorMessage.includes("GEMINI_API_KEY")) {
+    return "Konfigurasi Gemini belum lengkap. Tambahkan GEMINI_API_KEY di .env.local dan Vercel Environment Variables.";
+  }
+
+  if (status === 503) {
+    return "Layanan Diagnosa AI sedang ramai. Silakan coba lagi beberapa saat.";
+  }
+
+  if (status === 429) {
+    return "Batas penggunaan Diagnosa AI sedang penuh. Silakan coba lagi beberapa saat.";
+  }
+
+  if (status === 502 || status === 504) {
+    return "Koneksi ke layanan Diagnosa AI sedang bermasalah. Silakan coba lagi beberapa saat.";
+  }
+
+  return "Terjadi kesalahan saat memproses chat Diagnosa AI.";
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -176,26 +241,15 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("POST /api/diagnosa-ai/chat error:", error);
 
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-
-    if (errorMessage.includes("GEMINI_API_KEY")) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Konfigurasi Gemini belum lengkap. Tambahkan GEMINI_API_KEY di .env.local dan Vercel Environment Variables.",
-        },
-        { status: 500 }
-      );
-    }
+    const status = getRouteErrorStatus(error);
 
     return NextResponse.json(
       {
         success: false,
-        message: "Terjadi kesalahan saat memproses chat Diagnosa AI.",
+        message: getRouteErrorMessage(error, status),
+        status,
       },
-      { status: 500 }
+      { status }
     );
   }
 }
