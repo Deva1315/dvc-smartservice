@@ -400,7 +400,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         },
         data: {
           status_garansi: garansi_status_garansi.Diklaim,
-          tanggal_diklaim: new Date(),
+          tanggal_klaim: new Date(),
         },
         include: {
           users: {
