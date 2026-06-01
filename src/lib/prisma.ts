@@ -20,7 +20,10 @@ function createAdapterFromDatabaseUrl() {
     user: decodeURIComponent(parsed.username),
     password: decodeURIComponent(parsed.password),
     database: parsed.pathname.replace(/^\//, ""),
-    connectionLimit: process.env.NODE_ENV === "production" ? 10 : 5,
+    connectionLimit: process.env.NODE_ENV === "production" ? 3 : 5,
+    connectTimeout: 10000,
+    acquireTimeout: 30000,
+    socketTimeout: 30000,
   });
 }
 

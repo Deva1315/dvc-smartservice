@@ -1,34 +1,28 @@
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
+import "@mantine/dropzone/styles.css";
 import "@mantine/notifications/styles.css";
 
-import {
-  MantineProvider,
-  mantineHtmlProps,
-} from "@mantine/core";
-import { Notifications } from "@mantine/notifications";
-import { ModalsProvider } from "@mantine/modals";
+import "./globals.css";
+import Providers from "./providers";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "DVC SmartService",
-  description: "DVC SmartService",
+  description: "Sistem informasi penjualan dan servis DVC Komputer",
 };
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <html lang="en" {...mantineHtmlProps}>
-      <head />
+    <html lang="id">
       <body>
-        <MantineProvider defaultColorScheme="light">
-          <ModalsProvider>
-            <Notifications position="top-right" zIndex={1000} />
-            {children}
-          </ModalsProvider>
-        </MantineProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
