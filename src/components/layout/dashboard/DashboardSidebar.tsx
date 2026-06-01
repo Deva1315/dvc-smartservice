@@ -523,7 +523,7 @@ export default function DashboardSidebar({
           }}
         >
           <Image
-            src="/Images/logo-dvc.png"
+            src="/images/logo-dvc.png"
             alt="Logo DVC Computer"
             fill
             priority
