@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { DiagnosaAiModelResponse } from "@/lib/diagnosa-ai/diagnosa-ai.types";
+import type {
+  DiagnosaAiModelResponse,
+  DiagnosaAiSnapshot,
+} from "@/lib/diagnosa-ai/diagnosa-ai.types";
 
 export const MAX_DIAGNOSA_AI_IMAGE_BYTES = 5 * 1024 * 1024;
 
@@ -25,18 +28,42 @@ export const diagnosaAiChatRequestSchema = z.object({
   diagnosaAiId: z.string().trim().nullable().optional(),
 });
 
-export const diagnosaAiModelResponseSchema = z.object({
-  assistantReply: z.string().min(1),
-  snapshot: z.object({
-    gejala: z.string().min(1),
-    kemungkinanPenyebab: z.array(z.string().min(1)).min(2),
-    kemungkinanSolusi: z.array(z.string().min(1)).min(2),
-    saranTindakan: z.array(z.string().min(1)).min(2),
-    tingkatUrgensi: z.enum(["rendah", "sedang", "tinggi"]),
-    perluServisLangsung: z.boolean(),
-    disclaimer: z.string().min(1),
-  }),
+const diagnosaAiSnapshotSchema = z.object({
+  gejala: z.string().min(1),
+  kemungkinanPenyebab: z.array(z.string().min(1)).min(2),
+  kemungkinanSolusi: z.array(z.string().min(1)).min(2),
+  saranTindakan: z.array(z.string().min(1)).min(2),
+  tingkatUrgensi: z.enum(["rendah", "sedang", "tinggi"]),
+  perluServisLangsung: z.boolean(),
+  disclaimer: z.string().min(1),
 });
+
+export const diagnosaAiModelResponseSchema = z
+  .object({
+    assistantReply: z.string().min(1),
+    isDiagnosis: z.boolean().optional(),
+    snapshot: diagnosaAiSnapshotSchema.nullable(),
+  })
+  .superRefine((value, ctx) => {
+    const isDiagnosis = value.isDiagnosis ?? value.snapshot !== null;
+
+    if (isDiagnosis && !value.snapshot) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["snapshot"],
+        message: "Snapshot wajib ada jika isDiagnosis bernilai true.",
+      });
+    }
+  })
+  .transform((value): DiagnosaAiModelResponse => {
+    const isDiagnosis = value.isDiagnosis ?? value.snapshot !== null;
+
+    return {
+      assistantReply: value.assistantReply,
+      isDiagnosis,
+      snapshot: isDiagnosis ? value.snapshot : null,
+    };
+  });
 
 export function parseModelJson(text: string): DiagnosaAiModelResponse {
   const cleaned = text
@@ -67,9 +94,7 @@ export function serializeBigInt<T>(data: T): T {
   );
 }
 
-export function buildSavedSnapshotStrings(
-  snapshot: DiagnosaAiModelResponse["snapshot"]
-) {
+export function buildSavedSnapshotStrings(snapshot: DiagnosaAiSnapshot) {
   return {
     gejala: snapshot.gejala,
     kemungkinan_penyebab: snapshot.kemungkinanPenyebab.join("\n- "),
@@ -104,7 +129,9 @@ export function extractBase64ImageData(value?: string | null) {
   }
 
   if (trimmed.startsWith("data:image/")) {
-    const match = trimmed.match(/^data:(image\/[[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/);
+    const match = trimmed.match(
+      /^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/
+    );
 
     if (!match) return null;
 
