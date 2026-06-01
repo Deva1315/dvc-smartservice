@@ -144,9 +144,9 @@ export async function PATCH(request: Request, context: RouteContext) {
                 tanggal_masuk: new Date(tanggalMasukRaw),
                 nama_cust,
                 phone_cust,
-                alamat_cust: alamat_cust || null,
+                alamat_cust: alamat_cust,
                 jenis_perangkat,
-                merk_perangkat: merk_perangkat || null,
+                merk_perangkat: merk_perangkat,
                 keluhan,
                 ...(gunakan_drop_point && id_drop_point
                     ? {
