@@ -3,7 +3,7 @@
 
 import { pdf } from "@react-pdf/renderer";
 import OwnerLaporanPDF from "@/components/UI/dashboard/owner/laporan/components/OwnerLaporanPDF";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Button,
     Group,
@@ -316,18 +316,6 @@ function downloadCsv<T extends Record<string, unknown>>(options: {
     URL.revokeObjectURL(url);
 }
 
-function getSummaryText(summary: Record<string, unknown> | null) {
-    if (!summary) return null;
-
-    const totalData = summary.total_data;
-
-    if (typeof totalData === "number" || typeof totalData === "string") {
-        return `Total Data: ${totalData}`;
-    }
-
-    return null;
-}
-
 export default function OwnerLaporanDataPage<T extends Record<string, unknown>>({
     jenis,
     label,
@@ -342,7 +330,6 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
     const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-    const summaryText = useMemo(() => getSummaryText(summary), [summary]);
 
     function getTanggalForCurrentFilter() {
         const baseDate = parseInputDateValue(tanggal) || new Date();
@@ -411,11 +398,11 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
     }
 
     function handleTanggalDatePickerChange(value: string | null) {
-    const baseDate = value ? parseInputDateValue(value) : new Date();
-    const normalizedDate = normalizeDateByPeriode(baseDate || new Date(), "harian");
+        const baseDate = value ? parseInputDateValue(value) : new Date();
+        const normalizedDate = normalizeDateByPeriode(baseDate || new Date(), "harian");
 
-    setTanggal(formatDateToInputValue(normalizedDate));
-}
+        setTanggal(formatDateToInputValue(normalizedDate));
+    }
 
     function handleApplyFilter() {
         const selectedTanggal = getTanggalForCurrentFilter();
@@ -564,28 +551,28 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
         }
 
         return (
-           <DatePickerInput
-        key="date-picker"
-        value={tanggal || null}
-        onChange={handleTanggalDatePickerChange}
-        radius="md"
-        leftSection={<IconCalendarMonth size={18} stroke={1.8} />}
-        clearable={false}
-        style={{
-            flex: 1,
-        }}
-        styles={commonStyles}
-        popoverProps={{
-            withinPortal: true,
-        }}
-        placeholder="Pilih tanggal"
-        valueFormat="DD / MM / YYYY"
-    />
+            <DatePickerInput
+                key="date-picker"
+                value={tanggal || null}
+                onChange={handleTanggalDatePickerChange}
+                radius="md"
+                leftSection={<IconCalendarMonth size={18} stroke={1.8} />}
+                clearable={false}
+                style={{
+                    flex: 1,
+                }}
+                styles={commonStyles}
+                popoverProps={{
+                    withinPortal: true,
+                }}
+                placeholder="Pilih tanggal"
+                valueFormat="DD / MM / YYYY"
+            />
         );
     }
 
     return (
-        <Stack gap={16}>
+        <Stack gap={16} style={{ color: "#111827" }}>
             <Group justify="flex-end">
                 <Menu shadow="md" width={180} position="bottom-end" withinPortal={false}>
                     <Menu.Target>
@@ -632,15 +619,9 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
             >
                 <Stack gap={10}>
                     <Group justify="space-between" align="center">
-                        <Text fw={700} fz={20}>
+                        <Text fw={700} fz={20} c="black">
                             Periode
                         </Text>
-
-                        {summaryText ? (
-                            <Text fz={14} c="dimmed">
-                                {summaryText}
-                            </Text>
-                        ) : null}
                     </Group>
 
                     <Group gap={12} align="stretch" wrap="nowrap">
@@ -662,6 +643,18 @@ export default function OwnerLaporanDataPage<T extends Record<string, unknown>>(
                                     backgroundColor: "#FFFFFF",
                                     border: "1px solid #D9DCE3",
                                     fontSize: 17,
+                                    color: "#111827",
+                                },
+                                section: {
+                                    color: "#111827",
+                                },
+                                dropdown: {
+                                    backgroundColor: "#FFFFFF",
+                                    color: "#111827",
+                                },
+                                option: {
+                                    color: "#111827",
+                                    fontSize: 16,
                                 },
                             }}
                         />
