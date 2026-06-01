@@ -1,185 +1,201 @@
-import { z } from "zod";
-import type {
-  DiagnosaAiModelResponse,
-  DiagnosaAiSnapshot,
-} from "@/lib/diagnosa-ai/diagnosa-ai.types";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { generateDiagnosaAiWithGemini } from "@/lib/diagnosa-ai/diagnosa-ai-gemini";
+import {
+  buildNextHistory,
+  buildSavedSnapshotStrings,
+  diagnosaAiChatRequestSchema,
+  extractBase64ImageData,
+  MAX_DIAGNOSA_AI_IMAGE_BYTES,
+  normalizeDiagnosaAiId,
+  normalizeImageMarker,
+  parseModelJson,
+  serializeBigInt,
+} from "@/utils/public/diagnosa-ai.utils";
 
-export const MAX_DIAGNOSA_AI_IMAGE_BYTES = 5 * 1024 * 1024;
+export const runtime = "nodejs";
 
-const ACCEPTED_IMAGE_MIME_TYPES = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-];
-
-export const diagnosaAiChatRequestSchema = z.object({
-  message: z.string().trim().min(1, "Pesan wajib diisi."),
-  imageBase64: z.string().trim().nullable().optional(),
-  history: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string().trim().min(1),
-      })
-    )
-    .optional()
-    .default([]),
-  diagnosaAiId: z.string().trim().nullable().optional(),
-});
-
-const diagnosaAiSnapshotSchema = z.object({
-  gejala: z.string().min(1),
-  kemungkinanPenyebab: z.array(z.string().min(1)).min(2),
-  kemungkinanSolusi: z.array(z.string().min(1)).min(2),
-  saranTindakan: z.array(z.string().min(1)).min(2),
-  tingkatUrgensi: z.enum(["rendah", "sedang", "tinggi"]),
-  perluServisLangsung: z.boolean(),
-  disclaimer: z.string().min(1),
-});
-
-export const diagnosaAiModelResponseSchema = z
-  .object({
-    assistantReply: z.string().min(1),
-    isDiagnosis: z.boolean().optional(),
-    snapshot: diagnosaAiSnapshotSchema.nullable(),
-  })
-  .superRefine((value, ctx) => {
-    const isDiagnosis = value.isDiagnosis ?? value.snapshot !== null;
-
-    if (isDiagnosis && !value.snapshot) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["snapshot"],
-        message: "Snapshot wajib ada jika isDiagnosis bernilai true.",
-      });
-    }
-  })
-  .transform((value): DiagnosaAiModelResponse => {
-    const isDiagnosis = value.isDiagnosis ?? value.snapshot !== null;
-
-    return {
-      assistantReply: value.assistantReply,
-      isDiagnosis,
-      snapshot: isDiagnosis ? value.snapshot : null,
-    };
-  });
-
-export function parseModelJson(text: string): DiagnosaAiModelResponse {
-  const cleaned = text
-    .trim()
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "");
-
-  const parsed = JSON.parse(cleaned);
-  return diagnosaAiModelResponseSchema.parse(parsed);
-}
-
-export function normalizeDiagnosaAiId(value?: string | null) {
-  if (!value) return null;
-
+export async function POST(request: Request) {
   try {
-    return BigInt(value);
-  } catch {
-    return null;
-  }
-}
+    const body = await request.json();
+    const parsedBody = diagnosaAiChatRequestSchema.safeParse(body);
 
-export function serializeBigInt<T>(data: T): T {
-  return JSON.parse(
-    JSON.stringify(data, (_, value) =>
-      typeof value === "bigint" ? value.toString() : value
-    )
-  );
-}
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Payload chat Diagnosa AI tidak valid.",
+          errors: parsedBody.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
 
-export function buildSavedSnapshotStrings(snapshot: DiagnosaAiSnapshot) {
-  return {
-    gejala: snapshot.gejala,
-    kemungkinan_penyebab: snapshot.kemungkinanPenyebab.join("\n- "),
-    kemungkinan_solusi: snapshot.kemungkinanSolusi.join("\n- "),
-    saran_tindakan: snapshot.saranTindakan.join("\n- "),
-  };
-}
+    const payload = parsedBody.data;
+    const imageData = extractBase64ImageData(payload.imageBase64);
 
-export function normalizeImageMarker(imageBase64?: string | null) {
-  if (!imageBase64) return null;
-  return "[image-attached]";
-}
+    if (payload.imageBase64 && !imageData) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Gambar tidak valid. Gunakan gambar JPG, JPEG, PNG, atau WEBP dalam format base64.",
+        },
+        { status: 400 }
+      );
+    }
 
-export function getBase64SizeInBytes(base64: string) {
-  const normalized = base64.replace(/\s/g, "");
-  const padding = normalized.endsWith("==")
-    ? 2
-    : normalized.endsWith("=")
-      ? 1
-      : 0;
+    if (imageData && imageData.sizeBytes > MAX_DIAGNOSA_AI_IMAGE_BYTES) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Ukuran gambar terlalu besar. Maksimal gambar untuk Diagnosa AI adalah 5 MB.",
+        },
+        { status: 413 }
+      );
+    }
 
-  return Math.floor((normalized.length * 3) / 4) - padding;
-}
+    const geminiResponse = await generateDiagnosaAiWithGemini({
+      message: payload.message,
+      history: payload.history,
+      image: imageData
+        ? {
+            data: imageData.data,
+            mimeType: imageData.mimeType,
+          }
+        : null,
+    });
 
-export function extractBase64ImageData(value?: string | null) {
-  if (!value) return null;
+    const assistantRawText = geminiResponse.text.trim();
 
-  const trimmed = value.trim();
+    if (!assistantRawText) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Gemini tidak mengembalikan output.",
+        },
+        { status: 502 }
+      );
+    }
 
-  if (!trimmed || trimmed.startsWith("blob:")) {
-    return null;
-  }
+    let parsedModelResponse;
 
-  if (trimmed.startsWith("data:image/")) {
-    const match = trimmed.match(
-      /^data:(image\/[a-zA-Z0-9.+-]+);base64,([\s\S]+)$/
+    try {
+      parsedModelResponse = parseModelJson(assistantRawText);
+    } catch (error) {
+      console.error("PARSE GEMINI JSON ERROR:", error);
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Output Gemini bukan JSON valid.",
+          raw: assistantRawText,
+        },
+        { status: 502 }
+      );
+    }
+
+    const diagnosaAiId = normalizeDiagnosaAiId(payload.diagnosaAiId);
+
+    let savedDiagnosa = null;
+    let responseDiagnosaAiId: string | null = null;
+
+    if (parsedModelResponse.isDiagnosis && parsedModelResponse.snapshot) {
+      const snapshotStrings = buildSavedSnapshotStrings(
+        parsedModelResponse.snapshot
+      );
+
+      if (diagnosaAiId) {
+        savedDiagnosa = await prisma.diagnosa_ai.update({
+          where: {
+            id: diagnosaAiId,
+          },
+          data: {
+            gejala: snapshotStrings.gejala,
+            gambar_gejala: normalizeImageMarker(payload.imageBase64),
+            kemungkinan_penyebab: snapshotStrings.kemungkinan_penyebab,
+            kemungkinan_solusi: snapshotStrings.kemungkinan_solusi,
+            saran_tindakan: snapshotStrings.saran_tindakan,
+          },
+          select: {
+            id: true,
+            gejala: true,
+            gambar_gejala: true,
+            kemungkinan_penyebab: true,
+            kemungkinan_solusi: true,
+            saran_tindakan: true,
+          },
+        });
+      } else {
+        savedDiagnosa = await prisma.diagnosa_ai.create({
+          data: {
+            gejala: snapshotStrings.gejala,
+            gambar_gejala: normalizeImageMarker(payload.imageBase64),
+            kemungkinan_penyebab: snapshotStrings.kemungkinan_penyebab,
+            kemungkinan_solusi: snapshotStrings.kemungkinan_solusi,
+            saran_tindakan: snapshotStrings.saran_tindakan,
+          },
+          select: {
+            id: true,
+            gejala: true,
+            gambar_gejala: true,
+            kemungkinan_penyebab: true,
+            kemungkinan_solusi: true,
+            saran_tindakan: true,
+          },
+        });
+      }
+
+      responseDiagnosaAiId = savedDiagnosa.id.toString();
+    }
+
+    const nextHistory = buildNextHistory({
+      history: payload.history,
+      userMessage: payload.message,
+      assistantMessage: parsedModelResponse.assistantReply,
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Balasan Diagnosa AI berhasil dibuat.",
+        data: {
+          diagnosaAiId: responseDiagnosaAiId,
+          assistantMessage: parsedModelResponse.assistantReply,
+          isDiagnosis: parsedModelResponse.isDiagnosis,
+          snapshot: parsedModelResponse.snapshot,
+          nextHistory,
+          savedDiagnosa: savedDiagnosa ? serializeBigInt(savedDiagnosa) : null,
+          source: "gemini",
+          model: geminiResponse.model,
+        },
+      },
+      { status: 200 }
     );
+  } catch (error) {
+    console.error("POST /api/diagnosa-ai/chat error:", error);
 
-    if (!match) return null;
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
 
-    const mimeType = match[1]?.toLowerCase();
-    const pureBase64 = match[2]?.replace(/\s/g, "") ?? "";
-
-    if (!mimeType || !ACCEPTED_IMAGE_MIME_TYPES.includes(mimeType)) {
-      return null;
+    if (errorMessage.includes("GEMINI_API_KEY")) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Konfigurasi Gemini belum lengkap. Tambahkan GEMINI_API_KEY di .env.local dan Vercel Environment Variables.",
+        },
+        { status: 500 }
+      );
     }
 
-    if (!pureBase64 || !/^[A-Za-z0-9+/]+=*$/.test(pureBase64)) {
-      return null;
-    }
-
-    return {
-      data: pureBase64,
-      mimeType: mimeType === "image/jpg" ? "image/jpeg" : mimeType,
-      sizeBytes: getBase64SizeInBytes(pureBase64),
-    };
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Terjadi kesalahan saat memproses chat Diagnosa AI.",
+      },
+      { status: 500 }
+    );
   }
-
-  const maybePureBase64 = trimmed.replace(/\s/g, "");
-
-  if (/^[A-Za-z0-9+/]+=*$/.test(maybePureBase64)) {
-    return {
-      data: maybePureBase64,
-      mimeType: "image/jpeg",
-      sizeBytes: getBase64SizeInBytes(maybePureBase64),
-    };
-  }
-
-  return null;
-}
-
-export function buildNextHistory(params: {
-  history: { role: "user" | "assistant"; content: string }[];
-  userMessage: string;
-  assistantMessage: string;
-}) {
-  return [
-    ...params.history,
-    {
-      role: "user" as const,
-      content: params.userMessage,
-    },
-    {
-      role: "assistant" as const,
-      content: params.assistantMessage,
-    },
-  ];
 }
