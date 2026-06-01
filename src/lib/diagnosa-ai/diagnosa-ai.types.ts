@@ -22,7 +22,8 @@ export type DiagnosaAiSnapshot = {
 
 export type DiagnosaAiModelResponse = {
   assistantReply: string;
-  snapshot: DiagnosaAiSnapshot;
+  isDiagnosis: boolean;
+  snapshot: DiagnosaAiSnapshot | null;
 };
 
 export type DiagnosaAiSavedSnapshot = {
@@ -38,11 +39,12 @@ export type DiagnosaAiChatSuccessResponse = {
   success: true;
   message: string;
   data: {
-    diagnosaAiId: string;
+    diagnosaAiId: string | null;
     assistantMessage: string;
-    snapshot: DiagnosaAiSnapshot;
+    isDiagnosis: boolean;
+    snapshot: DiagnosaAiSnapshot | null;
     nextHistory: DiagnosaAiHistoryMessage[];
-    savedDiagnosa: DiagnosaAiSavedSnapshot;
+    savedDiagnosa: DiagnosaAiSavedSnapshot | null;
     source: string;
     model: string;
   };
