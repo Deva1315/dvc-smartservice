@@ -135,7 +135,7 @@ export default function TeknisiProfilePage({ user }: Props) {
         }}
       >
         <Stack gap={22}>
-          <Text fw={800} style={{ fontSize: 22 }}>
+          <Text fw={800} style={{ fontSize: 22, color: "#111111" }}>
             Profile Information
           </Text>
 
