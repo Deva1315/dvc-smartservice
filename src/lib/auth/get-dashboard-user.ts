@@ -17,12 +17,39 @@ export type DashboardSessionUser = {
   avatarUrl: string | null;
 };
 
+function normalizeAvatarUrl(path?: string | null): string | null {
+  if (!path) {
+    return null;
+  }
+
+  const cleanPath = path.trim();
+
+  if (!cleanPath) {
+    return null;
+  }
+
+  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+    return cleanPath;
+  }
+
+  if (cleanPath.startsWith("/")) {
+    return cleanPath;
+  }
+
+  if (cleanPath.startsWith("public/")) {
+    return `/${cleanPath.replace(/^public\//, "")}`;
+  }
+
+  return `/${cleanPath}`;
+}
+
 export function mapSessionUserToDashboardUser(
   sessionUser: SessionUser | null
 ): DashboardSessionUser | null {
   if (!sessionUser) {
     return null;
   }
+  console.log("SESSION PHOTO:", sessionUser.photoProfilePath);
 
   const roleKey = resolveDashboardRoleKey(sessionUser.roleName);
 
@@ -39,7 +66,7 @@ export function mapSessionUserToDashboardUser(
     roleName: sessionUser.roleName || DASHBOARD_ROLE_LABEL[roleKey],
     address: sessionUser.address ?? null,
     phone: sessionUser.phone ?? null,
-    avatarUrl: sessionUser.photoProfilePath ?? null,
+    avatarUrl: normalizeAvatarUrl(sessionUser.photoProfilePath),
   };
 }
 

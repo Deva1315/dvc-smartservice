@@ -70,6 +70,13 @@ export default function LoginPage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    router.prefetch("/owner/dashboard");
+    router.prefetch("/admin_penjualan/jasa-servis");
+    router.prefetch("/admin_gudang/barang");
+    router.prefetch("/teknisi/antrian-tiket-servis");
+  }, [router]);
+
   const clearFieldError = (field: string) => {
     setErrors((prev) => ({
       ...prev,
@@ -132,10 +139,7 @@ export default function LoginPage() {
 
       const redirectPath = getDashboardPathByRoleName(result.user.roleName);
 
-      setTimeout(() => {
-        router.replace(redirectPath);
-        router.refresh();
-      }, 700);
+      router.replace(redirectPath);
     } catch {
       notifications.show({
         color: "red",

@@ -208,6 +208,21 @@ export function getDashboardHomeRoute(roleKey: DashboardRoleKey): string {
   return `/${roleKey}`;
 }
 
+export function getDashboardDefaultRoute(roleKey: DashboardRoleKey): string {
+  switch (roleKey) {
+    case "owner":
+      return "/owner/dashboard";
+    case "admin_penjualan":
+      return "/admin_penjualan/jasa-servis";
+    case "admin_gudang":
+      return "/admin_gudang/barang";
+    case "teknisi":
+      return "/teknisi/antrian-tiket-servis";
+    default:
+      return `/${roleKey}`;
+  }
+}
+
 export function getProfileRoute(roleKey: DashboardRoleKey): string {
   return `/${roleKey}/profile`;
 }

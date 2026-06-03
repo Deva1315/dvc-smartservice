@@ -1,5 +1,5 @@
 import {
-  getDashboardHomeRoute,
+  getDashboardDefaultRoute,
   resolveDashboardRoleKey,
 } from "@/lib/dashboard-menu/dashboard-menu";
 
@@ -103,5 +103,5 @@ export function getDashboardPathByRoleName(roleName: string) {
     return "/";
   }
 
-  return getDashboardHomeRoute(roleKey);
+  return getDashboardDefaultRoute(roleKey);
 }
