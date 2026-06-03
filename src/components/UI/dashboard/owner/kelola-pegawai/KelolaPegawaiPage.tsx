@@ -11,6 +11,7 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import {
   IconDotsVertical,
@@ -139,34 +140,49 @@ export default function KelolaPegawaiPage() {
     setOpened(true);
   }
 
-  async function handleDeletePegawai(row: PegawaiRow) {
-    const confirmed = window.confirm(
-      `Yakin ingin menghapus pegawai ${row.nama}?`
-    );
+function handleDeletePegawai(row: PegawaiRow) {
+  modals.openConfirmModal({
+    title: "Konfirmasi Hapus Pegawai",
+    centered: true,
+    radius: "lg",
+    children: (
+      <Text size="sm">
+        Apakah kamu yakin ingin menghapus pegawai <b>{row.nama}</b>?
+      </Text>
+    ),
+    labels: {
+      confirm: "Ya, Hapus",
+      cancel: "Batal",
+    },
+    confirmProps: {
+      color: "red",
+      radius: "md",
+    },
+    cancelProps: {
+      radius: "md",
+    },
+    onConfirm: async () => {
+      const result = await deleteOwnerPegawaiRequest(row.id);
 
-    if (!confirmed) {
-      return;
-    }
+      if (!result.success) {
+        notifications.show({
+          title: "Gagal",
+          message: result.message,
+          color: "red",
+        });
+        return;
+      }
 
-    const result = await deleteOwnerPegawaiRequest(row.id);
+      setPegawai((prev) => prev.filter((item) => item.id !== row.id));
 
-    if (!result.success) {
       notifications.show({
-        title: "Gagal",
+        title: "Berhasil",
         message: result.message,
-        color: "red",
+        color: "green",
       });
-      return;
-    }
-
-    setPegawai((prev) => prev.filter((item) => item.id !== row.id));
-
-    notifications.show({
-      title: "Berhasil",
-      message: result.message,
-      color: "green",
-    });
-  }
+    },
+  });
+}
 
   async function handleSubmitPegawai(
     payload: PegawaiFormPayload,
@@ -341,7 +357,7 @@ export default function KelolaPegawaiPage() {
             <Menu.Item
               color="red"
               leftSection={<IconTrash size={16} stroke={1.9} />}
-              onClick={() => void handleDeletePegawai(row)}
+              onClick={() => handleDeletePegawai(row)}
             >
               Delete
             </Menu.Item>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Group, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
@@ -59,6 +59,12 @@ type SupplierOption = {
   label: string;
 };
 
+type AdminGudangBarangPageProps = {
+  initialBarang?: BarangApiItem[];
+  initialKategoriOptions?: KategoriBarang[];
+  initialSupplierOptions?: SupplierApiItem[];
+};
+
 function mapBarang(data: BarangApiItem[]): BarangRow[] {
   return data.map((item) => ({
     id: item.id,
@@ -90,10 +96,20 @@ function mapSupplierOptions(data: SupplierApiItem[]): SupplierOption[] {
   }));
 }
 
-export default function AdminGudangBarangPage() {
-  const [barang, setBarang] = useState<BarangRow[]>([]);
-  const [kategoriOptions, setKategoriOptions] = useState<KategoriOption[]>([]);
-  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
+export default function AdminGudangBarangPage({
+  initialBarang = [],
+  initialKategoriOptions = [],
+  initialSupplierOptions = [],
+}: AdminGudangBarangPageProps) {
+  const [barang, setBarang] = useState<BarangRow[]>(() =>
+    mapBarang(initialBarang)
+  );
+  const [kategoriOptions, setKategoriOptions] = useState<KategoriOption[]>(() =>
+    mapKategoriOptions(initialKategoriOptions)
+  );
+  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>(() =>
+    mapSupplierOptions(initialSupplierOptions)
+  );
   const [openedForm, setOpenedForm] = useState(false);
   const [openedDetail, setOpenedDetail] = useState(false);
   const [formType, setFormType] = useState<FormType>("create");
@@ -102,6 +118,8 @@ export default function AdminGudangBarangPage() {
   const [detailBarang, setDetailBarang] = useState<BarangRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const hasFetchedOnMountRef = useRef(false);
 
   async function fetchBarang() {
     try {
@@ -156,9 +174,17 @@ export default function AdminGudangBarangPage() {
   }
 
   useEffect(() => {
-    fetchBarang();
-    fetchKategoriOptions();
-    fetchSupplierOptions();
+    if (hasFetchedOnMountRef.current) {
+      return;
+    }
+
+    hasFetchedOnMountRef.current = true;
+
+    void Promise.all([
+      fetchBarang(),
+      fetchKategoriOptions(),
+      fetchSupplierOptions(),
+    ]);
   }, []);
 
   function handleTambahBarang() {
@@ -194,9 +220,9 @@ export default function AdminGudangBarangPage() {
       title: "Hapus Barang",
       centered: true,
       children: (
-        <Text size="sm">
+        <Text size="sm" color="#111111">
           Apakah kamu yakin ingin menghapus barang{" "}
-          <Text span fw={700}>
+          <Text span fw={700} color="#111111">
             {row.nama}
           </Text>
           ?

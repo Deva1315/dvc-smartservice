@@ -313,7 +313,7 @@ export default function AdminPenjualanDetailTiketServisPage() {
 
   if (isLoading && !detail) {
     return (
-      <Text fw={700} fz={18}>
+      <Text fw={700} fz={18} color="#111111">
         Memuat detail tiket servis...
       </Text>
     );
@@ -322,7 +322,7 @@ export default function AdminPenjualanDetailTiketServisPage() {
   if (!detail) {
     return (
       <Stack gap="md">
-        <Text fw={700} fz={18}>
+        <Text fw={700} fz={18} color="#111111">
           Detail tiket servis tidak ditemukan.
         </Text>
 
@@ -342,7 +342,7 @@ export default function AdminPenjualanDetailTiketServisPage() {
   return (
     <Stack gap={24}>
       <Group justify="space-between" align="center">
-        <Title order={1} fw={800}>
+        <Title order={1} fw={800} style={{ color: "#111111" }}>
           Detail Tiket Servis
         </Title>
 

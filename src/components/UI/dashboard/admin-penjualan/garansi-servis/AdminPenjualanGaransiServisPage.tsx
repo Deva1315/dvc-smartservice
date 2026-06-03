@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionIcon,
   Badge,
@@ -50,6 +50,11 @@ type GaransiRow = {
     nama: string;
     email: string;
   };
+};
+
+type AdminPenjualanGaransiServisPageProps = {
+  initialGaransi?: AdminPenjualanGaransiApiItem[];
+  initialTiketOptions?: GaransiTiketOptionApiItem[];
 };
 
 function getStatusGaransiColor(status: StatusGaransiUi) {
@@ -129,16 +134,25 @@ function mapTiketOption(item: GaransiTiketOptionApiItem): TiketSelesaiOption {
   };
 }
 
-export default function AdminPenjualanGaransiServisPage() {
-  const [garansi, setGaransi] = useState<GaransiRow[]>([]);
-  const [tiketOptions, setTiketOptions] = useState<TiketSelesaiOption[]>([]);
+export default function AdminPenjualanGaransiServisPage({
+  initialGaransi = [],
+  initialTiketOptions = [],
+}: AdminPenjualanGaransiServisPageProps) {
+  const [garansi, setGaransi] = useState<GaransiRow[]>(() =>
+    initialGaransi.map(mapGaransiRow)
+  );
+  const [tiketOptions, setTiketOptions] = useState<TiketSelesaiOption[]>(() =>
+    initialTiketOptions.map(mapTiketOption)
+  );
   const [openedForm, setOpenedForm] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openedDetail, setOpenedDetail] = useState(false);
   const [selectedGaransi, setSelectedGaransi] = useState<GaransiRow | null>(
     null
   );
+
+  const hasFetchedOnMountRef = useRef(false);
 
   const tableData = useMemo(() => {
     return garansi.map((item, index) => ({
@@ -186,7 +200,12 @@ export default function AdminPenjualanGaransiServisPage() {
   }
 
   useEffect(() => {
-    fetchInitialData();
+    if (hasFetchedOnMountRef.current) {
+      return;
+    }
+
+    hasFetchedOnMountRef.current = true;
+    void fetchInitialData();
   }, []);
 
   async function handleOpenDetail(row: GaransiRow) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Group, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
@@ -48,6 +48,11 @@ type SupplierOption = {
   label: string;
 };
 
+type AdminGudangSparepartPageProps = {
+  initialSparepart?: SparepartApiItem[];
+  initialSupplierOptions?: SupplierApiItem[];
+};
+
 function mapSparepart(data: SparepartApiItem[]): SparepartRow[] {
   return data.map((item) => ({
     id: item.id,
@@ -70,9 +75,16 @@ function mapSupplierOptions(data: SupplierApiItem[]): SupplierOption[] {
   }));
 }
 
-export default function AdminGudangSparepartPage() {
-  const [sparepart, setSparepart] = useState<SparepartRow[]>([]);
-  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([]);
+export default function AdminGudangSparepartPage({
+  initialSparepart = [],
+  initialSupplierOptions = [],
+}: AdminGudangSparepartPageProps) {
+  const [sparepart, setSparepart] = useState<SparepartRow[]>(() =>
+    mapSparepart(initialSparepart)
+  );
+  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>(() =>
+    mapSupplierOptions(initialSupplierOptions)
+  );
   const [openedForm, setOpenedForm] = useState(false);
   const [openedDetail, setOpenedDetail] = useState(false);
   const [formType, setFormType] = useState<FormType>("create");
@@ -82,6 +94,8 @@ export default function AdminGudangSparepartPage() {
     useState<SparepartRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const hasFetchedOnMountRef = useRef(false);
 
   async function fetchSparepart() {
     try {
@@ -120,8 +134,13 @@ export default function AdminGudangSparepartPage() {
   }
 
   useEffect(() => {
-    fetchSparepart();
-    fetchSupplierOptions();
+    if (hasFetchedOnMountRef.current) {
+      return;
+    }
+
+    hasFetchedOnMountRef.current = true;
+
+    void Promise.all([fetchSparepart(), fetchSupplierOptions()]);
   }, []);
 
   function handleTambahSparepart() {

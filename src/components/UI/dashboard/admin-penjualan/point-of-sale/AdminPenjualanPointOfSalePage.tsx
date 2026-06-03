@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Box, Group, Stack } from "@mantine/core";
+import { Box, Center, Group, Loader, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import PosProductTable from "@/components/UI/dashboard/admin-penjualan/point-of-sale/components/PosProductTable";
 import PosCartTable from "@/components/UI/dashboard/admin-penjualan/point-of-sale/components/PosCartTable";
@@ -126,6 +126,7 @@ export default function AdminPenjualanPointOfSalePage() {
   const [nominalBayar, setNominalBayar] = useState<number | string>(0);
   const [adminName, setAdminName] = useState("-");
   const [namaCustomer, setNamaCustomer] = useState(DEFAULT_NAMA_CUSTOMER);
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const [isLoadingBarang, setIsLoadingBarang] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPreparingTransaksi, setIsPreparingTransaksi] = useState(false);
@@ -265,9 +266,29 @@ export default function AdminPenjualanPointOfSalePage() {
   }
 
   useEffect(() => {
-    fetchBarang();
-    fetchSession();
-    prepareInitialTransaksi();
+    let isMounted = true;
+
+    async function preparePage() {
+      try {
+        setIsPageLoading(true);
+
+        await Promise.all([
+          fetchBarang(),
+          fetchSession(),
+          prepareInitialTransaksi(),
+        ]);
+      } finally {
+        if (isMounted) {
+          setIsPageLoading(false);
+        }
+      }
+    }
+
+    void preparePage();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   function clearLastInvoice() {
@@ -561,6 +582,18 @@ export default function AdminPenjualanPointOfSalePage() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (isPageLoading) {
+    return (
+      <Center
+        style={{
+          minHeight: 420,
+        }}
+      >
+        <Loader size="lg" color="blue" />
+      </Center>
+    );
   }
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Group, Select, Stack } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconPlus } from "@tabler/icons-react";
@@ -19,10 +19,14 @@ import {
   createAdminPenjualanTiketServis,
   getAdminPenjualanNomorTiketRequest,
   getAdminPenjualanTiketServis,
+  type AdminPenjualanTiketApiItem,
   updateAdminPenjualanTiketServis,
 } from "@/lib/admin-penjualan/admin-penjualan-tiket-servis.client";
 
-import { getAdminPenjualanDropPointList } from "@/lib/admin-penjualan/admin-penjualan-drop-point.client";
+import {
+  getAdminPenjualanDropPointList,
+  type AdminPenjualanDropPointApiItem,
+} from "@/lib/admin-penjualan/admin-penjualan-drop-point.client";
 
 import type { AdminPenjualanTiketPageRow } from "./components/AdminPenjualanTiketServisPage.types";
 
@@ -34,7 +38,22 @@ import {
 
 import { getAdminPenjualanTiketServisColumns } from "./components/AdminPenjualanTiketServisTable";
 
-export default function AdminPenjualanTiketServisPage() {
+type AdminPenjualanTiketServisPageProps = {
+  initialTiketServis?: AdminPenjualanTiketApiItem[];
+  initialDropPointOptions?: AdminPenjualanDropPointApiItem[];
+};
+
+function mapDropPointOptions(data: AdminPenjualanDropPointApiItem[]) {
+  return data.map((item) => ({
+    value: String(item.id),
+    label: item.nama_drop_point,
+  }));
+}
+
+export default function AdminPenjualanTiketServisPage({
+  initialTiketServis = [],
+  initialDropPointOptions = [],
+}: AdminPenjualanTiketServisPageProps) {
   const router = useRouter();
 
   const [opened, setOpened] = useState(false);
@@ -43,12 +62,12 @@ export default function AdminPenjualanTiketServisPage() {
   >(null);
 
   const [tiketServis, setTiketServis] = useState<AdminPenjualanTiketPageRow[]>(
-    []
+    () => mapTiketServis(initialTiketServis)
   );
 
   const [dropPointOptions, setDropPointOptions] = useState<
     AdminPenjualanTicketDropPointOption[]
-  >([]);
+  >(() => mapDropPointOptions(initialDropPointOptions));
 
   const [isLoading, setIsLoading] = useState(false);
   const [tanggalMasuk] = useState(new Date());
@@ -58,6 +77,8 @@ export default function AdminPenjualanTiketServisPage() {
   const [selectedTicket, setSelectedTicket] = useState<
     AdminPenjualanTicketRow | undefined
   >(undefined);
+
+  const hasFetchedOnMountRef = useRef(false);
 
   const tableData = useMemo(() => {
     const filtered = selectedStatusServis
@@ -97,6 +118,11 @@ export default function AdminPenjualanTiketServisPage() {
   );
 
   useEffect(() => {
+    if (hasFetchedOnMountRef.current) {
+      return;
+    }
+
+    hasFetchedOnMountRef.current = true;
     void fetchInitialData();
   }, []);
 
@@ -112,12 +138,7 @@ export default function AdminPenjualanTiketServisPage() {
       setTiketServis(mapTiketServis(ticketResult.data || []));
 
       if (dropPointResult.success) {
-        setDropPointOptions(
-          dropPointResult.data.map((item) => ({
-            value: String(item.id),
-            label: item.nama_drop_point,
-          }))
-        );
+        setDropPointOptions(mapDropPointOptions(dropPointResult.data));
       } else {
         notifications.show({
           title: "Gagal",
@@ -212,10 +233,7 @@ export default function AdminPenjualanTiketServisPage() {
         const result = await createAdminPenjualanTiketServis(payload);
         const createdData = result.data ?? result.ticket;
 
-        setTiketServis((prev) => [
-          ...mapTiketServis([createdData]),
-          ...prev,
-        ]);
+        setTiketServis((prev) => [...mapTiketServis([createdData]), ...prev]);
 
         notifications.show({
           title: "Berhasil",

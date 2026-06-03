@@ -5,6 +5,7 @@ import {
   Avatar,
   Badge,
   Box,
+  Center,
   Divider,
   Group,
   Loader,
@@ -59,26 +60,50 @@ function mapApiUser(user: AdminPenjualanProfileUser): DashboardSessionUser {
 }
 
 export default function AdminPenjualanProfilePage({ user }: Props) {
-  const [profileUser, setProfileUser] =
-    useState<DashboardSessionUser>(user);
-  const [isLoading, setIsLoading] = useState(false);
+  const [profileUser, setProfileUser] = useState<DashboardSessionUser>(user);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const load = async () => {
       try {
-        setIsLoading(true);
+        setIsPageLoading(true);
+
         const result = await getAdminPenjualanProfileRequest();
+
+        if (!isMounted) {
+          return;
+        }
 
         if (result.success) {
           setProfileUser(mapApiUser(result.user));
         }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsPageLoading(false);
+        }
       }
     };
 
-    load();
+    void load();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  if (isPageLoading) {
+    return (
+      <Center
+        style={{
+          minHeight: 420,
+        }}
+      >
+        <Loader size="lg" color="blue" />
+      </Center>
+    );
+  }
 
   return (
     <Stack gap={22}>
@@ -107,21 +132,19 @@ export default function AdminPenjualanProfilePage({ user }: Props) {
             </Text>
 
             <Group gap={8}>
-              <IconMail size={18}  color="#6B7280"/>
-              <Text style={{ color: "#111111" }}>
-                {profileUser.email}
-                </Text>
+              <IconMail size={18} color="#6B7280" />
+              <Text style={{ color: "#111111" }}>{profileUser.email}</Text>
             </Group>
 
             <Group gap={8}>
-              <IconPhone size={18} color="#6B7280"/>
+              <IconPhone size={18} color="#6B7280" />
               <Text style={{ color: "#111111" }}>
                 {profileUser.phone || "-"}
               </Text>
             </Group>
 
             <Group gap={8}>
-              <IconMapPin size={18} color="#6B7280"/>
+              <IconMapPin size={18} color="#6B7280" />
               <Text style={{ color: "#111111" }}>
                 {profileUser.address || "-"}
               </Text>
@@ -147,33 +170,24 @@ export default function AdminPenjualanProfilePage({ user }: Props) {
 
           <Divider />
 
-          {isLoading ? (
-            <Stack align="center">
-              <Loader />
-            </Stack>
-          ) : (
-            <SimpleGrid cols={{ base: 1, md: 2 }} spacing={28}>
-              <ProfileFieldView label="Name" value={profileUser.name} />
-              <ProfileFieldView
-                label="Address"
-                value={profileUser.address || "-"}
-              />
-              <ProfileFieldView label="Email" value={profileUser.email} />
-              <ProfileFieldView
-                label="Phone"
-                value={profileUser.phone || "-"}
-              />
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing={28}>
+            <ProfileFieldView label="Name" value={profileUser.name} />
+            <ProfileFieldView
+              label="Address"
+              value={profileUser.address || "-"}
+            />
+            <ProfileFieldView label="Email" value={profileUser.email} />
+            <ProfileFieldView label="Phone" value={profileUser.phone || "-"} />
 
-              <Box>
-                <Text fw={700} c="#7B8794" style={{ marginBottom: 6 }}>
-                  Role
-                </Text>
-                <Badge color="green" variant="light">
-                  {profileUser.roleName.toUpperCase()}
-                </Badge>
-              </Box>
-            </SimpleGrid>
-          )}
+            <Box>
+              <Text fw={700} c="#7B8794" style={{ marginBottom: 6 }}>
+                Role
+              </Text>
+              <Badge color="green" variant="light">
+                {profileUser.roleName.toUpperCase()}
+              </Badge>
+            </Box>
+          </SimpleGrid>
         </Stack>
       </Paper>
     </Stack>
