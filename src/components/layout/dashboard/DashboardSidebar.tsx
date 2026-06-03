@@ -36,7 +36,7 @@ type DashboardSidebarProps = {
   collapsed: boolean;
 };
 
-type OwnerProfileApiResponse =
+type ProfileApiResponse =
   | {
       success: true;
       message: string;
@@ -67,6 +67,21 @@ function isPathActive(pathname: string, href?: string): boolean {
   }
 
   return cleanPathname.startsWith(`${cleanHref}/`);
+}
+
+function getProfileApiEndpoint(roleKey: DashboardSessionUser["roleKey"]) {
+  switch (roleKey) {
+    case "owner":
+      return "/api/owner/profile";
+    case "admin_penjualan":
+      return "/api/admin-penjualan/profile";
+    case "admin_gudang":
+      return "/api/admin-gudang/profile";
+    case "teknisi":
+      return "/api/teknisi/profile";
+    default:
+      return null;
+  }
 }
 
 export default function DashboardSidebar({
@@ -110,46 +125,48 @@ export default function DashboardSidebar({
     });
   }, [menuItems, pathname]);
 
-  useEffect(() => {
-    let isMounted = true;
+useEffect(() => {
+  let isMounted = true;
 
-    async function loadSidebarAvatar() {
-      try {
-        if (user.roleKey !== "owner") {
-          setSidebarAvatarUrl(user.avatarUrl ?? null);
-          return;
-        }
+  async function loadSidebarAvatar() {
+    try {
+      const endpoint = getProfileApiEndpoint(user.roleKey);
 
-        const response = await fetch("/api/owner/profile", {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        const result = (await response.json().catch(() => null)) as
-          | OwnerProfileApiResponse
-          | null;
-
-        if (!isMounted) return;
-
-        if (!response.ok || !result || !result.success) {
-          setSidebarAvatarUrl(user.avatarUrl ?? null);
-          return;
-        }
-
-        setSidebarAvatarUrl(result.user.photoProfilePath ?? null);
-      } catch {
-        if (!isMounted) return;
+      if (!endpoint) {
         setSidebarAvatarUrl(user.avatarUrl ?? null);
+        return;
       }
+
+      const response = await fetch(endpoint, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      const result = (await response.json().catch(() => null)) as
+        | ProfileApiResponse
+        | null;
+
+      if (!isMounted) return;
+
+      if (!response.ok || !result || !result.success) {
+        setSidebarAvatarUrl(user.avatarUrl ?? null);
+        return;
+      }
+
+      setSidebarAvatarUrl(result.user.photoProfilePath ?? user.avatarUrl ?? null);
+    } catch {
+      if (!isMounted) return;
+      setSidebarAvatarUrl(user.avatarUrl ?? null);
     }
+  }
 
-    void loadSidebarAvatar();
+  void loadSidebarAvatar();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [user.roleKey, user.avatarUrl]);
+  return () => {
+    isMounted = false;
+  };
+}, [user.roleKey, user.avatarUrl]);
 
   async function handleLogout() {
     try {
