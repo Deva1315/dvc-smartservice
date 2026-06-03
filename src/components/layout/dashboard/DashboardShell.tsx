@@ -7,7 +7,9 @@ import DashboardHeader from "@/components/layout/dashboard/DashboardHeader";
 import DashboardSidebar from "@/components/layout/dashboard/DashboardSidebar";
 import {
   getDashboardHomeRoute,
+  getDashboardMenuByRole,
   getDashboardPageTitle,
+  getProfileRoute,
 } from "@/lib/dashboard-menu/dashboard-menu";
 import type { DashboardSessionUser } from "@/lib/auth/get-dashboard-user";
 
@@ -33,6 +35,24 @@ export default function DashboardShell({
       router.replace(homeRoute);
     }
   }, [homeRoute, isAllowedRoute, router]);
+
+  useEffect(() => {
+  const menuItems = getDashboardMenuByRole(user.roleKey);
+
+  for (const item of menuItems) {
+    if (item.href) {
+      router.prefetch(item.href);
+    }
+
+    if (item.children?.length) {
+      for (const child of item.children) {
+        router.prefetch(child.href);
+      }
+    }
+  }
+
+  router.prefetch(getProfileRoute(user.roleKey));
+}, [router, user.roleKey]);
 
   const pageTitle = getDashboardPageTitle(user.roleKey, pathname);
 

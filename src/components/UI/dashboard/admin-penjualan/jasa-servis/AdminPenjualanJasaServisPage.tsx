@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionIcon,
   Button,
@@ -44,6 +44,10 @@ type JasaServisRow = {
   jamOperasional: string;
 };
 
+type AdminPenjualanJasaServisPageProps = {
+  initialData?: JasaServisApiItem[];
+};
+
 function formatRupiah(value: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -73,8 +77,12 @@ function mapJasaServis(data: JasaServisApiItem[]): JasaServisRow[] {
   }));
 }
 
-export default function AdminPenjualanJasaServisPage() {
-  const [jasaServis, setJasaServis] = useState<JasaServisRow[]>([]);
+export default function AdminPenjualanJasaServisPage({
+  initialData = [],
+}: AdminPenjualanJasaServisPageProps) {
+  const [jasaServis, setJasaServis] = useState<JasaServisRow[]>(() =>
+    mapJasaServis(initialData)
+  );
   const [openedForm, setOpenedForm] = useState(false);
   const [openedDetail, setOpenedDetail] = useState(false);
   const [formType, setFormType] = useState<FormType>("create");
@@ -84,6 +92,7 @@ export default function AdminPenjualanJasaServisPage() {
     useState<JasaServisRow | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const hasFetchedOnMountRef = useRef(false);
 
   const tableData = useMemo(() => {
     return jasaServis.map((item, index) => ({
@@ -112,9 +121,14 @@ export default function AdminPenjualanJasaServisPage() {
     }
   }
 
-  useEffect(() => {
-    fetchJasaServis();
-  }, []);
+useEffect(() => {
+  if (hasFetchedOnMountRef.current) {
+    return;
+  }
+
+  hasFetchedOnMountRef.current = true;
+  void fetchJasaServis();
+}, []);
 
   function handleTambahJasaServis() {
     setFormType("create");
