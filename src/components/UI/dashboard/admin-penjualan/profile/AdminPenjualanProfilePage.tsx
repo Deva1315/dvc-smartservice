@@ -102,23 +102,29 @@ export default function AdminPenjualanProfilePage({ user }: Props) {
           </Avatar>
 
           <Stack gap={8}>
-            <Text fw={800} style={{ fontSize: 32 }}>
+            <Text fw={800} style={{ fontSize: 32, color: "#111111" }}>
               {profileUser.name}
             </Text>
 
             <Group gap={8}>
-              <IconMail size={18} />
-              <Text>{profileUser.email}</Text>
+              <IconMail size={18}  color="#6B7280"/>
+              <Text style={{ color: "#111111" }}>
+                {profileUser.email}
+                </Text>
             </Group>
 
             <Group gap={8}>
-              <IconPhone size={18} />
-              <Text>{profileUser.phone || "-"}</Text>
+              <IconPhone size={18} color="#6B7280"/>
+              <Text style={{ color: "#111111" }}>
+                {profileUser.phone || "-"}
+              </Text>
             </Group>
 
             <Group gap={8}>
-              <IconMapPin size={18} />
-              <Text>{profileUser.address || "-"}</Text>
+              <IconMapPin size={18} color="#6B7280"/>
+              <Text style={{ color: "#111111" }}>
+                {profileUser.address || "-"}
+              </Text>
             </Group>
           </Stack>
         </Group>
@@ -135,7 +141,7 @@ export default function AdminPenjualanProfilePage({ user }: Props) {
         }}
       >
         <Stack gap={22}>
-          <Text fw={800} style={{ fontSize: 22 }}>
+          <Text fw={800} style={{ fontSize: 22, color: "#111111" }}>
             Profile Information
           </Text>
 
