@@ -52,7 +52,7 @@ const DASHBOARD_MENU: Record<DashboardRoleKey, DashboardMenuItem[]> = {
     {
       key: "dashboard",
       label: "Dashboard",
-      href: "/owner",
+      href: "/owner/dashboard",
       icon: IconLayoutDashboard,
     },
     {

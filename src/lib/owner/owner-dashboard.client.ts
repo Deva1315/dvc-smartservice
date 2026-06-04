@@ -32,7 +32,7 @@ export async function getOwnerDashboard() {
 
   const result = (await response.json()) as OwnerDashboardResponse;
 
-  if (!response.ok) {
+  if (!response.ok || !result.success) {
     throw new Error(result.message || "Gagal mengambil data dashboard owner.");
   }
 
