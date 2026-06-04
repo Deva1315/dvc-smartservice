@@ -49,7 +49,6 @@ export function mapSessionUserToDashboardUser(
   if (!sessionUser) {
     return null;
   }
-  console.log("SESSION PHOTO:", sessionUser.photoProfilePath);
 
   const roleKey = resolveDashboardRoleKey(sessionUser.roleName);
 
