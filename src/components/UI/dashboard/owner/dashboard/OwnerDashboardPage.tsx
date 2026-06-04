@@ -41,6 +41,7 @@ type StatCardProps = {
   accent: string;
   loading: boolean;
   footer?: ReactNode;
+  valueFontSize?: string;
 };
 
 function StatCard({
@@ -54,6 +55,7 @@ function StatCard({
   accent,
   loading,
   footer,
+  valueFontSize,
 }: StatCardProps) {
   return (
     <Paper
@@ -140,9 +142,10 @@ function StatCard({
                   fw={800}
                   c="#071226"
                   style={{
-                    fontSize: "clamp(34px, 3vw, 46px)",
+                    fontSize: valueFontSize ?? "clamp(34px, 3vw, 46px)",
                     lineHeight: 1.05,
                     letterSpacing: "-0.045em",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {value}
@@ -185,36 +188,36 @@ export default function OwnerDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-async function fetchDashboard(isRefresh = false) {
-  if (isRefresh && (isLoading || isRefreshing)) {
-    return;
-  }
-
-  try {
-    if (isRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
+  async function fetchDashboard(isRefresh = false) {
+    if (isRefresh && (isLoading || isRefreshing)) {
+      return;
     }
 
-    const result = await getOwnerDashboard();
-    setDashboardData(result.data);
-  } catch (error) {
-    setDashboardData(null);
+    try {
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
 
-    notifications.show({
-      title: "Gagal",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Gagal mengambil data dashboard owner.",
-      color: "red",
-    });
-  } finally {
-    setIsLoading(false);
-    setIsRefreshing(false);
+      const result = await getOwnerDashboard();
+      setDashboardData(result.data);
+    } catch (error) {
+      setDashboardData(null);
+
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data dashboard owner.",
+        color: "red",
+      });
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }
-}
 
   useEffect(() => {
     void fetchDashboard();
@@ -357,6 +360,7 @@ async function fetchDashboard(isRefresh = false) {
             iconColor="#D97706"
             accent="linear-gradient(90deg, #D97706, #F6B65B)"
             loading={isLoading}
+            valueFontSize="clamp(30px, 2.35vw, 42px)"
             footer={
               isLoading ? (
                 <Group grow>
