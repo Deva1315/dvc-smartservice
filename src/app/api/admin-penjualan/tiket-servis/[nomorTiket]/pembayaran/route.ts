@@ -37,16 +37,14 @@ function toNumber(value: unknown) {
 }
 
 function normalizeMetodePembayaran(value: unknown) {
-  const metode = typeof value === "string" ? value.trim() : "";
+  const metode = typeof value === "string" ? value.trim() : "Cash";
 
   if (!metode) {
-    throw new Error("Metode pembayaran wajib dipilih");
+    return "Cash";
   }
 
-  const allowed = ["Cash", "Transfer", "QRIS", "Debit"];
-
-  if (!allowed.includes(metode)) {
-    throw new Error("Metode pembayaran tidak valid");
+  if (metode !== "Cash") {
+    throw new Error("Metode pembayaran saat ini hanya mendukung Cash");
   }
 
   return metode;
@@ -335,14 +333,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       });
 
-      await tx.tiket_servis.update({
-        where: {
-          id: tiket.id,
-        },
-        data: {
-          status_servis: tiket_servis_status_servis.Diambil,
-        },
-      });
 
       const updatedTiket = await tx.tiket_servis.findUnique({
         where: {

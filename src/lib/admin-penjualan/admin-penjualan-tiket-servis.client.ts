@@ -383,3 +383,23 @@ export async function simpanPembayaranServis(
 
   return result;
 }
+
+export async function konfirmasiTiketServisDiambil(nomorTiket: string) {
+  const response = await fetch(
+    `${BASE_URL}/${encodeURIComponent(nomorTiket)}/diambil`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Gagal mengonfirmasi perangkat diambil");
+  }
+
+  return result;
+}

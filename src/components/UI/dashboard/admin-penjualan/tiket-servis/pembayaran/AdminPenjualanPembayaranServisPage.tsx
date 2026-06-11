@@ -8,24 +8,20 @@ import {
   Card,
   Divider,
   Group,
-  Select,
   Stack,
   Text,
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useParams, useRouter } from "next/navigation";
-import {
-  IconDeviceLaptop,
-  IconTicket,
-  IconUser,
-} from "@tabler/icons-react";
+import { IconDeviceLaptop, IconTicket, IconUser } from "@tabler/icons-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import NotaPembayaranServisPDF, {
   type NotaPembayaranServisData,
 } from "@/components/UI/dashboard/admin-penjualan/tiket-servis/pembayaran/NotaPembayaranServisPDF";
 import {
   getPembayaranServisDetail,
+  konfirmasiTiketServisDiambil,
   simpanPembayaranServis,
   type PembayaranServisDetailData,
 } from "@/lib/admin-penjualan/admin-penjualan-tiket-servis.client";
@@ -79,6 +75,7 @@ function getStatusServisColor(status: string) {
   if (status === "Diproses") return "blue";
   if (status === "Menunggu_Sparepart") return "yellow";
   if (status === "Dibatalkan") return "red";
+
   return "gray";
 }
 
@@ -89,43 +86,50 @@ export default function AdminPenjualanPembayaranServisPage() {
   const nomorTiket = decodeURIComponent(String(params.nomorTiket || ""));
 
   const [data, setData] = useState<PembayaranServisDetailData | null>(null);
-  const [metode, setMetode] = useState("Cash");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirmingPickup, setIsConfirmingPickup] = useState(false);
+
+  const metode = "Cash";
 
   const isPaid = data?.pembayaran?.status_pembayaran === "Dibayar";
+
   const canPay =
     data?.tiket.status_verifikasi === "Diterima" &&
     data?.tiket.status_servis === "Selesai" &&
     !isPaid;
 
+  const canConfirmPickup = Boolean(
+    isPaid && data?.tiket.status_servis === "Selesai"
+  );
+
   const statusPembayaranLabel = isPaid ? "Lunas" : "Belum Lunas";
   const statusPembayaranColor = isPaid ? "green" : "orange";
 
-const notaData = useMemo<NotaPembayaranServisData | null>(() => {
-  if (!data) return null;
+  const notaData = useMemo<NotaPembayaranServisData | null>(() => {
+    if (!data) return null;
 
-  return {
-    nomorTiket: data.tiket.nomor_tiket,
-    tanggalTiket: data.tiket.tanggal_masuk,
-    namaPelanggan: data.tiket.nama_cust,
-    noTelepon: data.tiket.phone_cust,
-    perangkat: getPerangkatDisplay(data),
-    metodePembayaran: data.pembayaran?.metode_pembayaran || metode,
-    items: [
-      ...data.rincian_jasa.map((item) => ({
-        nama: item.nama,
-        qty: null,
-        harga: item.harga,
-      })),
-      ...data.rincian_sparepart.map((item) => ({
-        nama: item.nama,
-        qty: item.jumlah,
-        harga: item.harga,
-      })),
-    ],
-  };
-}, [data, metode]);
+    return {
+      nomorTiket: data.tiket.nomor_tiket,
+      tanggalTiket: data.tiket.tanggal_masuk,
+      namaPelanggan: data.tiket.nama_cust,
+      noTelepon: data.tiket.phone_cust,
+      perangkat: getPerangkatDisplay(data),
+      metodePembayaran: data.pembayaran?.metode_pembayaran || metode,
+      items: [
+        ...data.rincian_jasa.map((item) => ({
+          nama: item.nama,
+          qty: null,
+          harga: item.harga,
+        })),
+        ...data.rincian_sparepart.map((item) => ({
+          nama: item.nama,
+          qty: item.jumlah,
+          harga: item.harga,
+        })),
+      ],
+    };
+  }, [data, metode]);
 
   async function fetchPembayaran() {
     try {
@@ -135,17 +139,13 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
       const nextData = result.data as PembayaranServisDetailData;
 
       setData(nextData);
-
-      if (nextData.pembayaran?.metode_pembayaran) {
-        setMetode(nextData.pembayaran.metode_pembayaran);
-      }
     } catch (error) {
       notifications.show({
         title: "Gagal",
         message:
           error instanceof Error
             ? error.message
-            : "Gagal mengambil data pembayaran servis.",
+            : "Gagal mengambil data pembayaran servis",
         color: "red",
       });
 
@@ -165,12 +165,12 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
     if (!canPay) {
       notifications.show({
         title: "Gagal",
-        message:
-          isPaid
-            ? "Tiket servis ini sudah dibayar."
-            : "Pembayaran hanya bisa dilakukan jika status servis sudah Selesai.",
+        message: isPaid
+          ? "Tiket servis ini sudah dibayar"
+          : "Pembayaran hanya bisa dilakukan jika status servis sudah Selesai",
         color: "red",
       });
+
       return;
     }
 
@@ -183,7 +183,7 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
 
       notifications.show({
         title: "Berhasil",
-        message: "Pembayaran servis berhasil disimpan.",
+        message: "Pembayaran servis berhasil disimpan",
         color: "green",
       });
 
@@ -194,11 +194,40 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
         message:
           error instanceof Error
             ? error.message
-            : "Gagal menyimpan pembayaran servis.",
+            : "Gagal menyimpan pembayaran servis",
         color: "red",
       });
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleKonfirmasiDiambil() {
+    if (!data || !canConfirmPickup) return;
+
+    try {
+      setIsConfirmingPickup(true);
+
+      await konfirmasiTiketServisDiambil(nomorTiket);
+
+      notifications.show({
+        title: "Berhasil",
+        message: "Perangkat berhasil dikonfirmasi diambil",
+        color: "green",
+      });
+
+      await fetchPembayaran();
+    } catch (error) {
+      notifications.show({
+        title: "Gagal",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Gagal mengonfirmasi perangkat diambil",
+        color: "red",
+      });
+    } finally {
+      setIsConfirmingPickup(false);
     }
   }
 
@@ -235,6 +264,7 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
     <Stack gap={24}>
       <Group justify="space-between" align="center">
         <Text fw={800} fz={28}>
+          Pembayaran Servis
         </Text>
 
         <Button
@@ -284,6 +314,19 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
               {data.tiket.status_servis !== "Selesai" && !isPaid ? (
                 <Text c="red" fw={600}>
                   Tiket hanya dapat dibayar jika status servis sudah Selesai.
+                </Text>
+              ) : null}
+
+              {isPaid && data.tiket.status_servis === "Selesai" ? (
+                <Text c="orange" fw={600}>
+                  Pembayaran sudah lunas, tetapi perangkat belum dikonfirmasi
+                  diambil.
+                </Text>
+              ) : null}
+
+              {data.tiket.status_servis === "Diambil" ? (
+                <Text c="teal" fw={600}>
+                  Perangkat sudah dikonfirmasi diambil oleh pelanggan.
                 </Text>
               ) : null}
             </Stack>
@@ -343,7 +386,9 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
 
                 <Group justify="space-between">
                   <Text fw={700}>Subtotal</Text>
-                  <Text fw={700}>{formatRupiah(data.subtotal_sparepart)}</Text>
+                  <Text fw={700}>
+                    {formatRupiah(data.subtotal_sparepart)}
+                  </Text>
                 </Group>
               </Stack>
             </Card>
@@ -382,18 +427,7 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
                 Pembayaran
               </Text>
 
-              <Select
-                label="Metode Pembayaran"
-                data={[
-                  { value: "Cash", label: "Cash" },
-                  { value: "Transfer", label: "Transfer" },
-                  { value: "QRIS", label: "QRIS" },
-                  { value: "Debit", label: "Debit" },
-                ]}
-                value={metode}
-                onChange={(val) => setMetode(val || "Cash")}
-                disabled={isPaid || isSubmitting}
-              />
+              <TextInput label="Metode Pembayaran" value="Cash" readOnly />
 
               <TextInput
                 label="Nominal Bayar"
@@ -429,6 +463,24 @@ const notaData = useMemo<NotaPembayaranServisData | null>(() => {
               >
                 {isPaid ? "Sudah Dibayar" : "Simpan Pembayaran"}
               </Button>
+
+              {canConfirmPickup ? (
+                <Button
+                  fullWidth
+                  color="teal"
+                  loading={isConfirmingPickup}
+                  disabled={isConfirmingPickup}
+                  onClick={handleKonfirmasiDiambil}
+                >
+                  Konfirmasi Perangkat Diambil
+                </Button>
+              ) : null}
+
+              {isPaid && data.tiket.status_servis === "Diambil" ? (
+                <Button fullWidth color="teal" variant="light" disabled>
+                  Perangkat Sudah Diambil
+                </Button>
+              ) : null}
 
               {notaData && isPaid ? (
                 <PDFDownloadLink
