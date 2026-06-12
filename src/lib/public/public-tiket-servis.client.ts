@@ -71,6 +71,17 @@ export type UpdatePublicTiketServisResponse =
       message: string;
     };
 
+  export type PulihkanPublicTiketServisResponse =
+  | {
+      success: true;
+      message: string;
+      tickets: PublicTicketRow[];
+    }
+  | {
+      success: false;
+      message: string;
+    };
+
 export async function getPublicTiketServisListRequest(): Promise<GetPublicTiketServisListResponse> {
   const response = await fetch("/api/public/tiket-servis", {
     method: "GET",
@@ -190,4 +201,30 @@ export async function updatePublicTiketServisRequest(
   }
 
   return data as UpdatePublicTiketServisResponse;
+}
+
+export async function pulihkanPublicTiketServisRequest(payload: {
+  nomor_tiket: string | null;
+  nama_cust: string | null;
+  phone_cust: string;
+}): Promise<PulihkanPublicTiketServisResponse> {
+  const response = await fetch("/api/public/tiket-servis/restore", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    return {
+      success: false,
+      message: data?.message ?? "Gagal memulihkan tiket servis",
+    };
+  }
+
+  return data as PulihkanPublicTiketServisResponse;
 }
