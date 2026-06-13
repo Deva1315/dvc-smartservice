@@ -59,37 +59,37 @@ export default function TiketServisDropPointSection({
             Gunakan Drop Point? <span style={{ color: "#EF4444" }}>*</span>
           </Text>
 
-<Radio.Group
-  value={form.gunakan_drop_point}
-  onChange={handleDropPointRadioChange}
-  error={errors.gunakan_drop_point}
->
-  <Group gap="xl">
-    <Radio
-      value="ya"
-      label="Ya, gunakan Drop Point"
-      color="blue"
-      styles={{
-        label: {
-          color: "var(--mantine-color-dimmed)",
-          fontWeight: 10,
-        },
-      }}
-    />
+          <Radio.Group
+            value={form.gunakan_drop_point}
+            onChange={handleDropPointRadioChange}
+            error={errors.gunakan_drop_point}
+          >
+            <Group gap="xl">
+              <Radio
+                value="ya"
+                label="Ya, gunakan Drop Point"
+                color="blue"
+                styles={{
+                  label: {
+                    color: "var(--mantine-color-dimmed)",
+                    fontWeight: 10,
+                  },
+                }}
+              />
 
-    <Radio
-      value="tidak"
-      label="Tidak"
-      color="blue"
-      styles={{
-        label: {
-          color: "var(--mantine-color-dimmed)",
-          fontWeight: 10,
-        },
-      }}
-    />
-  </Group>
-</Radio.Group>
+              <Radio
+                value="tidak"
+                label="Tidak"
+                color="blue"
+                styles={{
+                  label: {
+                    color: "var(--mantine-color-dimmed)",
+                    fontWeight: 10,
+                  },
+                }}
+              />
+            </Group>
+          </Radio.Group>
         </Stack>
 
         {form.gunakan_drop_point === "ya" && (
@@ -114,6 +114,13 @@ export default function TiketServisDropPointSection({
               radius="md"
               disabled={isSubmitting || isLoadingDistance}
               searchable
+              clearable
+              maxDropdownHeight={260}
+              nothingFoundMessage="Drop point tidak ditemukan"
+              comboboxProps={{
+                withinPortal: true,
+                zIndex: 4000,
+              }}
               error={errors.drop_point_id}
               renderOption={({ option }) => {
                 const item = displayDropPointOptions.find(

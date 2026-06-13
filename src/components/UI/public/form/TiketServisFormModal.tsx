@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { Box, Button, Group, Modal, Stack} from "@mantine/core";
+import { Box, Button, Group, Modal, Stack } from "@mantine/core";
 import { getNearestPublicDropPointListRequest } from "@/lib/public/public-drop-point.client";
 import {
   publicTiketServisFormSchema,
@@ -157,11 +157,17 @@ export default function TiketServisFormModal({
 
       setDisplayDropPointOptions(nearestOptions);
 
-      setForm((prev) => ({
-        ...prev,
-        gunakan_drop_point: "ya",
-        drop_point_id: nearestOptions[0]?.value || prev.drop_point_id,
-      }));
+      setForm((prev) => {
+        const currentDropPointStillExists = nearestOptions.some(
+          (item) => item.value === prev.drop_point_id
+        );
+
+        return {
+          ...prev,
+          gunakan_drop_point: "ya",
+          drop_point_id: currentDropPointStillExists ? prev.drop_point_id : null,
+        };
+      });
 
       setErrors((prev) => ({
         ...prev,
@@ -265,12 +271,12 @@ export default function TiketServisFormModal({
     const selectedDropPoint =
       parsed.data.gunakan_drop_point === "ya"
         ? displayDropPointOptions.find(
-            (item) => item.value === parsed.data.drop_point_id
-          )?.originalLabel ??
-          dropPointOptions.find(
-            (item) => item.value === parsed.data.drop_point_id
-          )?.label ??
-          null
+          (item) => item.value === parsed.data.drop_point_id
+        )?.originalLabel ??
+        dropPointOptions.find(
+          (item) => item.value === parsed.data.drop_point_id
+        )?.label ??
+        null
         : null;
 
     const payload: TicketRow = {
