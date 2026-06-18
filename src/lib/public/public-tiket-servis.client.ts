@@ -49,6 +49,19 @@ export type GetTiketServisNomorResponse =
       message: string;
     };
 
+export type CreatePublicTiketServisPayload = {
+  nomor_tiket?: string;
+  tanggal_masuk: string;
+  nama_cust: string;
+  phone_cust: string;
+  alamat_cust: string | null;
+  jenis_perangkat: string;
+  merk_perangkat: string | null;
+  keluhan: string;
+  gunakan_drop_point: boolean;
+  drop_point_id: string | null;
+};
+
 export type CreatePublicTiketServisResponse =
   | {
       success: true;
@@ -59,6 +72,18 @@ export type CreatePublicTiketServisResponse =
       success: false;
       message: string;
     };
+
+export type UpdatePublicTiketServisPayload = {
+  tanggal_masuk: string;
+  nama_cust: string;
+  phone_cust: string;
+  alamat_cust: string | null;
+  jenis_perangkat: string;
+  merk_perangkat: string | null;
+  keluhan: string;
+  gunakan_drop_point: boolean;
+  drop_point_id: string | null;
+};
 
 export type UpdatePublicTiketServisResponse =
   | {
@@ -71,7 +96,7 @@ export type UpdatePublicTiketServisResponse =
       message: string;
     };
 
-  export type PulihkanPublicTiketServisResponse =
+export type PulihkanPublicTiketServisResponse =
   | {
       success: true;
       message: string;
@@ -81,6 +106,28 @@ export type UpdatePublicTiketServisResponse =
       success: false;
       message: string;
     };
+
+function normalizeTanggalMasuk(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
 
 export async function getPublicTiketServisListRequest(): Promise<GetPublicTiketServisListResponse> {
   const response = await fetch("/api/public/tiket-servis", {
@@ -105,9 +152,10 @@ export async function getTiketServisNomorRequest(params?: {
   tanggal_masuk?: string;
 }): Promise<GetTiketServisNomorResponse> {
   const searchParams = new URLSearchParams();
+  const tanggalMasuk = normalizeTanggalMasuk(params?.tanggal_masuk);
 
-  if (params?.tanggal_masuk) {
-    searchParams.set("tanggal_masuk", params.tanggal_masuk);
+  if (tanggalMasuk) {
+    searchParams.set("tanggal_masuk", tanggalMasuk);
   }
 
   const url = searchParams.toString()
@@ -132,25 +180,22 @@ export async function getTiketServisNomorRequest(params?: {
   return data as GetTiketServisNomorResponse;
 }
 
-export async function createPublicTiketServisRequest(payload: {
-  nomor_tiket?: string;
-  tanggal_masuk: string;
-  nama_cust: string;
-  phone_cust: string;
-  alamat_cust: string | null;
-  jenis_perangkat: string;
-  merk_perangkat: string | null;
-  keluhan: string;
-  gunakan_drop_point: boolean;
-  drop_point_id: string | null;
-}): Promise<CreatePublicTiketServisResponse> {
+export async function createPublicTiketServisRequest(
+  payload: CreatePublicTiketServisPayload
+): Promise<CreatePublicTiketServisResponse> {
+  const normalizedPayload = {
+    ...payload,
+    tanggal_masuk:
+      normalizeTanggalMasuk(payload.tanggal_masuk) ?? payload.tanggal_masuk,
+  };
+
   const response = await fetch("/api/public/tiket-servis", {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(normalizedPayload),
   });
 
   const data = await response.json().catch(() => null);
@@ -167,18 +212,14 @@ export async function createPublicTiketServisRequest(payload: {
 
 export async function updatePublicTiketServisRequest(
   nomorTiket: string,
-  payload: {
-    tanggal_masuk: string;
-    nama_cust: string;
-    phone_cust: string;
-    alamat_cust: string | null;
-    jenis_perangkat: string;
-    merk_perangkat: string | null;
-    keluhan: string;
-    gunakan_drop_point: boolean;
-    drop_point_id: string | null;
-  }
+  payload: UpdatePublicTiketServisPayload
 ): Promise<UpdatePublicTiketServisResponse> {
+  const normalizedPayload = {
+    ...payload,
+    tanggal_masuk:
+      normalizeTanggalMasuk(payload.tanggal_masuk) ?? payload.tanggal_masuk,
+  };
+
   const response = await fetch(
     `/api/public/tiket-servis/${encodeURIComponent(nomorTiket)}`,
     {
@@ -187,7 +228,7 @@ export async function updatePublicTiketServisRequest(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizedPayload),
     }
   );
 

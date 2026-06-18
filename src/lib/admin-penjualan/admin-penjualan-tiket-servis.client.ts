@@ -39,6 +39,7 @@ export type AdminPenjualanTiketApiItem = {
 
 export type CreateTiketServisPayload = {
   nomor_tiket?: string;
+  tanggal_masuk: string;
   nama_cust: string;
   phone_cust: string;
   alamat_cust?: string | null;
@@ -50,6 +51,7 @@ export type CreateTiketServisPayload = {
 
 export type UpdateTiketServisPayload = {
   nomor_tiket: string;
+  tanggal_masuk: string;
   nama_cust: string;
   phone_cust: string;
   alamat_cust?: string | null;
@@ -71,6 +73,36 @@ export type GetAdminPenjualanNomorTiketResponse =
     };
 
 const BASE_URL = "/api/admin-penjualan/tiket-servis";
+
+export function toAdminPenjualanTiketServisInputDateString(
+  value?: Date | string | null
+) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeTanggalMasuk(value?: string) {
+  const tanggalMasuk = toAdminPenjualanTiketServisInputDateString(value);
+
+  return tanggalMasuk || undefined;
+}
 
 export async function getAdminPenjualanTiketServis(params?: {
   search?: string;
@@ -109,9 +141,10 @@ export async function getAdminPenjualanNomorTiketRequest(params?: {
   tanggal_masuk?: string;
 }): Promise<GetAdminPenjualanNomorTiketResponse> {
   const searchParams = new URLSearchParams();
+  const tanggalMasuk = normalizeTanggalMasuk(params?.tanggal_masuk);
 
-  if (params?.tanggal_masuk) {
-    searchParams.set("tanggal_masuk", params.tanggal_masuk);
+  if (tanggalMasuk) {
+    searchParams.set("tanggal_masuk", tanggalMasuk);
   }
 
   const url = searchParams.toString()
@@ -135,12 +168,18 @@ export async function getAdminPenjualanNomorTiketRequest(params?: {
 export async function createAdminPenjualanTiketServis(
   payload: CreateTiketServisPayload
 ) {
+  const normalizedPayload = {
+    ...payload,
+    tanggal_masuk:
+      normalizeTanggalMasuk(payload.tanggal_masuk) ?? payload.tanggal_masuk,
+  };
+
   const response = await fetch(BASE_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(normalizedPayload),
   });
 
   const result = await response.json();
@@ -155,12 +194,18 @@ export async function createAdminPenjualanTiketServis(
 export async function updateAdminPenjualanTiketServis(
   payload: UpdateTiketServisPayload
 ) {
+  const normalizedPayload = {
+    ...payload,
+    tanggal_masuk:
+      normalizeTanggalMasuk(payload.tanggal_masuk) ?? payload.tanggal_masuk,
+  };
+
   const response = await fetch(BASE_URL, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(normalizedPayload),
   });
 
   const result = await response.json();
@@ -171,7 +216,6 @@ export async function updateAdminPenjualanTiketServis(
 
   return result;
 }
-
 export type DetailTiketServisApiItem = AdminPenjualanTiketApiItem & {
   drop_point?: {
     id: string;

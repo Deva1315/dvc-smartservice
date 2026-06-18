@@ -293,7 +293,7 @@ export default function TiketServisPage() {
       key: "nomor_tiket",
       label: "No Tiket",
       sortable: true,
-      width: "12%",
+      width: "15%",
       render: (row) => (
         <Text fw={700} c="#111827" fz={15} >
           {row.nomor_tiket}
@@ -304,7 +304,7 @@ export default function TiketServisPage() {
       key: "nama_cust",
       label: "Nama Customer",
       sortable: true,
-      width: "16%",
+      width: "10%",
       render: (row) => (
         <Text c="#374151" fz={15} >
           {row.nama_cust}
@@ -314,7 +314,7 @@ export default function TiketServisPage() {
     {
       key: "jenis_perangkat",
       label: "Perangkat",
-      width: "11%",
+      width: "10%",
       render: (row) => (
         <Text c="#374151" fz={15} >
           {row.jenis_perangkat}
@@ -324,7 +324,7 @@ export default function TiketServisPage() {
     {
       key: "merk_perangkat",
       label: "Merk",
-      width: "11%",
+      width: "9%",
       render: (row) => (
         <Text c="#374151" fz={15} >
           {row.merk_perangkat}
@@ -334,7 +334,7 @@ export default function TiketServisPage() {
     {
       key: "drop_point",
       label: "Drop Point",
-      width: "14%",
+      width: "15%",
       render: (row) =>
         row.gunakan_drop_point ? (
           <Badge color="cyan" variant="light" radius="sm">
@@ -360,7 +360,7 @@ export default function TiketServisPage() {
     {
       key: "status_verifikasi",
       label: "Verifikasi",
-      width: "10%",
+      width: "13%",
       render: (row) => (
         <Badge
           color={getStatusColor(row.status_verifikasi)}
@@ -374,7 +374,7 @@ export default function TiketServisPage() {
     {
       key: "status_servis",
       label: "Status Servis",
-      width: "10%",
+      width: "15%",
       render: (row) => (
         <Badge
           color={getStatusColor(row.status_servis)}

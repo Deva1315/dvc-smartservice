@@ -21,6 +21,7 @@ import {
   getAdminPenjualanTiketServis,
   type AdminPenjualanTiketApiItem,
   updateAdminPenjualanTiketServis,
+  toAdminPenjualanTiketServisInputDateString,
 } from "@/lib/admin-penjualan/admin-penjualan-tiket-servis.client";
 
 import {
@@ -83,10 +84,10 @@ export default function AdminPenjualanTiketServisPage({
   const tableData = useMemo(() => {
     const filtered = selectedStatusServis
       ? tiketServis.filter(
-          (item) =>
-            item.statusVerifikasi === selectedStatusServis ||
-            item.statusServis === selectedStatusServis
-        )
+        (item) =>
+          item.statusVerifikasi === selectedStatusServis ||
+          item.statusServis === selectedStatusServis
+      )
       : tiketServis;
 
     return filtered.map((item, index) => ({
@@ -220,9 +221,12 @@ export default function AdminPenjualanTiketServisPage({
     try {
       const payload = {
         nomor_tiket: ticket.nomor_tiket,
+        tanggal_masuk: toAdminPenjualanTiketServisInputDateString(
+          ticket.tanggal_masuk
+        ),
         nama_cust: ticket.nama_cust,
         phone_cust: ticket.phone_cust,
-        alamat_cust: ticket.alamat_cust || null,
+        alamat_cust: ticket.alamat_cust || "",
         jenis_perangkat: ticket.jenis_perangkat,
         merk_perangkat: ticket.merk_perangkat || null,
         keluhan: ticket.keluhan,

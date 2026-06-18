@@ -6,263 +6,362 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 const GUEST_TICKET_COOKIE_NAME = "dvc_guest_ticket_session";
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 function errorJson(message: string, status: number) {
-    return NextResponse.json(
-        {
-            success: false,
-            message,
-        },
-        { status }
-    );
+  return NextResponse.json(
+    {
+      success: false,
+      message,
+    },
+    { status }
+  );
+}
+
+function isValidDateParts(year: number, month: number, day: number) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return false;
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+function buildLocalDate(year: number, month: number, day: number) {
+  return new Date(year, month - 1, day);
+}
+
+function parseTicketDate(value: string | null | undefined) {
+  const rawValue = String(value ?? "").trim();
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const dateOnlyMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+
+    if (!isValidDateParts(year, month, day)) {
+      return null;
+    }
+
+    return buildLocalDate(year, month, day);
+  }
+
+  const parsedDate = new Date(rawValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  const jakartaDate = new Date(parsedDate.getTime() + JAKARTA_OFFSET_MS);
+  const year = jakartaDate.getUTCFullYear();
+  const month = jakartaDate.getUTCMonth() + 1;
+  const day = jakartaDate.getUTCDate();
+
+  if (!isValidDateParts(year, month, day)) {
+    return null;
+  }
+
+  return buildLocalDate(year, month, day);
+}
+
+function formatTicketDateCode(date: Date) {
+  const year = String(date.getFullYear()).slice(-2);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}${month}${day}`;
+}
+
+async function generateNomorTiket(tanggalMasuk: Date) {
+  const dateCode = formatTicketDateCode(tanggalMasuk);
+  const prefix = `TK-${dateCode}-`;
+
+  const existingTickets = await prisma.tiket_servis.findMany({
+    where: {
+      nomor_tiket: {
+        startsWith: prefix,
+      },
+    },
+    select: {
+      nomor_tiket: true,
+    },
+  });
+
+  const usedNumbers = existingTickets
+    .map((ticket) => {
+      const suffix = ticket.nomor_tiket.replace(prefix, "");
+      const number = Number(suffix);
+
+      return Number.isInteger(number) ? number : 0;
+    })
+    .filter((value) => value > 0);
+
+  let nextNumber = usedNumbers.length > 0 ? Math.max(...usedNumbers) + 1 : 1;
+
+  while (true) {
+    const nomorTiket = `${prefix}${String(nextNumber).padStart(3, "0")}`;
+
+    const existing = await prisma.tiket_servis.findUnique({
+      where: {
+        nomor_tiket: nomorTiket,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existing) {
+      return nomorTiket;
+    }
+
+    nextNumber += 1;
+  }
 }
 
 function normalizeTicketResponse(ticket: {
-    id: string;
-    nomor_tiket: string;
-    tanggal_masuk: Date;
-    nama_cust: string;
-    phone_cust: string;
-    alamat_cust: string | null;
-    jenis_perangkat: string;
-    merk_perangkat: string | null;
-    keluhan: string;
-    id_drop_point: bigint | null;
-    sumber_tiket: "Guest" | "Admin_Penjualan";
-    status_verifikasi: "Menunggu" | "Diterima" | "Ditolak";
-    status_servis:
+  id: string;
+  nomor_tiket: string;
+  tanggal_masuk: Date;
+  nama_cust: string;
+  phone_cust: string;
+  alamat_cust: string;
+  jenis_perangkat: string;
+  merk_perangkat: string | null;
+  keluhan: string;
+  id_drop_point: bigint | null;
+  sumber_tiket: "Guest" | "Admin_Penjualan";
+  status_verifikasi: "Menunggu" | "Diterima" | "Ditolak";
+  status_servis:
     | "Belum_Diproses"
     | "Diproses"
     | "Menunggu_Sparepart"
     | "Selesai"
     | "Diambil"
     | "Dibatalkan";
-    guest_session_id: string | null;
+  guest_session_id: string | null;
 }) {
-    return {
-        id: ticket.id,
-        nomor_tiket: ticket.nomor_tiket,
-        tanggal_masuk: ticket.tanggal_masuk.toISOString(),
-        nama_cust: ticket.nama_cust,
-        phone_cust: ticket.phone_cust,
-        alamat_cust: ticket.alamat_cust,
-        jenis_perangkat: ticket.jenis_perangkat,
-        merk_perangkat: ticket.merk_perangkat,
-        keluhan: ticket.keluhan,
-        gunakan_drop_point: ticket.id_drop_point !== null,
-        drop_point_id: ticket.id_drop_point ? ticket.id_drop_point.toString() : null,
-        sumber_tiket: ticket.sumber_tiket,
-        status_verifikasi: ticket.status_verifikasi,
-        status_servis: ticket.status_servis,
-        guest_session_id: ticket.guest_session_id,
-    };
+  return {
+    id: ticket.id,
+    nomor_tiket: ticket.nomor_tiket,
+    tanggal_masuk: ticket.tanggal_masuk.toISOString(),
+    nama_cust: ticket.nama_cust,
+    phone_cust: ticket.phone_cust,
+    alamat_cust: ticket.alamat_cust,
+    jenis_perangkat: ticket.jenis_perangkat,
+    merk_perangkat: ticket.merk_perangkat,
+    keluhan: ticket.keluhan,
+    gunakan_drop_point: ticket.id_drop_point !== null,
+    drop_point_id: ticket.id_drop_point ? ticket.id_drop_point.toString() : null,
+    sumber_tiket: ticket.sumber_tiket,
+    status_verifikasi: ticket.status_verifikasi,
+    status_servis: ticket.status_servis,
+    guest_session_id: ticket.guest_session_id,
+  };
 }
 
 async function getOrCreateGuestSessionId() {
-    const cookieStore = await cookies();
-    const existing = cookieStore.get(GUEST_TICKET_COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const existing = cookieStore.get(GUEST_TICKET_COOKIE_NAME)?.value;
 
-    if (existing) {
-        return {
-            guestSessionId: existing,
-            isNew: false,
-        };
-    }
-
+  if (existing) {
     return {
-        guestSessionId: randomUUID(),
-        isNew: true,
+      guestSessionId: existing,
+      isNew: false,
     };
-}
+  }
 
-async function generateNomorTiket() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const prefix = `TK-${year}-`;
-
-    const totalThisYear = await prisma.tiket_servis.count({
-        where: {
-            nomor_tiket: {
-                startsWith: prefix,
-            },
-        },
-    });
-
-    const nextNumber = totalThisYear + 1;
-    return `${prefix}${String(nextNumber).padStart(3, "0")}`;
+  return {
+    guestSessionId: randomUUID(),
+    isNew: true,
+  };
 }
 
 function generateTiketServisId() {
-    return `TS-${Date.now()}-${randomUUID().slice(0, 8)}`;
+  return `TS-${Date.now()}-${randomUUID().slice(0, 8)}`;
 }
 
 export async function GET() {
-    try {
-        const { guestSessionId, isNew } = await getOrCreateGuestSessionId();
+  try {
+    const { guestSessionId, isNew } = await getOrCreateGuestSessionId();
 
-        const tickets = await prisma.tiket_servis.findMany({
-            where: {
-                sumber_tiket: "Guest",
-                guest_session_id: guestSessionId,
-            },
-            include: {
-                drop_point: true,
-            },
-            orderBy: {
-                tanggal_masuk: "desc",
-            },
-        });
+    const tickets = await prisma.tiket_servis.findMany({
+      where: {
+        sumber_tiket: "Guest",
+        guest_session_id: guestSessionId,
+      },
+      include: {
+        drop_point: true,
+      },
+      orderBy: {
+        tanggal_masuk: "desc",
+      },
+    });
 
-        const response = NextResponse.json({
-            success: true,
-            message: "Data tiket servis guest berhasil diambil.",
-            tickets: tickets.map((ticket) => ({
-                ...normalizeTicketResponse(ticket),
-                drop_point_nama: ticket.drop_point?.nama_drop_point ?? null,
-            })),
-        });
+    const response = NextResponse.json({
+      success: true,
+      message: "Data tiket servis guest berhasil diambil",
+      tickets: tickets.map((ticket) => ({
+        ...normalizeTicketResponse(ticket),
+        drop_point_nama: ticket.drop_point?.nama_drop_point ?? null,
+      })),
+    });
 
-        if (isNew) {
-            response.cookies.set(GUEST_TICKET_COOKIE_NAME, guestSessionId, {
-                httpOnly: true,
-                sameSite: "lax",
-                secure: process.env.NODE_ENV === "production",
-                path: "/",
-                maxAge: 60 * 60 * 24 * 30,
-            });
-        }
-
-        return response;
-    } catch (error) {
-        console.error("GET /api/public/tiket-servis error:", error);
-
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Terjadi kesalahan saat mengambil tiket servis.",
-            },
-            { status: 500 }
-        );
+    if (isNew) {
+      response.cookies.set(GUEST_TICKET_COOKIE_NAME, guestSessionId, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      });
     }
+
+    return response;
+  } catch (error) {
+    console.error("GET /api/public/tiket-servis error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Terjadi kesalahan saat mengambil tiket servis",
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {
-    try {
-        const { guestSessionId, isNew } = await getOrCreateGuestSessionId();
-        const body = await request.json().catch(() => null);
+  try {
+    const { guestSessionId, isNew } = await getOrCreateGuestSessionId();
+    const body = await request.json().catch(() => null);
 
-        const tanggalMasukRaw = String(body?.tanggal_masuk ?? "").trim();
-        const nama_cust = String(body?.nama_cust ?? "").trim();
-        const phone_cust = String(body?.phone_cust ?? "").trim();
-        const alamat_cust = String(body?.alamat_cust ?? "").trim();
-        const jenis_perangkat = String(body?.jenis_perangkat ?? "").trim();
-        const merk_perangkat = String(body?.merk_perangkat ?? "").trim();
-        const keluhan = String(body?.keluhan ?? "").trim();
-        const gunakan_drop_point = Boolean(body?.gunakan_drop_point);
-        const drop_point_id_raw = body?.drop_point_id
-            ? String(body.drop_point_id).trim()
-            : "";
+    const tanggalMasukRaw = String(body?.tanggal_masuk ?? "").trim();
+    const nama_cust = String(body?.nama_cust ?? "").trim();
+    const phone_cust = String(body?.phone_cust ?? "").trim();
+    const alamat_cust = String(body?.alamat_cust ?? "").trim();
+    const jenis_perangkat = String(body?.jenis_perangkat ?? "").trim();
+    const merk_perangkat = String(body?.merk_perangkat ?? "").trim();
+    const keluhan = String(body?.keluhan ?? "").trim();
+    const gunakan_drop_point = Boolean(body?.gunakan_drop_point);
+    const drop_point_id_raw = body?.drop_point_id
+      ? String(body.drop_point_id).trim()
+      : "";
 
-        if (
-            !tanggalMasukRaw ||
-            !nama_cust ||
-            !phone_cust ||
-            !jenis_perangkat ||
-            !keluhan
-        ) {
-            return errorJson("Mohon lengkapi field yang wajib diisi.", 400);
-        }
-
-        let id_drop_point: bigint | null = null;
-        let dropPointNama: string | null = null;
-
-        if (gunakan_drop_point) {
-            if (!drop_point_id_raw) {
-                return errorJson("Mohon pilih drop point terlebih dahulu.", 400);
-            }
-
-            const selectedDropPoint = await prisma.drop_point.findUnique({
-                where: {
-                    id: BigInt(drop_point_id_raw),
-                },
-            });
-
-            if (!selectedDropPoint) {
-                return errorJson("Drop point tidak ditemukan.", 404);
-            }
-
-            id_drop_point = selectedDropPoint.id;
-            dropPointNama = selectedDropPoint.nama_drop_point;
-        }
-
-        const nomor_tiket = await generateNomorTiket();
-        const id = generateTiketServisId();
-
-        const createdTicket = await prisma.tiket_servis.create({
-            data: {
-                id,
-                nomor_tiket,
-                tanggal_masuk: new Date(tanggalMasukRaw),
-                nama_cust,
-                phone_cust,
-                alamat_cust: alamat_cust ?? undefined,
-                jenis_perangkat,
-                merk_perangkat: merk_perangkat || null,
-                keluhan,
-                sumber_tiket: "Guest",
-                guest_session_id: guestSessionId,
-                status_verifikasi: "Menunggu",
-                status_servis: "Belum_Diproses",
-                estimasi_biaya: 0,
-                ...(gunakan_drop_point && id_drop_point
-                    ? {
-                        drop_point: {
-                            connect: {
-                                id: id_drop_point,
-                            },
-                        },
-                    }
-                    : {}),
-            },
-            include: {
-                drop_point: true,
-            },
-        });
-
-        const response = NextResponse.json({
-            success: true,
-            message: "Tiket servis berhasil dibuat.",
-            ticket: {
-                ...normalizeTicketResponse(createdTicket),
-                drop_point_nama: dropPointNama,
-            },
-        });
-
-        if (isNew) {
-            response.cookies.set(GUEST_TICKET_COOKIE_NAME, guestSessionId, {
-                httpOnly: true,
-                sameSite: "lax",
-                secure: process.env.NODE_ENV === "production",
-                path: "/",
-                maxAge: 60 * 60 * 24 * 30,
-            });
-        }
-
-        return response;
-    } catch (error) {
-        console.error("POST /api/public/tiket-servis error:", error);
-
-        const message =
-            error instanceof Error
-                ? error.message
-                : "Terjadi kesalahan saat membuat tiket servis.";
-
-        return NextResponse.json(
-            {
-                success: false,
-                message,
-            },
-            { status: 500 }
-        );
+    if (
+      !tanggalMasukRaw ||
+      !nama_cust ||
+      !phone_cust ||
+      !jenis_perangkat ||
+      !keluhan
+    ) {
+      return errorJson("Mohon lengkapi field yang wajib diisi", 400);
     }
+
+    const tanggalMasuk = parseTicketDate(tanggalMasukRaw);
+
+    if (!tanggalMasuk) {
+      return errorJson("Tanggal masuk tidak valid", 400);
+    }
+
+    let id_drop_point: bigint | null = null;
+
+    if (gunakan_drop_point) {
+      if (!drop_point_id_raw) {
+        return errorJson("Mohon pilih drop point terlebih dahulu", 400);
+      }
+
+      const selectedDropPoint = await prisma.drop_point.findUnique({
+        where: {
+          id: BigInt(drop_point_id_raw),
+        },
+      });
+
+      if (!selectedDropPoint) {
+        return errorJson("Drop point tidak ditemukan", 404);
+      }
+
+      id_drop_point = selectedDropPoint.id;
+    }
+
+    const nomor_tiket = await generateNomorTiket(tanggalMasuk);
+    const id = generateTiketServisId();
+
+    const createdTicket = await prisma.tiket_servis.create({
+      data: {
+        id,
+        nomor_tiket,
+        tanggal_masuk: tanggalMasuk,
+        nama_cust,
+        phone_cust,
+        alamat_cust,
+        jenis_perangkat,
+        merk_perangkat: merk_perangkat || null,
+        keluhan,
+        sumber_tiket: "Guest",
+        guest_session_id: guestSessionId,
+        status_verifikasi: "Menunggu",
+        status_servis: "Belum_Diproses",
+        estimasi_biaya: 0,
+        ...(gunakan_drop_point && id_drop_point
+          ? {
+              drop_point: {
+                connect: {
+                  id: id_drop_point,
+                },
+              },
+            }
+          : {}),
+      },
+      include: {
+        drop_point: true,
+      },
+    });
+
+    const response = NextResponse.json({
+      success: true,
+      message: "Tiket servis berhasil dibuat",
+      ticket: {
+        ...normalizeTicketResponse(createdTicket),
+        drop_point_nama: createdTicket.drop_point?.nama_drop_point ?? null,
+      },
+    });
+
+    if (isNew) {
+      response.cookies.set(GUEST_TICKET_COOKIE_NAME, guestSessionId, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
+
+    return response;
+  } catch (error) {
+    console.error("POST /api/public/tiket-servis error:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan saat membuat tiket servis";
+
+    return NextResponse.json(
+      {
+        success: false,
+        message,
+      },
+      { status: 500 }
+    );
+  }
 }

@@ -6,6 +6,8 @@ import {
   tiket_servis_status_verifikasi,
 } from "@/generated/prisma/client";
 
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
 function serializeData(data: unknown) {
   return JSON.parse(
     JSON.stringify(data, (_, value) => {
@@ -24,27 +26,130 @@ function serializeData(data: unknown) {
   );
 }
 
+function isValidDateParts(year: number, month: number, day: number) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return false;
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+function buildLocalDate(year: number, month: number, day: number) {
+  return new Date(year, month - 1, day);
+}
+
+function getTodayTicketDate() {
+  const jakartaNow = new Date(Date.now() + JAKARTA_OFFSET_MS);
+
+  return buildLocalDate(
+    jakartaNow.getUTCFullYear(),
+    jakartaNow.getUTCMonth() + 1,
+    jakartaNow.getUTCDate()
+  );
+}
+
+function parseTicketDate(value: string | null | undefined) {
+  const rawValue = String(value ?? "").trim();
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const dateOnlyMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+
+    if (!isValidDateParts(year, month, day)) {
+      return null;
+    }
+
+    return buildLocalDate(year, month, day);
+  }
+
+  const parsedDate = new Date(rawValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  const jakartaDate = new Date(parsedDate.getTime() + JAKARTA_OFFSET_MS);
+  const year = jakartaDate.getUTCFullYear();
+  const month = jakartaDate.getUTCMonth() + 1;
+  const day = jakartaDate.getUTCDate();
+
+  if (!isValidDateParts(year, month, day)) {
+    return null;
+  }
+
+  return buildLocalDate(year, month, day);
+}
+
+function formatTicketDateCode(date: Date) {
+  const year = String(date.getFullYear()).slice(-2);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}${month}${day}`;
+}
+
+async function generateNomorTiket(tanggalMasuk: Date) {
+  const dateCode = formatTicketDateCode(tanggalMasuk);
+  const prefix = `TK-${dateCode}-`;
+
+  const existingTickets = await prisma.tiket_servis.findMany({
+    where: {
+      nomor_tiket: {
+        startsWith: prefix,
+      },
+    },
+    select: {
+      nomor_tiket: true,
+    },
+  });
+
+  const usedNumbers = existingTickets
+    .map((ticket) => {
+      const suffix = ticket.nomor_tiket.replace(prefix, "");
+      const number = Number(suffix);
+
+      return Number.isInteger(number) ? number : 0;
+    })
+    .filter((value) => value > 0);
+
+  let nextNumber = usedNumbers.length > 0 ? Math.max(...usedNumbers) + 1 : 1;
+
+  while (true) {
+    const nomorTiket = `${prefix}${String(nextNumber).padStart(3, "0")}`;
+
+    const existing = await prisma.tiket_servis.findUnique({
+      where: {
+        nomor_tiket: nomorTiket,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existing) {
+      return nomorTiket;
+    }
+
+    nextNumber += 1;
+  }
+}
+
 function generateTiketServisId() {
   return `TKS-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
-
-async function generateNomorTiket() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const prefix = `TK-${year}-`;
-
-    const totalThisYear = await prisma.tiket_servis.count({
-        where: {
-            nomor_tiket: {
-                startsWith: prefix,
-            },
-        },
-    });
-
-    const nextNumber = totalThisYear + 1;
-    return `${prefix}${String(nextNumber).padStart(3, "0")}`;
-}
-
 
 export async function GET(request: NextRequest) {
   try {
@@ -130,19 +235,34 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const namaCust = body.nama_cust?.trim();
-    const phoneCust = body.phone_cust?.trim();
-    const alamatCust = body.alamat_cust?.trim() || null;
-    const jenisPerangkat = body.jenis_perangkat?.trim();
-    const merkPerangkat = body.merk_perangkat?.trim() || null;
-    const keluhan = body.keluhan?.trim();
+    const namaCust = String(body.nama_cust ?? "").trim();
+    const phoneCust = String(body.phone_cust ?? "").trim();
+    const alamatCust = String(body.alamat_cust ?? "").trim();
+    const jenisPerangkat = String(body.jenis_perangkat ?? "").trim();
+    const merkPerangkat = String(body.merk_perangkat ?? "").trim();
+    const keluhan = String(body.keluhan ?? "").trim();
     const idDropPoint = body.id_drop_point ? BigInt(body.id_drop_point) : null;
+
+    const tanggalMasukRaw = String(body.tanggal_masuk ?? "").trim();
+    const tanggalMasuk = tanggalMasukRaw
+      ? parseTicketDate(tanggalMasukRaw)
+      : getTodayTicketDate();
 
     if (!namaCust || !phoneCust || !jenisPerangkat || !keluhan) {
       return NextResponse.json(
         {
           success: false,
           message: "Nama, no HP, jenis perangkat, dan keluhan wajib diisi",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!tanggalMasuk) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Tanggal masuk tidak valid",
         },
         { status: 400 }
       );
@@ -166,7 +286,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const nomorTiket = await generateNomorTiket();
+    const nomorTiket = await generateNomorTiket(tanggalMasuk);
 
     const tiket = await prisma.tiket_servis.create({
       data: {
@@ -179,12 +299,12 @@ export async function POST(request: NextRequest) {
         phone_cust: phoneCust,
         alamat_cust: alamatCust,
         jenis_perangkat: jenisPerangkat,
-        merk_perangkat: merkPerangkat,
+        merk_perangkat: merkPerangkat || null,
         keluhan,
         status_verifikasi: tiket_servis_status_verifikasi.Menunggu,
         status_servis: tiket_servis_status_servis.Belum_Diproses,
         alasan_penolakan: null,
-        tanggal_masuk: new Date(),
+        tanggal_masuk: tanggalMasuk,
         tanggal_verifikasi: null,
         estimasi_waktu: null,
         estimasi_biaya: 0,
@@ -221,13 +341,16 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const nomorTiket = body.nomor_tiket?.trim();
-    const namaCust = body.nama_cust?.trim();
-    const phoneCust = body.phone_cust?.trim();
-    const alamatCust = body.alamat_cust?.trim() || null;
-    const jenisPerangkat = body.jenis_perangkat?.trim();
-    const merkPerangkat = body.merk_perangkat?.trim() || null;
-    const keluhan = body.keluhan?.trim();
+    const nomorTiket = String(body.nomor_tiket ?? "").trim();
+    const namaCust = String(body.nama_cust ?? "").trim();
+    const phoneCust = String(body.phone_cust ?? "").trim();
+    const alamatCust = String(body.alamat_cust ?? "").trim();
+    const jenisPerangkat = String(body.jenis_perangkat ?? "").trim();
+    const merkPerangkat = String(body.merk_perangkat ?? "").trim();
+    const keluhan = String(body.keluhan ?? "").trim();
+
+    const tanggalMasukRaw = String(body.tanggal_masuk ?? "").trim();
+    const tanggalMasuk = tanggalMasukRaw ? parseTicketDate(tanggalMasukRaw) : null;
 
     const rawDropPointId = body.id_drop_point ?? body.drop_point_id ?? null;
     const idDropPoint = rawDropPointId ? BigInt(rawDropPointId) : null;
@@ -236,7 +359,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Nomor tiket wajib dikirim untuk update tiket servis.",
+          message: "Nomor tiket wajib dikirim untuk update tiket servis",
         },
         { status: 400 }
       );
@@ -246,7 +369,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Nama, no HP, jenis perangkat, dan keluhan wajib diisi.",
+          message: "Nama, no HP, jenis perangkat, dan keluhan wajib diisi",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (tanggalMasukRaw && !tanggalMasuk) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Tanggal masuk tidak valid",
         },
         { status: 400 }
       );
@@ -266,7 +399,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "Tiket servis tidak ditemukan.",
+          message: "Tiket servis tidak ditemukan",
         },
         { status: 404 }
       );
@@ -286,7 +419,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            message: "Drop Point tidak ditemukan.",
+            message: "Drop Point tidak ditemukan",
           },
           { status: 404 }
         );
@@ -302,9 +435,10 @@ export async function PUT(request: NextRequest) {
         phone_cust: phoneCust,
         alamat_cust: alamatCust,
         jenis_perangkat: jenisPerangkat,
-        merk_perangkat: merkPerangkat,
+        merk_perangkat: merkPerangkat || null,
         keluhan,
         id_drop_point: idDropPoint,
+        ...(tanggalMasuk ? { tanggal_masuk: tanggalMasuk } : {}),
       },
       include: {
         drop_point: true,
@@ -331,7 +465,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: "Tiket servis berhasil diperbarui.",
+      message: "Tiket servis berhasil diperbarui",
       data: serializeData(updatedTicket),
     });
   } catch (error) {
@@ -340,7 +474,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "Gagal memperbarui tiket servis.",
+        message: "Gagal memperbarui tiket servis",
       },
       { status: 500 }
     );

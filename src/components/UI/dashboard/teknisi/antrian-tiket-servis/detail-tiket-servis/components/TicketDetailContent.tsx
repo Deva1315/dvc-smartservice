@@ -25,7 +25,6 @@ import type {
 } from "@/types/detail-tiket-servis-type";
 import {
   formatDisplayDateTime,
-  getReferensiSolusiAwal,
 } from "@/utils/detail-tiket-servis-teknisi/detail-tiket-servis.utils";
 
 type TicketDetailContentProps = {
@@ -153,13 +152,13 @@ export default function TicketDetailContent({
               <TicketStatusHistoryCard detail={detail} />
             </Grid.Col>
 
-            <Grid.Col span={{ base: 12, lg: 8 }}>
+            {/* <Grid.Col span={{ base: 12, lg: 8 }}>
               <TicketTextCard
                 title="Referensi Solusi Awal"
                 value={getReferensiSolusiAwal(detail)}
                 preserveLineBreak
               />
-            </Grid.Col>
+            </Grid.Col> */}
 
             <Grid.Col span={{ base: 12, lg: 5 }}>
               <TicketDiagnosaCard
