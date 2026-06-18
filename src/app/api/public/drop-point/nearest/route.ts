@@ -51,6 +51,71 @@ function getCommaSegments(address: string) {
     .filter(Boolean);
 }
 
+function getCustomerAddressValidationError(address: string) {
+  const cleanedAddress = cleanAddressText(withoutIndonesia(address));
+
+  if (!cleanedAddress) {
+    return "Alamat customer wajib diisi untuk menghitung jarak.";
+  }
+
+  const segments = getCommaSegments(cleanedAddress);
+  const lowerAddress = cleanedAddress.toLowerCase();
+
+  const regionalOnlyKeywords = [
+    "bali",
+    "gianyar",
+    "sukawati",
+    "batubulan",
+    "denpasar",
+    "badung",
+    "tabanan",
+    "bangli",
+    "klungkung",
+    "buleleng",
+    "jembrana",
+    "karangasem",
+  ];
+
+  const hasDetailKeyword =
+    /\b(jalan|gang|banjar|nomor|desa|kelurahan|dusun|perumahan|perum|komplek|blok)\b/i.test(
+      cleanedAddress
+    ) || /\d/.test(cleanedAddress);
+
+  const isRegionalOnly =
+    segments.length > 0 &&
+    segments.every((segment) =>
+      regionalOnlyKeywords.includes(segment.toLowerCase())
+    );
+
+  if (cleanedAddress.length < 20) {
+    return "Alamat customer masih terlalu singkat. Mohon isi alamat lebih lengkap, contoh: Jalan Margapati Nomor 2, Sukawati, Gianyar, Bali.";
+  }
+
+  if (segments.length < 3) {
+    return "Alamat customer masih terlalu umum. Mohon isi minimal nama jalan atau banjar, kecamatan, kabupaten/kota, dan provinsi.";
+  }
+
+  if (isRegionalOnly) {
+    return "Alamat customer masih berupa wilayah umum. Mohon isi alamat lebih spesifik agar jarak drop point dapat dihitung dengan lebih akurat.";
+  }
+
+  if (!hasDetailKeyword) {
+    return "Alamat customer belum memuat detail lokasi. Mohon tambahkan nama jalan, banjar, nomor rumah, desa, atau detail lokasi lainnya.";
+  }
+
+  if (
+    !lowerAddress.includes("bali") &&
+    !lowerAddress.includes("gianyar") &&
+    !lowerAddress.includes("denpasar") &&
+    !lowerAddress.includes("badung") &&
+    !lowerAddress.includes("tabanan")
+  ) {
+    return "Alamat customer belum memuat wilayah yang cukup jelas. Mohon tambahkan kabupaten/kota atau provinsi.";
+  }
+
+  return null;
+}
+
 function removeDuplicateVariants(variants: string[]) {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -71,7 +136,16 @@ function removeDuplicateVariants(variants: string[]) {
   return result;
 }
 
-function buildAddressVariants(address: string) {
+function buildAddressVariants(
+  address: string,
+  options?: {
+    includeSegmentFallback?: boolean;
+    includeRegionFallback?: boolean;
+  }
+) {
+  const includeSegmentFallback = options?.includeSegmentFallback ?? true;
+  const includeRegionFallback = options?.includeRegionFallback ?? true;
+
   const cleanedOriginal = cleanAddressText(withoutIndonesia(address));
 
   if (!cleanedOriginal) return [];
@@ -84,40 +158,46 @@ function buildAddressVariants(address: string) {
     cleanedOriginal.replace(/\bJalan\s*/gi, ""),
   ];
 
-  for (let index = 0; index < segments.length; index += 1) {
-    const sliced = segments.slice(index).join(", ");
+  if (includeSegmentFallback) {
+    for (let index = 1; index < segments.length; index += 1) {
+      const sliced = segments.slice(index).join(", ");
 
-    if (sliced) {
-      variants.push(sliced);
+      if (sliced) {
+        variants.push(sliced);
+      }
     }
   }
 
-  const baliKeywords = ["Bali", "Gianyar", "Sukawati", "Batubulan"];
+  if (includeRegionFallback) {
+    const baliKeywords = ["Bali", "Gianyar", "Sukawati", "Batubulan"];
 
-  for (const keyword of baliKeywords) {
-    if (cleanedOriginal.toLowerCase().includes(keyword.toLowerCase())) {
-      variants.push(`${keyword}, Bali`);
+    for (const keyword of baliKeywords) {
+      if (cleanedOriginal.toLowerCase().includes(keyword.toLowerCase())) {
+        variants.push(`${keyword}, Bali`);
+      }
     }
-  }
 
-  if (
-    cleanedOriginal.toLowerCase().includes("batubulan") &&
-    cleanedOriginal.toLowerCase().includes("sukawati")
-  ) {
-    variants.push("Batubulan, Sukawati, Gianyar, Bali");
-  }
+    if (
+      cleanedOriginal.toLowerCase().includes("batubulan") &&
+      cleanedOriginal.toLowerCase().includes("sukawati")
+    ) {
+      variants.push("Batubulan, Sukawati, Gianyar, Bali");
+    }
 
-  if (cleanedOriginal.toLowerCase().includes("sukawati")) {
-    variants.push("Sukawati, Gianyar, Bali");
-  }
+    if (cleanedOriginal.toLowerCase().includes("sukawati")) {
+      variants.push("Sukawati, Gianyar, Bali");
+    }
 
-  if (cleanedOriginal.toLowerCase().includes("gianyar")) {
-    variants.push("Gianyar, Bali");
+    if (cleanedOriginal.toLowerCase().includes("gianyar")) {
+      variants.push("Gianyar, Bali");
+    }
   }
 
   return removeDuplicateVariants(variants);
 }
 
+// perhitungan estimasi jarak drop point menggunakan rumus Haversine
+// rumus ini menghitung jarak antara dua titik koordinat di permukaan bumi
 function calculateDistanceKm(
   originLatitude: number,
   originLongitude: number,
@@ -160,11 +240,12 @@ function formatDistanceLabel(distanceKm: number | null) {
 
 async function geocodeSingleAddress(address: string): Promise<Coordinate | null> {
   const cleanedAddress = ensureIndonesia(cleanAddressText(address));
-  const cacheKey = cleanedAddress.toLowerCase();
 
   if (!cleanedAddress) {
     return null;
   }
+
+  const cacheKey = cleanedAddress.toLowerCase();
 
   if (geocodeCache.has(cacheKey)) {
     return geocodeCache.get(cacheKey) ?? null;
@@ -225,8 +306,14 @@ async function geocodeSingleAddress(address: string): Promise<Coordinate | null>
   }
 }
 
-async function geocodeAddress(address: string): Promise<Coordinate | null> {
-  const variants = buildAddressVariants(address);
+async function geocodeAddress(
+  address: string,
+  options?: {
+    includeSegmentFallback?: boolean;
+    includeRegionFallback?: boolean;
+  }
+): Promise<Coordinate | null> {
+  const variants = buildAddressVariants(address, options);
 
   for (const variant of variants) {
     const coordinate = await geocodeSingleAddress(variant);
@@ -248,22 +335,30 @@ export async function GET(request: NextRequest) {
       searchParams.get("alamatCustomer")?.trim() ||
       "";
 
-    if (!alamatCustomer) {
+    const addressValidationError =
+      getCustomerAddressValidationError(alamatCustomer);
+
+    if (addressValidationError) {
       return NextResponse.json(
         {
           success: false,
-          message: "Alamat customer wajib diisi untuk menghitung jarak.",
+          code: "ADDRESS_INCOMPLETE",
+          message: addressValidationError,
         },
         { status: 400 }
       );
     }
 
-    const customerCoordinate = await geocodeAddress(alamatCustomer);
+    const customerCoordinate = await geocodeAddress(alamatCustomer, {
+      includeSegmentFallback: false,
+      includeRegionFallback: false,
+    });
 
     if (!customerCoordinate) {
       return NextResponse.json(
         {
           success: false,
+          code: "ADDRESS_NOT_FOUND",
           message:
             "Alamat customer tidak dapat ditemukan. Mohon isi alamat lebih lengkap, contoh: Jalan Margapati Nomor 2, Sukawati, Gianyar, Bali.",
         },
@@ -280,7 +375,10 @@ export async function GET(request: NextRequest) {
     const mappedDropPoints = [];
 
     for (const dropPoint of dropPoints) {
-      const dropPointCoordinate = await geocodeAddress(dropPoint.alamat);
+      const dropPointCoordinate = await geocodeAddress(dropPoint.alamat, {
+        includeSegmentFallback: true,
+        includeRegionFallback: true,
+      });
 
       const distanceKm = dropPointCoordinate
         ? calculateDistanceKm(
@@ -327,6 +425,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
+        code: "NEAREST_DROP_POINT_ERROR",
         message: "Terjadi kesalahan saat menghitung drop point terdekat.",
       },
       { status: 500 }
