@@ -303,11 +303,8 @@ function buildTransaksiResponse(transaksi: TransaksiWithRelations) {
   };
 }
 
-async function getTransaksiLengkap(
-  tx: Prisma.TransactionClient,
-  idTransaksi: bigint
-) {
-  const transaksi = await tx.transaksi_penjualan.findUnique({
+async function getTransaksiLengkap(idTransaksi: bigint) {
+  const transaksi = await prisma.transaksi_penjualan.findUnique({
     where: {
       id: idTransaksi,
     },
@@ -480,61 +477,67 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const action = String(body.action ?? body.mode ?? "").trim();
 
-if (action === "create_draft") {
-  const transaksi = await prisma.$transaction(async (tx) => {
-    await tx.transaksi_penjualan.deleteMany({
-      where: {
-        id_user: BigInt(session.id),
-        status_transaksi: transaksi_penjualan_status_transaksi.Belum_Bayar,
-        detail_transaksi: {
-          none: {},
-        },
-      },
-    });
-
-    return tx.transaksi_penjualan.create({
-      data: {
-        id_user: BigInt(session.id),
-        nama_cust: "Pelanggan Umum",
-        tanggal_transaksi: new Date(),
-        subtotal_transaksi: toDecimal(0),
-        diskon_transaksi: toDecimal(0),
-        total_transaksi: toDecimal(0),
-        nominal_bayar: toDecimal(0),
-        kembalian: toDecimal(0),
-        metode_transaksi: "Cash",
-        status_transaksi: transaksi_penjualan_status_transaksi.Belum_Bayar,
-      },
-      include: {
-        users: {
-          select: {
-            id: true,
-            nama: true,
-            email: true,
-          },
-        },
-        detail_transaksi: {
-          include: {
-            barang: {
-              include: {
-                kategori_barang: true,
+    if (action === "create_draft") {
+      const transaksi = await prisma.$transaction(
+        async (tx) => {
+          await tx.transaksi_penjualan.deleteMany({
+            where: {
+              id_user: BigInt(session.id),
+              status_transaksi: transaksi_penjualan_status_transaksi.Belum_Bayar,
+              detail_transaksi: {
+                none: {},
               },
             },
-          },
-        },
-      },
-    });
-  });
+          });
 
-  return NextResponse.json(
-    {
-      success: true,
-      message: "Draft transaksi POS berhasil dibuat",
-      data: serializeData(buildTransaksiResponse(transaksi)),
-    },
-    { status: 201 }
-  );
-}
+          return tx.transaksi_penjualan.create({
+            data: {
+              id_user: BigInt(session.id),
+              nama_cust: "Pelanggan Umum",
+              tanggal_transaksi: new Date(),
+              subtotal_transaksi: toDecimal(0),
+              diskon_transaksi: toDecimal(0),
+              total_transaksi: toDecimal(0),
+              nominal_bayar: toDecimal(0),
+              kembalian: toDecimal(0),
+              metode_transaksi: "Cash",
+              status_transaksi: transaksi_penjualan_status_transaksi.Belum_Bayar,
+            },
+            include: {
+              users: {
+                select: {
+                  id: true,
+                  nama: true,
+                  email: true,
+                },
+              },
+              detail_transaksi: {
+                include: {
+                  barang: {
+                    include: {
+                      kategori_barang: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+        },
+        {
+          maxWait: 10000,
+          timeout: 20000,
+        }
+      );
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Draft transaksi POS berhasil dibuat",
+          data: serializeData(buildTransaksiResponse(transaksi)),
+        },
+        { status: 201 }
+      );
+    }
 
     const idTransaksi = parseOptionalBigInt(
       body.id_transaksi ?? body.idTransaksi ?? body.transaksi_id,
@@ -558,177 +561,207 @@ if (action === "create_draft") {
       body.detail_items ?? body.items ?? body.cart
     );
 
-    const result = await prisma.$transaction(async (tx) => {
-      let transaksi = idTransaksi
-        ? await tx.transaksi_penjualan.findUnique({
-            where: {
-              id: idTransaksi,
-            },
-          })
-        : null;
+    const transaksiId = await prisma.$transaction(
+      async (tx) => {
+        let transaksi = idTransaksi
+          ? await tx.transaksi_penjualan.findUnique({
+              where: {
+                id: idTransaksi,
+              },
+            })
+          : null;
 
-      if (idTransaksi && !transaksi) {
-        throw new Error("Transaksi POS tidak ditemukan");
-      }
-
-      if (transaksi && transaksi.status_transaksi !== "Belum_Bayar") {
-        throw new Error(
-          "Transaksi hanya dapat dibayar jika statusnya masih Belum Bayar"
-        );
-      }
-
-      if (transaksi && transaksi.id_user !== BigInt(session.id)) {
-        throw new Error("Forbidden. Transaksi ini bukan milik sesi admin saat ini.");
-      }
-
-      if (!transaksi) {
-        transaksi = await tx.transaksi_penjualan.create({
-          data: {
-            id_user: BigInt(session.id),
-            nama_cust: namaCust,
-            tanggal_transaksi: new Date(),
-            subtotal_transaksi: toDecimal(0),
-            diskon_transaksi: toDecimal(0),
-            total_transaksi: toDecimal(0),
-            nominal_bayar: toDecimal(0),
-            kembalian: toDecimal(0),
-            metode_transaksi: metodeTransaksi,
-            status_transaksi: transaksi_penjualan_status_transaksi.Belum_Bayar,
-          },
-        });
-      }
-
-      const itemTransaksi: {
-        id_barang: bigint;
-        jumlah: bigint;
-        harga_satuan: number;
-        sub_total: number;
-      }[] = [];
-
-      let subtotalTransaksi = 0;
-
-      for (const item of detailItems) {
-        const barang = await tx.barang.findUnique({
-          where: {
-            id: item.id_barang,
-          },
-        });
-
-        if (!barang) {
-          throw new Error("Barang tidak ditemukan");
+        if (idTransaksi && !transaksi) {
+          throw new Error("Transaksi POS tidak ditemukan");
         }
 
-        if (barang.stock < item.jumlah) {
+        if (transaksi && transaksi.status_transaksi !== "Belum_Bayar") {
           throw new Error(
-            `Stok barang ${barang.nama_barang} tidak mencukupi. Stok tersedia: ${barang.stock.toString()}`
+            "Transaksi hanya dapat dibayar jika statusnya masih Belum Bayar"
           );
         }
 
-        const hargaSatuan = toNumber(barang.harga);
-        const jumlahNumber = Number(item.jumlah);
-        const subTotal = hargaSatuan * jumlahNumber;
+        if (transaksi && transaksi.id_user !== BigInt(session.id)) {
+          throw new Error(
+            "Forbidden. Transaksi ini bukan milik sesi admin saat ini"
+          );
+        }
 
-        subtotalTransaksi += subTotal;
+        if (!transaksi) {
+          transaksi = await tx.transaksi_penjualan.create({
+            data: {
+              id_user: BigInt(session.id),
+              nama_cust: namaCust,
+              tanggal_transaksi: new Date(),
+              subtotal_transaksi: toDecimal(0),
+              diskon_transaksi: toDecimal(0),
+              total_transaksi: toDecimal(0),
+              nominal_bayar: toDecimal(0),
+              kembalian: toDecimal(0),
+              metode_transaksi: metodeTransaksi,
+              status_transaksi: transaksi_penjualan_status_transaksi.Belum_Bayar,
+            },
+          });
+        }
 
-        itemTransaksi.push({
-          id_barang: item.id_barang,
-          jumlah: item.jumlah,
-          harga_satuan: hargaSatuan,
-          sub_total: subTotal,
+        const idBarangList = detailItems.map((item) => item.id_barang);
+
+        const barangList = await tx.barang.findMany({
+          where: {
+            id: {
+              in: idBarangList,
+            },
+          },
         });
-      }
 
-      if (diskon > subtotalTransaksi) {
-        throw new Error("Diskon tidak boleh melebihi subtotal transaksi");
-      }
+        const barangMap = new Map(
+          barangList.map((barang) => [barang.id.toString(), barang])
+        );
 
-      const totalTransaksi = Math.max(subtotalTransaksi - diskon, 0);
+        const itemTransaksi: {
+          id_barang: bigint;
+          jumlah: bigint;
+          harga_satuan: number;
+          sub_total: number;
+        }[] = [];
 
-      if (metodeTransaksi === "Cash" && nominalBayarInput < totalTransaksi) {
-        throw new Error("Nominal bayar belum mencukupi total transaksi");
-      }
+        let subtotalTransaksi = 0;
 
-      const nominalBayar =
-        metodeTransaksi === "Cash" ? nominalBayarInput : totalTransaksi;
+        for (const item of detailItems) {
+          const barang = barangMap.get(item.id_barang.toString());
 
-      const kembalian =
-        metodeTransaksi === "Cash"
-          ? Math.max(nominalBayar - totalTransaksi, 0)
-          : 0;
+          if (!barang) {
+            throw new Error("Barang tidak ditemukan");
+          }
 
-      const nomorTransaksi = buildNomorTransaksi(
-        transaksi.id,
-        transaksi.tanggal_transaksi
-      );
+          if (barang.stock < item.jumlah) {
+            throw new Error(
+              `Stok barang ${barang.nama_barang} tidak mencukupi. Stok tersedia: ${barang.stock.toString()}`
+            );
+          }
 
-      await tx.detail_transaksi.deleteMany({
-        where: {
-          id_transaksi: transaksi.id,
-        },
-      });
+          const hargaSatuan = toNumber(barang.harga);
+          const jumlahNumber = Number(item.jumlah);
+          const subTotal = hargaSatuan * jumlahNumber;
 
-      const stockMutasi = await tx.stock_mutasi.create({
-        data: {
-          id_user: BigInt(session.id),
-          id_supplier: null,
-          jenis_mutasi: "Barang Keluar",
-          tanggal_mutasi: transaksi.tanggal_transaksi,
-          keterangan: `Sumber: POS Penjualan\nNo. Transaksi: ${nomorTransaksi}`,
-        },
-      });
+          subtotalTransaksi += subTotal;
 
-      for (const item of itemTransaksi) {
-        await tx.detail_transaksi.create({
+          itemTransaksi.push({
+            id_barang: item.id_barang,
+            jumlah: item.jumlah,
+            harga_satuan: hargaSatuan,
+            sub_total: subTotal,
+          });
+        }
+
+        if (diskon > subtotalTransaksi) {
+          throw new Error("Diskon tidak boleh melebihi subtotal transaksi");
+        }
+
+        const totalTransaksi = Math.max(subtotalTransaksi - diskon, 0);
+
+        if (metodeTransaksi === "Cash" && nominalBayarInput < totalTransaksi) {
+          throw new Error("Nominal bayar belum mencukupi total transaksi");
+        }
+
+        const nominalBayar =
+          metodeTransaksi === "Cash" ? nominalBayarInput : totalTransaksi;
+
+        const kembalian =
+          metodeTransaksi === "Cash"
+            ? Math.max(nominalBayar - totalTransaksi, 0)
+            : 0;
+
+        const nomorTransaksi = buildNomorTransaksi(
+          transaksi.id,
+          transaksi.tanggal_transaksi
+        );
+
+        await tx.detail_transaksi.deleteMany({
+          where: {
+            id_transaksi: transaksi.id,
+          },
+        });
+
+        const stockMutasi = await tx.stock_mutasi.create({
           data: {
+            id_user: BigInt(session.id),
+            id_supplier: null,
+            jenis_mutasi: "Barang Keluar",
+            tanggal_mutasi: transaksi.tanggal_transaksi,
+            keterangan: `Sumber: POS Penjualan\nNo. Transaksi: ${nomorTransaksi}`,
+          },
+        });
+
+        await tx.detail_transaksi.createMany({
+          data: itemTransaksi.map((item) => ({
             id_transaksi: transaksi.id,
             id_barang: item.id_barang,
             jumlah: item.jumlah,
             harga_satuan: toDecimal(item.harga_satuan),
             sub_total: toDecimal(item.sub_total),
-          },
+          })),
         });
 
-        await tx.detail_stock_mutasi.create({
-          data: {
+        await tx.detail_stock_mutasi.createMany({
+          data: itemTransaksi.map((item) => ({
             id_stock_mutasi: stockMutasi.id,
             id_barang: item.id_barang,
             id_sparepart: null,
             jumlah: item.jumlah,
-          },
+          })),
         });
 
-        await tx.barang.update({
+        for (const item of itemTransaksi) {
+          const updatedBarang = await tx.barang.updateMany({
+            where: {
+              id: item.id_barang,
+              stock: {
+                gte: item.jumlah,
+              },
+            },
+            data: {
+              stock: {
+                decrement: item.jumlah,
+              },
+            },
+          });
+
+          if (updatedBarang.count === 0) {
+            const barang = barangMap.get(item.id_barang.toString());
+
+            throw new Error(
+              `Stok barang ${barang?.nama_barang ?? "terpilih"} tidak mencukupi`
+            );
+          }
+        }
+
+        await tx.transaksi_penjualan.update({
           where: {
-            id: item.id_barang,
+            id: transaksi.id,
           },
           data: {
-            stock: {
-              decrement: item.jumlah,
-            },
+            nama_cust: namaCust,
+            subtotal_transaksi: toDecimal(subtotalTransaksi),
+            diskon_transaksi: toDecimal(diskon),
+            total_transaksi: toDecimal(totalTransaksi),
+            nominal_bayar: toDecimal(nominalBayar),
+            kembalian: toDecimal(kembalian),
+            metode_transaksi: metodeTransaksi,
+            status_transaksi: transaksi_penjualan_status_transaksi.Dibayar,
           },
         });
+
+        return transaksi.id;
+      },
+      {
+        maxWait: 10000,
+        timeout: 20000,
       }
+    );
 
-      await tx.transaksi_penjualan.update({
-        where: {
-          id: transaksi.id,
-        },
-        data: {
-          nama_cust: namaCust,
-          subtotal_transaksi: toDecimal(subtotalTransaksi),
-          diskon_transaksi: toDecimal(diskon),
-          total_transaksi: toDecimal(totalTransaksi),
-          nominal_bayar: toDecimal(nominalBayar),
-          kembalian: toDecimal(kembalian),
-          metode_transaksi: metodeTransaksi,
-          status_transaksi: transaksi_penjualan_status_transaksi.Dibayar,
-        },
-      });
-
-      const transaksiLengkap = await getTransaksiLengkap(tx, transaksi.id);
-
-      return buildTransaksiResponse(transaksiLengkap);
-    });
+    const transaksiLengkap = await getTransaksiLengkap(transaksiId);
+    const result = buildTransaksiResponse(transaksiLengkap);
 
     return NextResponse.json(
       {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import {
   ActionIcon,
@@ -59,7 +59,7 @@ const fileToBase64 = (file: File): Promise<string> => {
       const result = reader.result;
 
       if (typeof result !== "string") {
-        reject(new Error("Gagal membaca file gambar."));
+        reject(new Error("Gagal membaca file gambar"));
         return;
       }
 
@@ -67,7 +67,7 @@ const fileToBase64 = (file: File): Promise<string> => {
     };
 
     reader.onerror = () => {
-      reject(new Error("Gagal membaca file gambar."));
+      reject(new Error("Gagal membaca file gambar"));
     };
 
     reader.readAsDataURL(file);
@@ -111,7 +111,6 @@ export default function DiagnosaAiPage() {
   const [history, setHistory] = useState<DiagnosaAiHistoryMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [diagnosaAiId, setDiagnosaAiId] = useState<string | null>(null);
-  const [snapshot, setSnapshot] = useState<DiagnosaAiSnapshot | null>(null);
 
   const canSend = useMemo(() => {
     return Boolean(prompt.trim() || selectedImage) && !loading;
@@ -125,9 +124,7 @@ export default function DiagnosaAiPage() {
     fileInputRef.current?.click();
   };
 
-  const handleImageChange = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const inputElement = event.currentTarget;
     const file = inputElement.files?.[0];
 
@@ -137,7 +134,7 @@ export default function DiagnosaAiPage() {
       notifications.show({
         color: "red",
         title: "Format gambar tidak valid",
-        message: "Gunakan gambar JPG, JPEG, PNG, atau WEBP.",
+        message: "Gunakan gambar JPG, JPEG, PNG, atau WEBP",
         icon: <IconAlertCircle size={18} />,
         autoClose: 3000,
       });
@@ -150,7 +147,7 @@ export default function DiagnosaAiPage() {
       notifications.show({
         color: "red",
         title: "Gambar terlalu besar",
-        message: `Ukuran gambar maksimal ${MAX_IMAGE_SIZE_MB} MB.`,
+        message: `Ukuran gambar maksimal ${MAX_IMAGE_SIZE_MB} MB`,
         icon: <IconAlertCircle size={18} />,
         autoClose: 3000,
       });
@@ -166,7 +163,7 @@ export default function DiagnosaAiPage() {
       notifications.show({
         color: "red",
         title: "Upload gagal",
-        message: "Gambar tidak bisa diproses.",
+        message: "Gambar tidak bisa diproses",
         icon: <IconAlertCircle size={18} />,
         autoClose: 3000,
       });
@@ -231,9 +228,8 @@ export default function DiagnosaAiPage() {
       setMessages([...currentMessages, aiMessage]);
       setHistory(response.data.nextHistory);
 
-      if (response.data.isDiagnosis && response.data.snapshot) {
+      if (response.data.isDiagnosis && response.data.diagnosaAiId) {
         setDiagnosaAiId(response.data.diagnosaAiId);
-        setSnapshot(response.data.snapshot);
       }
 
       notifications.show({
@@ -246,7 +242,7 @@ export default function DiagnosaAiPage() {
       notifications.show({
         color: "red",
         title: "Terjadi kesalahan",
-        message: "Gagal terhubung ke server Diagnosa AI.",
+        message: "Gagal terhubung ke server Diagnosa AI",
         icon: <IconAlertCircle size={18} />,
         autoClose: 3500,
       });
@@ -255,18 +251,6 @@ export default function DiagnosaAiPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleOpenTicketService = () => {
-    if (!diagnosaAiId || !snapshot) return;
-
-    sessionStorage.setItem(
-      "dvc_diagnosa_ai_ticket_prefill",
-      JSON.stringify({
-        diagnosaAiId,
-        gejala: snapshot.gejala,
-      })
-    );
   };
 
   return (
@@ -516,7 +500,6 @@ export default function DiagnosaAiPage() {
               <Button
                 component="a"
                 href={serviceHref}
-                onClick={handleOpenTicketService}
                 radius="md"
                 style={{
                   minWidth: 190,
@@ -533,7 +516,6 @@ export default function DiagnosaAiPage() {
         </Paper>
       </Container>
 
-      {/* FOOTER TANPA ANIMASI */}
       <Box
         mt={60}
         style={{
@@ -547,7 +529,6 @@ export default function DiagnosaAiPage() {
             gap={60}
             wrap="wrap"
           >
-            {/* KIRI */}
             <Group
               align="flex-start"
               gap={24}
@@ -600,7 +581,6 @@ export default function DiagnosaAiPage() {
               </Stack>
             </Group>
 
-            {/* KANAN */}
             <Stack
               gap={14}
               align="flex-end"
@@ -650,7 +630,6 @@ export default function DiagnosaAiPage() {
           </Group>
         </Container>
 
-        {/* COPYRIGHT */}
         <Box
           py={18}
           bg="#0D3F8F"

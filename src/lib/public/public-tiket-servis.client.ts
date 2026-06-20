@@ -10,6 +10,8 @@ export type PublicTicketStatusServis =
 
 export type PublicTicketRow = {
   id: string;
+  id_diagnosa_ai: string | null;
+  diagnosa_awal_kerusakan: string | null;
   nomor_tiket: string;
   tanggal_masuk: string;
   nama_cust: string;
@@ -52,6 +54,7 @@ export type GetTiketServisNomorResponse =
 export type CreatePublicTiketServisPayload = {
   nomor_tiket?: string;
   tanggal_masuk: string;
+  id_diagnosa_ai?: string | null;
   nama_cust: string;
   phone_cust: string;
   alamat_cust: string | null;
@@ -75,6 +78,7 @@ export type CreatePublicTiketServisResponse =
 
 export type UpdatePublicTiketServisPayload = {
   tanggal_masuk: string;
+  id_diagnosa_ai?: string | null;
   nama_cust: string;
   phone_cust: string;
   alamat_cust: string | null;

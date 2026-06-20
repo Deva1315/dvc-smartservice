@@ -21,6 +21,8 @@ export type TicketDropPointOption = {
 
 export type TicketRow = {
   id?: string;
+  id_diagnosa_ai: string | null;
+  diagnosa_awal_kerusakan: string | null;
   nomor_tiket: string;
   tanggal_masuk: Date;
   nama_cust: string;
@@ -37,6 +39,8 @@ export type TicketRow = {
 };
 
 export type FormState = {
+  id_diagnosa_ai: string | null;
+  diagnosa_awal_kerusakan: string;
   nama_cust: string;
   phone_cust: string;
   alamat_cust: string;
@@ -48,6 +52,8 @@ export type FormState = {
 };
 
 export const initialForm: FormState = {
+  id_diagnosa_ai: null,
+  diagnosa_awal_kerusakan: "",
   nama_cust: "",
   phone_cust: "",
   alamat_cust: "",
@@ -67,6 +73,7 @@ export interface TiketServisFormModalProps {
   opened: boolean;
   onClose: () => void;
   formType: FormType;
+  diagnosaAiId?: string | null;
   nomorTiket: string;
   tanggalMasuk: Date;
   dropPointOptions: TicketDropPointOption[];

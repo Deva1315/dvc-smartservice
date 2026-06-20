@@ -39,9 +39,35 @@ export function getPegawaiFormSchema(formType: "create" | "edit") {
   return formType === "create" ? pegawaiCreateFormSchema : pegawaiEditFormSchema;
 }
 
+function isAlamatDropPointLengkap(value: string) {
+  const alamat = value.trim();
+
+  if (alamat.length < 25) {
+    return false;
+  }
+
+  const bagianAlamat = alamat
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (bagianAlamat.length < 4) {
+    return false;
+  }
+
+  const hasJalan = /\b(jalan|jl\.?)\b/i.test(alamat);
+  const hasNomor = /\b(nomor|no\.?)\s*\d+|\b\d+[a-z]?\b/i.test(alamat);
+  const hasBali = /\bbali\b/i.test(alamat);
+
+  return hasJalan && hasNomor && hasBali;
+}
+
 export const dropPointFormSchema = z.object({
   nama_drop_point: requiredString("Nama drop point", 150),
-  alamat: requiredString("Alamat"),
+  alamat: requiredString("Alamat").refine(
+    isAlamatDropPointLengkap,
+    "Mohon isi alamat lebih lengkap, contoh: Jalan Margapati Nomor 2, Sukawati, Gianyar, Bali."
+  ),
   phone: optionalPhone("No HP"),
   jam_operasional: optionalString(100),
 });

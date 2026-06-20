@@ -80,6 +80,105 @@ function getRouteErrorMessage(error: unknown, status: number) {
   return "Terjadi kesalahan saat memproses chat Diagnosa AI.";
 }
 
+function splitAiListText(value: string | null | undefined) {
+  return String(value ?? "")
+    .split("\n")
+    .map((item) =>
+      item
+        .replace(/^[-•]\s*/, "")
+        .replace(/^\d+[.)]\s*/, "")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
+function pilihSolusiTerbaik(diagnosaAi: {
+  kemungkinan_solusi: string | null;
+  saran_tindakan: string | null;
+}) {
+  const solusi = splitAiListText(diagnosaAi.kemungkinan_solusi);
+  const saran = splitAiListText(diagnosaAi.saran_tindakan);
+
+  return solusi[0] || saran[0] || null;
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const rawId = String(
+      searchParams.get("diagnosa_ai_id") ?? searchParams.get("id") ?? ""
+    ).trim();
+
+    if (!rawId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "ID Diagnosa AI wajib diisi.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!/^\d+$/.test(rawId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "ID Diagnosa AI tidak valid.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const diagnosaAi = await prisma.diagnosa_ai.findUnique({
+      where: {
+        id: BigInt(rawId),
+      },
+      select: {
+        id: true,
+        gejala: true,
+        gambar_gejala: true,
+        kemungkinan_penyebab: true,
+        kemungkinan_solusi: true,
+        saran_tindakan: true,
+      },
+    });
+
+    if (!diagnosaAi) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Data Diagnosa AI tidak ditemukan.",
+        },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Data Diagnosa AI berhasil diambil.",
+      data: {
+        id: diagnosaAi.id.toString(),
+        gejala: diagnosaAi.gejala,
+        gambar_gejala: diagnosaAi.gambar_gejala,
+        kemungkinan_penyebab: diagnosaAi.kemungkinan_penyebab,
+        kemungkinan_solusi: diagnosaAi.kemungkinan_solusi,
+        saran_tindakan: diagnosaAi.saran_tindakan,
+        diagnosa_awal_kerusakan: pilihSolusiTerbaik(diagnosaAi),
+      },
+    });
+  } catch (error) {
+    console.error("GET /api/diagnosa-ai/chat error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Gagal mengambil data Diagnosa AI.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -126,9 +225,9 @@ export async function POST(request: Request) {
       history: payload.history,
       image: imageData
         ? {
-            data: imageData.data,
-            mimeType: imageData.mimeType,
-          }
+          data: imageData.data,
+          mimeType: imageData.mimeType,
+        }
         : null,
     });
 

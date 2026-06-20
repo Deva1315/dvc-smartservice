@@ -355,7 +355,7 @@ export default function DropPointFormModal({
                       onChange={(event) =>
                         handleChange("alamat", event.currentTarget.value)
                       }
-                      placeholder="Masukkan alamat lengkap Drop Point..."
+                      placeholder="Jalan Margapati Nomor 2, Sukawati, Gianyar, Bali."
                       minRows={6}
                       radius="md"
                       disabled={isSubmitting}

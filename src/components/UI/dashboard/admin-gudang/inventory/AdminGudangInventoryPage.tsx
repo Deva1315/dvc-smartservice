@@ -299,22 +299,6 @@ export default function AdminGudangInventoryPage() {
           >
             Barang Masuk
           </Button>
-
-          <Button
-            radius="xl"
-            leftSection={<IconPlus size={20} stroke={2.2} />}
-            onClick={() => router.push("/admin_gudang/inventory/barang-keluar")}
-            style={{
-              height: 44,
-              minWidth: 170,
-              backgroundColor: "#FF1008",
-              fontSize: 18,
-              fontWeight: 700,
-              paddingInline: 24,
-            }}
-          >
-            Barang Keluar
-          </Button>
         </Group>
 
         <CustomTable

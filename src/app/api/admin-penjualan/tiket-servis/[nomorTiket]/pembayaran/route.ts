@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthSession } from "@/lib/auth/get-auth-session";
 import {
+  garansi_status_garansi,
   pembayaran_servis_status_pembayaran,
   tiket_servis_status_servis,
   tiket_servis_status_verifikasi,
@@ -50,6 +51,45 @@ function normalizeMetodePembayaran(value: unknown) {
   return metode;
 }
 
+function normalizeBoolean(value: unknown) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+
+  if (typeof value === "string") {
+    const normalizedValue = value.trim().toLowerCase();
+    return ["true", "1", "ya", "yes", "aktif"].includes(normalizedValue);
+  }
+
+  return false;
+}
+
+function parseDurasiGaransiHari(value: unknown) {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error("Durasi garansi harus lebih dari 0 hari");
+  }
+
+  return parsed;
+}
+
+function normalizeKeteranganGaransi(value: unknown) {
+  const keterangan = typeof value === "string" ? value.trim() : "";
+
+  if (keterangan.length > 1000) {
+    throw new Error("Keterangan garansi maksimal 1000 karakter");
+  }
+
+  return keterangan || null;
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+
+  return nextDate;
+}
+
 async function requireAdminPenjualanSession() {
   const session = await getAuthSession();
 
@@ -59,10 +99,10 @@ async function requireAdminPenjualanSession() {
 
   const normalizedRole = session.roleName.toLowerCase().replace(/\s+/g, "_");
 
-  if (
-    normalizedRole !== "admin_penjualan"
-  ) {
-    throw new Error("Forbidden. Hanya Admin Penjualan yang dapat melakukan pembayaran servis.");
+  if (normalizedRole !== "admin_penjualan") {
+    throw new Error(
+      "Forbidden. Hanya Admin Penjualan yang dapat melakukan pembayaran servis."
+    );
   }
 
   return session;
@@ -106,6 +146,21 @@ function buildPembayaranServisData(tiket: {
     total_pembayaran: unknown;
     metode_pembayaran: string;
     status_pembayaran: pembayaran_servis_status_pembayaran;
+    users: {
+      id: bigint;
+      nama: string;
+      email: string;
+    };
+  }[];
+  garansi: {
+    id: bigint;
+    id_tiket_servis: string;
+    id_user: bigint;
+    tanggal_mulai: Date;
+    tanggal_akhir: Date;
+    tanggal_klaim: Date | null;
+    keterangan_garansi: string | null;
+    status_garansi: garansi_status_garansi;
     users: {
       id: bigint;
       nama: string;
@@ -166,6 +221,11 @@ function buildPembayaranServisData(tiket: {
         item.status_pembayaran === pembayaran_servis_status_pembayaran.Dibayar
     ) || null;
 
+  const garansiAktif =
+    tiket.garansi.find(
+      (item) => item.status_garansi === garansi_status_garansi.Aktif
+    ) || tiket.garansi[0] || null;
+
   return {
     tiket: {
       id: tiket.id,
@@ -187,6 +247,7 @@ function buildPembayaranServisData(tiket: {
     subtotal_sparepart: subtotalSparepart,
     total_pembayaran: totalPembayaran,
     pembayaran: pembayaranAktif,
+    garansi: garansiAktif,
   };
 }
 
@@ -214,6 +275,20 @@ async function getTiketPembayaran(nomorTiket: string) {
         },
         orderBy: {
           tanggal_pembayaran: "desc",
+        },
+      },
+      garansi: {
+        include: {
+          users: {
+            select: {
+              id: true,
+              nama: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          tanggal_mulai: "desc",
         },
       },
     },
@@ -265,6 +340,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const session = await requireAdminPenjualanSession();
     const metodePembayaran = normalizeMetodePembayaran(body.metode_pembayaran);
 
+    const garansiAktif = normalizeBoolean(
+      body.garansi_aktif ?? body.garansiAktif
+    );
+
+    const durasiGaransiHari = garansiAktif
+      ? parseDurasiGaransiHari(
+          body.durasi_garansi_hari ?? body.durasiGaransiHari
+        )
+      : 0;
+
+    const keteranganGaransi = garansiAktif
+      ? normalizeKeteranganGaransi(
+          body.keterangan_garansi ?? body.keteranganGaransi
+        )
+      : null;
+
     const result = await prisma.$transaction(async (tx) => {
       const tiket = await tx.tiket_servis.findUnique({
         where: {
@@ -291,6 +382,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               tanggal_pembayaran: "desc",
             },
           },
+          garansi: {
+            include: {
+              users: {
+                select: {
+                  id: true,
+                  nama: true,
+                  email: true,
+                },
+              },
+            },
+            orderBy: {
+              tanggal_mulai: "desc",
+            },
+          },
         },
       });
 
@@ -303,7 +408,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       if (tiket.status_servis !== tiket_servis_status_servis.Selesai) {
-        throw new Error("Pembayaran hanya bisa dilakukan jika status servis sudah Selesai");
+        throw new Error(
+          "Pembayaran hanya bisa dilakukan jika status servis sudah Selesai"
+        );
       }
 
       const pembayaranSudahAda = tiket.pembayaran_servis.find(
@@ -319,20 +426,45 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const totalPembayaran = rincian.total_pembayaran;
 
       if (totalPembayaran <= 0) {
-        throw new Error("Total pembayaran masih 0. Pastikan tiket memiliki jasa atau sparepart");
+        throw new Error(
+          "Total pembayaran masih 0. Pastikan tiket memiliki jasa atau sparepart"
+        );
       }
+
+      const tanggalPembayaran = new Date();
 
       await tx.pembayaran_servis.create({
         data: {
           id_tiket_servis: tiket.id,
           id_user: BigInt(session.id),
-          tanggal_pembayaran: new Date(),
+          tanggal_pembayaran: tanggalPembayaran,
           total_pembayaran: totalPembayaran,
           metode_pembayaran: metodePembayaran,
           status_pembayaran: pembayaran_servis_status_pembayaran.Dibayar,
         },
       });
 
+      await tx.garansi.deleteMany({
+        where: {
+          id_tiket_servis: tiket.id,
+        },
+      });
+
+      if (garansiAktif) {
+        await tx.garansi.create({
+          data: {
+            id_tiket_servis: tiket.id,
+            id_user: BigInt(session.id),
+            tanggal_mulai: tanggalPembayaran,
+            tanggal_akhir: addDays(tanggalPembayaran, durasiGaransiHari),
+            tanggal_klaim: null,
+            keterangan_garansi:
+              keteranganGaransi ||
+              `Garansi servis berlaku selama ${durasiGaransiHari} hari sejak tanggal pembayaran`,
+            status_garansi: garansi_status_garansi.Aktif,
+          },
+        });
+      }
 
       const updatedTiket = await tx.tiket_servis.findUnique({
         where: {
@@ -357,6 +489,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             },
             orderBy: {
               tanggal_pembayaran: "desc",
+            },
+          },
+          garansi: {
+            include: {
+              users: {
+                select: {
+                  id: true,
+                  nama: true,
+                  email: true,
+                },
+              },
+            },
+            orderBy: {
+              tanggal_mulai: "desc",
             },
           },
         },
@@ -385,12 +531,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         ? error.message
         : "Gagal menyimpan pembayaran servis";
 
-    const status =
-      message.includes("Unauthorized")
-        ? 401
-        : message.includes("Forbidden")
-        ? 403
-        : 500;
+    const status = message.includes("Unauthorized")
+      ? 401
+      : message.includes("Forbidden")
+      ? 403
+      : message.includes("tidak ditemukan")
+      ? 404
+      : message.includes("harus") ||
+        message.includes("belum") ||
+        message.includes("hanya bisa") ||
+        message.includes("sudah dibayar") ||
+        message.includes("masih 0") ||
+        message.includes("maksimal")
+      ? 400
+      : 500;
 
     return NextResponse.json(
       {

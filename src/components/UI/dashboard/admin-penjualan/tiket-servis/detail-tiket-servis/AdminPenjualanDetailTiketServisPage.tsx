@@ -83,6 +83,29 @@ function getStatusServisLabel(status: string) {
   return labels[status] || status;
 }
 
+function splitAiListText(value: string | null | undefined) {
+  return String(value ?? "")
+    .split(/\r?\n/)
+    .map((item) =>
+      item
+        .replace(/^[-•]\s*/, "")
+        .replace(/^\d+[.)]\s*/, "")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
+function getDiagnosaKerusakanAwalAi(detail: DetailTiketServisApiItem | null) {
+  if (!detail?.diagnosa_ai) {
+    return null;
+  }
+
+  const solusi = splitAiListText(detail.diagnosa_ai.kemungkinan_solusi);
+  const saran = splitAiListText(detail.diagnosa_ai.saran_tindakan);
+
+  return solusi[0] || saran[0] || null;
+}
+
 function InfoCard({
   title,
   children,
@@ -189,6 +212,10 @@ export default function AdminPenjualanDetailTiketServisPage() {
   }, [detail]);
 
   const isMenungguVerifikasi = detail?.status_verifikasi === "Menunggu";
+
+  const diagnosaKerusakanAwalAi = useMemo(() => {
+    return getDiagnosaKerusakanAwalAi(detail);
+  }, [detail]);
 
   async function fetchDetail() {
     try {
@@ -420,41 +447,27 @@ export default function AdminPenjualanDetailTiketServisPage() {
             </Box>
           </InfoCard>
 
-          {detail.diagnosa_ai && (
-            <InfoCard title="Diagnosa Awal AI">
+          {diagnosaKerusakanAwalAi ? (
+            <InfoCard title="Diagnosa Kerusakan Awal dari AI">
               <Box px="lg" py={16}>
                 <Stack gap={8}>
-                  <Text fz={16}>
-                    <Text span fw={700}>
-                      Gejala:
-                    </Text>{" "}
-                    {detail.diagnosa_ai.gejala || "-"}
+                  <Text
+                    fz={17}
+                    style={{
+                      whiteSpace: "pre-line",
+                    }}
+                  >
+                    • {diagnosaKerusakanAwalAi}
                   </Text>
 
-                  <Text fz={16}>
-                    <Text span fw={700}>
-                      Kemungkinan Penyebab:
-                    </Text>{" "}
-                    {detail.diagnosa_ai.kemungkinan_penyebab || "-"}
-                  </Text>
-
-                  <Text fz={16}>
-                    <Text span fw={700}>
-                      Solusi:
-                    </Text>{" "}
-                    {detail.diagnosa_ai.kemungkinan_solusi || "-"}
-                  </Text>
-
-                  <Text fz={16}>
-                    <Text span fw={700}>
-                      Saran Tindakan:
-                    </Text>{" "}
-                    {detail.diagnosa_ai.saran_tindakan || "-"}
+                  <Text fz={13} c="dimmed">
+                    Diagnosa awal ini diambil dari solusi terbaik Diagnosa AI
+                    dan tetap perlu dikonfirmasi oleh teknisi.
                   </Text>
                 </Stack>
               </Box>
             </InfoCard>
-          )}
+          ) : null}
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
             <InfoCard title="Drop Point">

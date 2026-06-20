@@ -102,6 +102,8 @@ function getStatusColor(status: TicketStatusVerifikasi | TicketStatusServis) {
 function mapApiTicketToRow(ticket: PublicTicketRow): TicketRow {
   return {
     id: ticket.id,
+    id_diagnosa_ai: ticket.id_diagnosa_ai ?? null,
+    diagnosa_awal_kerusakan: ticket.diagnosa_awal_kerusakan ?? null,
     nomor_tiket: ticket.nomor_tiket,
     tanggal_masuk: new Date(ticket.tanggal_masuk),
     nama_cust: ticket.nama_cust,
@@ -129,11 +131,39 @@ export default function TiketServisPage() {
   >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [nomorTiket, setNomorTiket] = useState("");
+  const [diagnosaAiIdFromUrl, setDiagnosaAiIdFromUrl] = useState<string | null>(
+    null
+  );
+  const [hasAutoOpenedDiagnosa, setHasAutoOpenedDiagnosa] = useState(false);
+
   const tanggalMasuk = useMemo(() => new Date(), []);
 
   useEffect(() => {
     void loadInitialData();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const diagnosaAiId = params.get("diagnosa_ai_id")?.trim() || null;
+
+    setDiagnosaAiIdFromUrl(diagnosaAiId);
+  }, []);
+
+  useEffect(() => {
+    if (!diagnosaAiIdFromUrl || hasAutoOpenedDiagnosa) {
+      return;
+    }
+
+    setHasAutoOpenedDiagnosa(true);
+
+    const now = new Date();
+
+    setFormType("create");
+    setSelectedTicket(null);
+    setOpened(true);
+
+    void prepareNomorTiket(now);
+  }, [diagnosaAiIdFromUrl, hasAutoOpenedDiagnosa]);
 
   async function loadInitialData() {
     try {
@@ -220,6 +250,7 @@ export default function TiketServisPage() {
     const payload = {
       nomor_tiket: ticket.nomor_tiket,
       tanggal_masuk: ticket.tanggal_masuk.toISOString(),
+      id_diagnosa_ai: ticket.id_diagnosa_ai,
       nama_cust: ticket.nama_cust,
       phone_cust: ticket.phone_cust,
       alamat_cust: ticket.alamat_cust || null,
@@ -227,9 +258,7 @@ export default function TiketServisPage() {
       merk_perangkat: ticket.merk_perangkat || null,
       keluhan: ticket.keluhan,
       gunakan_drop_point: ticket.gunakan_drop_point,
-      drop_point_id: ticket.gunakan_drop_point
-        ? ticket.drop_point_id
-        : null,
+      drop_point_id: ticket.gunakan_drop_point ? ticket.drop_point_id : null,
     };
 
     if (type === "create") {
@@ -295,7 +324,7 @@ export default function TiketServisPage() {
       sortable: true,
       width: "15%",
       render: (row) => (
-        <Text fw={700} c="#111827" fz={15} >
+        <Text fw={700} c="#111827" fz={15}>
           {row.nomor_tiket}
         </Text>
       ),
@@ -306,7 +335,7 @@ export default function TiketServisPage() {
       sortable: true,
       width: "10%",
       render: (row) => (
-        <Text c="#374151" fz={15} >
+        <Text c="#374151" fz={15}>
           {row.nama_cust}
         </Text>
       ),
@@ -316,7 +345,7 @@ export default function TiketServisPage() {
       label: "Perangkat",
       width: "10%",
       render: (row) => (
-        <Text c="#374151" fz={15} >
+        <Text c="#374151" fz={15}>
           {row.jenis_perangkat}
         </Text>
       ),
@@ -326,7 +355,7 @@ export default function TiketServisPage() {
       label: "Merk",
       width: "9%",
       render: (row) => (
-        <Text c="#374151" fz={15} >
+        <Text c="#374151" fz={15}>
           {row.merk_perangkat}
         </Text>
       ),
@@ -352,7 +381,7 @@ export default function TiketServisPage() {
       sortable: true,
       width: "11%",
       render: (row) => (
-        <Text c="#374151" fz={15} >
+        <Text c="#374151" fz={15}>
           {formatTanggalIndonesia(row.tanggal_masuk)}
         </Text>
       ),
@@ -423,7 +452,6 @@ export default function TiketServisPage() {
                 fontSize: "clamp(42px, 4vw, 64px)",
                 fontWeight: 900,
                 color: "#111111",
-
               }}
             >
               Tiket Servis
@@ -458,11 +486,11 @@ export default function TiketServisPage() {
                 backgroundColor: "#0D4CB5",
                 fontSize: 20,
                 fontWeight: 700,
-
               }}
             >
               Buat Tiket Servis
             </Button>
+
             <Button
               onClick={() => setRestoreOpened(true)}
               radius="md"
@@ -487,7 +515,7 @@ export default function TiketServisPage() {
         >
           <Box mt={36}>
             <Stack gap={18}>
-              <Title order={2} fw={800} c="#111111" ta="center" >
+              <Title order={2} fw={800} c="#111111" ta="center">
                 Tiket Yang Sudah Dibuat
               </Title>
 
@@ -513,6 +541,7 @@ export default function TiketServisPage() {
         tanggalMasuk={tanggalMasuk}
         dropPointOptions={dropPointOptions}
         initialData={selectedTicket}
+        diagnosaAiId={formType === "create" ? diagnosaAiIdFromUrl : null}
         onSubmit={handleSubmitTicket}
       />
 
@@ -535,7 +564,6 @@ export default function TiketServisPage() {
             gap={60}
             wrap="wrap"
           >
-            {/* KIRI */}
             <Group
               align="flex-start"
               gap={24}
@@ -570,7 +598,6 @@ export default function TiketServisPage() {
                     fontSize: "clamp(24px, 2vw, 34px)",
                     fontWeight: 800,
                     lineHeight: 1.2,
-
                   }}
                 >
                   DVC SMART SERVICE
@@ -581,17 +608,14 @@ export default function TiketServisPage() {
                   style={{
                     fontSize: "clamp(16px, 1.2vw, 22px)",
                     lineHeight: 1.7,
-
                   }}
                 >
-                  Solusi modern untuk penjualan dan servis perangkat
-                  komputer dengan fitur tiket servis, drop point,
-                  dan diagnosa AI.
+                  Solusi modern untuk penjualan dan servis perangkat komputer
+                  dengan fitur tiket servis, drop point, dan diagnosa AI.
                 </Text>
               </Stack>
             </Group>
 
-            {/* KANAN */}
             <Stack
               gap={14}
               align="flex-end"
@@ -605,7 +629,6 @@ export default function TiketServisPage() {
                 style={{
                   fontSize: "clamp(24px, 2vw, 34px)",
                   fontWeight: 800,
-
                 }}
               >
                 CONTACT
@@ -622,8 +645,7 @@ export default function TiketServisPage() {
                     lineHeight: 1.6,
                   }}
                 >
-                  Jl. Ciung Wanara, No. 99X,
-                  Kec. Sukawati Bali 80582
+                  Jl. Ciung Wanara, No. 99X, Kec. Sukawati Bali 80582
                 </Text>
               </Group>
 
@@ -643,7 +665,6 @@ export default function TiketServisPage() {
           </Group>
         </Container>
 
-        {/* COPYRIGHT */}
         <Box
           py={18}
           bg="#0D3F8F"

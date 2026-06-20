@@ -1,7 +1,6 @@
 import type React from "react";
 import {
   IconBasket,
-  IconCertificate,
   IconClipboardList,
   IconClipboardText,
   IconCpu,
@@ -121,12 +120,6 @@ const DASHBOARD_MENU: Record<DashboardRoleKey, DashboardMenuItem[]> = {
       icon: IconClipboardText,
     },
     {
-      key: "garansi-servis",
-      label: "Garansi Servis",
-      href: "/admin_penjualan/garansi-servis",
-      icon: IconCertificate,
-    },
-    {
       key: "klaim-garansi",
       label: "Klaim Garansi",
       href: "/admin_penjualan/klaim-garansi",
@@ -175,11 +168,6 @@ const DASHBOARD_MENU: Record<DashboardRoleKey, DashboardMenuItem[]> = {
           key: "barang-masuk",
           label: "Barang Masuk",
           href: "/admin_gudang/inventory/barang-masuk",
-        },
-        {
-          key: "barang-keluar",
-          label: "Barang Keluar",
-          href: "/admin_gudang/inventory/barang-keluar",
         },
         {
           key: "stok-opname",

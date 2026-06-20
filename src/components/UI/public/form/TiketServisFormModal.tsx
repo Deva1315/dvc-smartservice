@@ -2,7 +2,9 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Box, Button, Group, Modal, Stack } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { getNearestPublicDropPointListRequest } from "@/lib/public/public-drop-point.client";
+import { getDiagnosaAiDetail } from "@/lib/diagnosa-ai/diagnosa-ai.client";
 import {
   publicTiketServisFormSchema,
   validateWithZod,
@@ -33,6 +35,7 @@ export default function TiketServisFormModal({
   tanggalMasuk,
   dropPointOptions,
   initialData = null,
+  diagnosaAiId = null,
   onSubmit,
 }: TiketServisFormModalProps) {
   const [form, setForm] = useState<FormState>(initialForm);
@@ -58,10 +61,11 @@ export default function TiketServisFormModal({
 
     setErrors({});
     setDistanceMessage("");
-    setDisplayDropPointOptions(dropPointOptions);
 
     if (formType === "edit" && initialData) {
       setForm({
+        id_diagnosa_ai: initialData.id_diagnosa_ai ?? null,
+        diagnosa_awal_kerusakan: initialData.diagnosa_awal_kerusakan ?? "",
         nama_cust: initialData.nama_cust,
         phone_cust: initialData.phone_cust,
         alamat_cust: initialData.alamat_cust,
@@ -78,7 +82,46 @@ export default function TiketServisFormModal({
 
     setForm(initialForm);
     setTanggal(toInputDateString(tanggalMasuk));
-  }, [opened, formType, initialData, tanggalMasuk, dropPointOptions]);
+  }, [opened, formType, initialData, tanggalMasuk]);
+
+  useEffect(() => {
+    if (!opened || formType !== "create" || !diagnosaAiId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadDiagnosaAiPrefill() {
+      const result = await getDiagnosaAiDetail(diagnosaAiId ?? "");
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (!result.success) {
+        notifications.show({
+          title: "Gagal",
+          message: result.message,
+          color: "red",
+        });
+
+        return;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        id_diagnosa_ai: result.data.id,
+        diagnosa_awal_kerusakan: result.data.diagnosa_awal_kerusakan ?? "",
+        keluhan: prev.keluhan || result.data.gejala || "",
+      }));
+    }
+
+    void loadDiagnosaAiPrefill();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [opened, formType, diagnosaAiId]);
 
   const selectDropPointData = useMemo(() => {
     return displayDropPointOptions.map((item) => ({
@@ -223,6 +266,8 @@ export default function TiketServisFormModal({
 
     if (formType === "edit" && initialData) {
       setForm({
+        id_diagnosa_ai: initialData.id_diagnosa_ai ?? null,
+        diagnosa_awal_kerusakan: initialData.diagnosa_awal_kerusakan ?? "",
         nama_cust: initialData.nama_cust,
         phone_cust: initialData.phone_cust,
         alamat_cust: initialData.alamat_cust,
@@ -271,16 +316,18 @@ export default function TiketServisFormModal({
     const selectedDropPoint =
       parsed.data.gunakan_drop_point === "ya"
         ? displayDropPointOptions.find(
-          (item) => item.value === parsed.data.drop_point_id
-        )?.originalLabel ??
-        dropPointOptions.find(
-          (item) => item.value === parsed.data.drop_point_id
-        )?.label ??
-        null
+            (item) => item.value === parsed.data.drop_point_id
+          )?.originalLabel ??
+          dropPointOptions.find(
+            (item) => item.value === parsed.data.drop_point_id
+          )?.label ??
+          null
         : null;
 
     const payload: TicketRow = {
       id: formType === "edit" && initialData ? initialData.id : undefined,
+      id_diagnosa_ai: parsed.data.id_diagnosa_ai ?? null,
+      diagnosa_awal_kerusakan: parsed.data.diagnosa_awal_kerusakan ?? null,
       nomor_tiket:
         formType === "edit" && initialData
           ? initialData.nomor_tiket

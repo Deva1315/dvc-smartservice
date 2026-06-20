@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ActionIcon,
   Box,
@@ -116,10 +116,6 @@ export default function StokOpnameFormPage() {
   const [sparepartOptions, setSparepartOptions] = useState<ItemOption[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const totalSelisihStock = useMemo(() => {
-    return detailItems.reduce((total, item) => total + item.selisih, 0);
-  }, [detailItems]);
 
   async function fetchOptions() {
     try {
@@ -462,26 +458,6 @@ export default function StokOpnameFormPage() {
                     border: errors.keteranganHeader
                       ? "1px solid #FA5252"
                       : "none",
-                  },
-                }}
-              />
-            </Group>
-
-            <Group align="flex-start" grow>
-              <Box w="28%">
-                <FieldLabel>Selisih Stock</FieldLabel>
-              </Box>
-
-              <TextInput
-                value={getSelisihText(totalSelisihStock)}
-                readOnly
-                styles={{
-                  input: {
-                    backgroundColor: "#E2E2E2",
-                    border: "none",
-                    height: 42,
-                    fontWeight: 700,
-                    color: getSelisihColor(totalSelisihStock),
                   },
                 }}
               />

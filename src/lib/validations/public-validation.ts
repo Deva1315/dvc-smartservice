@@ -9,6 +9,8 @@ import {
 export const publicTiketServisFormSchema = z
   .object({
     nomor_tiket: requiredString("Nomor tiket", 100),
+    id_diagnosa_ai: z.string().trim().nullable().optional(),
+    diagnosa_awal_kerusakan: z.string().trim().nullable().optional(),
     tanggal_masuk: requiredDate("Tanggal masuk"),
     nama_cust: requiredString("Nama customer", 150),
     phone_cust: requiredPhone("No HP"),

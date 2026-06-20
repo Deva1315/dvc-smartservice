@@ -52,49 +52,49 @@ export default function TiketServisDeviceSection({
             </Text>
 
             <Select
-  value={form.jenis_perangkat}
-  onChange={(value) => {
-    handleChange("jenis_perangkat", value);
-  }}
-  data={[
-    { value: "Laptop", label: "Laptop" },
-    { value: "PC", label: "PC" },
-    { value: "Monitor", label: "Monitor" },
-    { value: "Printer", label: "Printer" },
-    { value: "Aksesoris", label: "Aksesoris" },
-  ]}
-  placeholder="Pilih jenis perangkat"
-  radius="md"
-  disabled={isSubmitting}
-  error={errors.jenis_perangkat}
-  comboboxProps={{
-    withinPortal: true,
-    zIndex: 3000,
-  }}
-  styles={{
-    input: {
-      backgroundColor: "#F9FAFB",
-      border: errors.jenis_perangkat
-        ? "1px solid #FA5252"
-        : "1px solid #E5E7EB",
-      height: 46,
-      fontSize: 15,
-      color: "#111827",
-    },
-    dropdown: {
-      backgroundColor: "#FFFFFF",
-      zIndex: 3000,
-    },
-    option: {
-      color: "#111827",
-      fontSize: 14,
-    },
-    error: {
-      fontSize: 13,
-      marginTop: 6,
-    },
-  }}
-/>
+              value={form.jenis_perangkat}
+              onChange={(value) => {
+                handleChange("jenis_perangkat", value);
+              }}
+              data={[
+                { value: "Laptop", label: "Laptop" },
+                { value: "PC", label: "PC" },
+                { value: "Monitor", label: "Monitor" },
+                { value: "Printer", label: "Printer" },
+                { value: "Aksesoris", label: "Aksesoris" },
+              ]}
+              placeholder="Pilih jenis perangkat"
+              radius="md"
+              disabled={isSubmitting}
+              error={errors.jenis_perangkat}
+              comboboxProps={{
+                withinPortal: true,
+                zIndex: 3000,
+              }}
+              styles={{
+                input: {
+                  backgroundColor: "#F9FAFB",
+                  border: errors.jenis_perangkat
+                    ? "1px solid #FA5252"
+                    : "1px solid #E5E7EB",
+                  height: 46,
+                  fontSize: 15,
+                  color: "#111827",
+                },
+                dropdown: {
+                  backgroundColor: "#FFFFFF",
+                  zIndex: 3000,
+                },
+                option: {
+                  color: "#111827",
+                  fontSize: 14,
+                },
+                error: {
+                  fontSize: 13,
+                  marginTop: 6,
+                },
+              }}
+            />
           </Stack>
 
           <Stack gap={6}>
@@ -153,6 +153,38 @@ export default function TiketServisDeviceSection({
             }}
           />
         </Stack>
+
+        {form.id_diagnosa_ai ? (
+          <Stack gap={6}>
+            <Text fw={700} c="#374151" fz="sm">
+              Diagnosa Awal Kerusakan dari AI
+            </Text>
+
+            <Textarea
+              value={
+                form.diagnosa_awal_kerusakan ||
+                "Solusi terbaik dari Diagnosa AI belum tersedia"
+              }
+              readOnly
+              minRows={4}
+              radius="md"
+              disabled={isSubmitting}
+              styles={{
+                input: {
+                  backgroundColor: "#F3F4F6",
+                  border: "1px solid #E5E7EB",
+                  fontSize: 15,
+                  color: "#111827",
+                },
+              }}
+            />
+
+            <Text fz="xs" c="#6B7280">
+              Diagnosa awal ini diambil dari solusi terbaik Diagnosa AI dan
+              tetap perlu dikonfirmasi oleh teknisi.
+            </Text>
+          </Stack>
+        ) : null}
       </Stack>
     </Paper>
   );

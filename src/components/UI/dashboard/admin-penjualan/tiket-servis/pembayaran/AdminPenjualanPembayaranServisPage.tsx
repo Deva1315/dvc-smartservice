@@ -6,10 +6,13 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   Divider,
   Group,
+  NumberInput,
   Stack,
   Text,
+  Textarea,
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -79,6 +82,26 @@ function getStatusServisColor(status: string) {
   return "gray";
 }
 
+function getDurasiHari(
+  tanggalMulai?: string | null,
+  tanggalAkhir?: string | null
+) {
+  if (!tanggalMulai || !tanggalAkhir) return 30;
+
+  const mulai = new Date(tanggalMulai);
+  const akhir = new Date(tanggalAkhir);
+
+  if (Number.isNaN(mulai.getTime()) || Number.isNaN(akhir.getTime())) {
+    return 30;
+  }
+
+  const diff = Math.ceil(
+    (akhir.getTime() - mulai.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  return diff > 0 ? diff : 30;
+}
+
 export default function AdminPenjualanPembayaranServisPage() {
   const params = useParams();
   const router = useRouter();
@@ -89,6 +112,13 @@ export default function AdminPenjualanPembayaranServisPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmingPickup, setIsConfirmingPickup] = useState(false);
+  const [garansiAktif, setGaransiAktif] = useState(true);
+  const [durasiGaransiHari, setDurasiGaransiHari] = useState<number | string>(
+    30
+  );
+  const [keteranganGaransi, setKeteranganGaransi] = useState(
+    "Garansi servis berlaku sesuai ketentuan DVC Komputer"
+  );
 
   const metode = "Cash";
 
@@ -139,6 +169,17 @@ export default function AdminPenjualanPembayaranServisPage() {
       const nextData = result.data as PembayaranServisDetailData;
 
       setData(nextData);
+
+      if (nextData.garansi) {
+        setGaransiAktif(true);
+        setDurasiGaransiHari(
+          getDurasiHari(
+            nextData.garansi.tanggal_mulai,
+            nextData.garansi.tanggal_akhir
+          )
+        );
+        setKeteranganGaransi(nextData.garansi.keterangan_garansi || "");
+      }
     } catch (error) {
       notifications.show({
         title: "Gagal",
@@ -174,11 +215,31 @@ export default function AdminPenjualanPembayaranServisPage() {
       return;
     }
 
+    const durasiGaransiNumber = Number(durasiGaransiHari);
+
+    if (
+      garansiAktif &&
+      (!Number.isInteger(durasiGaransiNumber) || durasiGaransiNumber <= 0)
+    ) {
+      notifications.show({
+        title: "Gagal",
+        message: "Durasi garansi harus lebih dari 0 hari",
+        color: "red",
+      });
+
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
       await simpanPembayaranServis(nomorTiket, {
         metode_pembayaran: metode,
+        garansi_aktif: garansiAktif,
+        durasi_garansi_hari: garansiAktif ? durasiGaransiNumber : undefined,
+        keterangan_garansi: garansiAktif
+          ? keteranganGaransi.trim() || null
+          : null,
       });
 
       notifications.show({
@@ -434,6 +495,81 @@ export default function AdminPenjualanPembayaranServisPage() {
                 value={formatRupiah(data.total_pembayaran)}
                 readOnly
               />
+
+              <Divider />
+
+              <Stack gap={10}>
+                <Group justify="space-between" align="center">
+                  <Text fw={700}>Garansi Servis</Text>
+
+                  {data.garansi ? (
+                    <Badge color="green" variant="light" radius="xl">
+                      {data.garansi.status_garansi}
+                    </Badge>
+                  ) : null}
+                </Group>
+
+                {isPaid ? (
+                  data.garansi ? (
+                    <Stack gap={4}>
+                      <Text fz={14}>
+                        Masa garansi:{" "}
+                        {formatTanggal(data.garansi.tanggal_mulai)} -{" "}
+                        {formatTanggal(data.garansi.tanggal_akhir)}
+                      </Text>
+                      <Text fz={14} c="dimmed">
+                        Keterangan: {data.garansi.keterangan_garansi || "-"}
+                      </Text>
+                    </Stack>
+                  ) : (
+                    <Text fz={14} c="dimmed">
+                      Pembayaran ini tidak memiliki garansi servis
+                    </Text>
+                  )
+                ) : (
+                  <Stack gap={10}>
+                    <Checkbox
+                      label="Berikan garansi servis"
+                      checked={garansiAktif}
+                      disabled={!canPay || isSubmitting}
+                      onChange={(event) =>
+                        setGaransiAktif(event.currentTarget.checked)
+                      }
+                    />
+
+                    {garansiAktif ? (
+                      <>
+                        <NumberInput
+                          label="Durasi Garansi"
+                          description="Isi dalam satuan hari"
+                          min={1}
+                          allowNegative={false}
+                          allowDecimal={false}
+                          value={durasiGaransiHari}
+                          disabled={!canPay || isSubmitting}
+                          onChange={setDurasiGaransiHari}
+                        />
+
+                        <Textarea
+                          label="Keterangan Garansi"
+                          minRows={3}
+                          value={keteranganGaransi}
+                          disabled={!canPay || isSubmitting}
+                          onChange={(event) =>
+                            setKeteranganGaransi(event.currentTarget.value)
+                          }
+                        />
+                      </>
+                    ) : (
+                      <Text fz={14} c="dimmed">
+                        Garansi tidak akan dibuat untuk pembayaran ini
+                      </Text>
+                    )}
+                  </Stack>
+                )}
+              </Stack>
+
+              <Divider />
 
               <Group justify="space-between">
                 <Text>Status Pembayaran</Text>

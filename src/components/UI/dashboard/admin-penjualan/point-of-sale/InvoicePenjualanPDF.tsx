@@ -30,7 +30,7 @@ type InvoicePenjualanPDFProps = {
   data: InvoicePenjualanData;
 };
 
-const LOGO_SRC = "/Images/logo-dvc.png";
+const LOGO_SRC = "/images/logo-dvc.png";
 const NOTA_PAGE_WIDTH = 595.28;
 const NOTA_MIN_HEIGHT = 419.53;
 const MINIMUM_TABLE_ROWS = 6;
@@ -59,9 +59,9 @@ function formatTanggalLong(value?: string) {
   }).format(date);
 }
 
-
 function getPageHeight(rowCount: number) {
   const safeRowCount = Math.max(rowCount, MINIMUM_TABLE_ROWS);
+
   return Math.max(
     NOTA_MIN_HEIGHT,
     PAGE_FIXED_CONTENT_HEIGHT + safeRowCount * TABLE_ROW_HEIGHT
@@ -87,11 +87,7 @@ function CellText({
     ...(italic ? [styles.italic] : []),
   ];
 
-  return (
-    <Text style={textStyles}>
-      {text}
-    </Text>
-  );
+  return <Text style={textStyles}>{text}</Text>;
 }
 
 export default function InvoicePenjualanPDF({
@@ -108,7 +104,8 @@ export default function InvoicePenjualanPDF({
 
   const rows = data.items.map((item, index) => ({
     tanggal: index === 0 ? formatTanggalLong(tanggalNota) : "",
-    namaBarang: item.qty > 1 ? `${item.nama} x${item.qty}` : item.nama,
+    namaBarang: item.nama,
+    qty: formatNumber(item.qty),
     harga: formatNumber(item.harga),
     jumlah: formatNumber(item.harga * item.qty),
   }));
@@ -117,6 +114,7 @@ export default function InvoicePenjualanPDF({
     rows.push({
       tanggal: "",
       namaBarang: "",
+      qty: "",
       harga: "",
       jumlah: "",
     });
@@ -124,7 +122,10 @@ export default function InvoicePenjualanPDF({
 
   return (
     <Document>
-      <Page size={[NOTA_PAGE_WIDTH, getPageHeight(rows.length)]} style={styles.page}>
+      <Page
+        size={[NOTA_PAGE_WIDTH, getPageHeight(rows.length)]}
+        style={styles.page}
+      >
         <View style={styles.header}>
           <View style={styles.leftHeader}>
             <View style={styles.logoWrapper}>
@@ -170,6 +171,10 @@ export default function InvoicePenjualanPDF({
               <CellText text="Nama Barang" align="center" bold italic />
             </View>
 
+            <View style={[styles.colQtyCell, styles.headerCell]}>
+              <CellText text="Qty" align="center" bold italic />
+            </View>
+
             <View style={[styles.colHargaCell, styles.headerCell]}>
               <CellText text="Harga" align="center" bold italic />
             </View>
@@ -187,6 +192,10 @@ export default function InvoicePenjualanPDF({
 
               <View style={styles.colNamaBarangCell}>
                 <CellText text={row.namaBarang} />
+              </View>
+
+              <View style={styles.colQtyCell}>
+                <CellText text={row.qty} align="center" />
               </View>
 
               <View style={styles.colHargaCell}>
@@ -359,7 +368,14 @@ const styles = StyleSheet.create({
 
   colNamaBarangCell: {
     ...sharedCellBase,
-    width: "49%",
+    width: "39%",
+    borderRightWidth: 1,
+    borderColor: "#111111",
+  },
+
+  colQtyCell: {
+    ...sharedCellBase,
+    width: "10%",
     borderRightWidth: 1,
     borderColor: "#111111",
   },

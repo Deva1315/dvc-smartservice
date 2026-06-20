@@ -334,6 +334,23 @@ export async function getTeknisiAdminPenjualan() {
 }
 
 export type PembayaranServisStatus = "Dibayar" | "Belum_Bayar" | "Dibatalkan";
+export type GaransiServisStatus = "Aktif" | "Diklaim" | "Expired";
+
+export type PembayaranServisGaransiData = {
+  id: string;
+  id_tiket_servis: string;
+  id_user: string;
+  tanggal_mulai: string;
+  tanggal_akhir: string;
+  tanggal_klaim: string | null;
+  keterangan_garansi: string | null;
+  status_garansi: GaransiServisStatus;
+  users: {
+    id: string;
+    nama: string;
+    email: string;
+  };
+};
 
 export type PembayaranServisDetailData = {
   tiket: {
@@ -382,6 +399,7 @@ export type PembayaranServisDetailData = {
       email: string;
     };
   } | null;
+  garansi: PembayaranServisGaransiData | null;
 };
 
 export async function getPembayaranServisDetail(nomorTiket: string) {
@@ -402,11 +420,16 @@ export async function getPembayaranServisDetail(nomorTiket: string) {
   return result;
 }
 
+export type SimpanPembayaranServisPayload = {
+  metode_pembayaran: string;
+  garansi_aktif?: boolean;
+  durasi_garansi_hari?: number;
+  keterangan_garansi?: string | null;
+};
+
 export async function simpanPembayaranServis(
   nomorTiket: string,
-  payload: {
-    metode_pembayaran: string;
-  }
+  payload: SimpanPembayaranServisPayload
 ) {
   const response = await fetch(
     `${BASE_URL}/${encodeURIComponent(nomorTiket)}/pembayaran`,
@@ -427,7 +450,6 @@ export async function simpanPembayaranServis(
 
   return result;
 }
-
 export async function konfirmasiTiketServisDiambil(nomorTiket: string) {
   const response = await fetch(
     `${BASE_URL}/${encodeURIComponent(nomorTiket)}/diambil`,

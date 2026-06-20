@@ -27,6 +27,31 @@ import {
   formatDisplayDateTime,
 } from "@/utils/detail-tiket-servis-teknisi/detail-tiket-servis.utils";
 
+function splitAiListText(value: string | null | undefined) {
+  return String(value ?? "")
+    .split(/\r?\n/)
+    .map((item) =>
+      item
+        .replace(/^[-•]\s*/, "")
+        .replace(/^\d+[.)]\s*/, "")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
+function getDiagnosaKerusakanAwalAi(detail: DetailTiketServisApiItem) {
+  const diagnosaAi = detail.diagnosa_ai;
+
+  if (!diagnosaAi) {
+    return null;
+  }
+
+  const solusi = splitAiListText(diagnosaAi.kemungkinan_solusi);
+  const saran = splitAiListText(diagnosaAi.saran_tindakan);
+
+  return solusi[0] || saran[0] || null;
+}
+
 type TicketDetailContentProps = {
   detail: DetailTiketServisApiItem;
   statusServis: StatusServis | null;
@@ -96,6 +121,8 @@ export default function TicketDetailContent({
   onTambahSparepart,
   onHapusSparepart,
 }: TicketDetailContentProps) {
+  const diagnosaKerusakanAwalAi = getDiagnosaKerusakanAwalAi(detail);
+
   return (
     <>
       <Stack gap={18}>
@@ -152,13 +179,15 @@ export default function TicketDetailContent({
               <TicketStatusHistoryCard detail={detail} />
             </Grid.Col>
 
-            {/* <Grid.Col span={{ base: 12, lg: 8 }}>
-              <TicketTextCard
-                title="Referensi Solusi Awal"
-                value={getReferensiSolusiAwal(detail)}
-                preserveLineBreak
-              />
-            </Grid.Col> */}
+            {diagnosaKerusakanAwalAi ? (
+              <Grid.Col span={{ base: 12, lg: 8 }}>
+                <TicketTextCard
+                  title="Diagnosa Kerusakan Awal dari AI"
+                  value={diagnosaKerusakanAwalAi}
+                  preserveLineBreak
+                />
+              </Grid.Col>
+            ) : null}
 
             <Grid.Col span={{ base: 12, lg: 5 }}>
               <TicketDiagnosaCard

@@ -56,6 +56,7 @@ Aturan untuk chat diagnosa perangkat:
 - gejala berisi ringkasan masalah user berdasarkan chat terakhir dan konteks sebelumnya
 - kemungkinanPenyebab minimal 2 item
 - kemungkinanSolusi minimal 2 item
+- kemungkinanSolusi wajib diurutkan dari solusi paling relevan, paling aman, dan paling disarankan sebagai diagnosa awal pada urutan pertama
 - saranTindakan minimal 2 item
 - tingkatUrgensi hanya boleh "rendah", "sedang", atau "tinggi"
 - perluServisLangsung berupa boolean true atau false

@@ -115,7 +115,7 @@ export default function TiketServisCustomerSection({
             radius="md"
             disabled={isSubmitting}
             error={errors.alamat_cust}
-            placeholder="Contoh: Jl. SMKI No.22, Batubulan, Sukawati, Gianyar, Bali"
+            placeholder="Contoh: Jalan SMKI No.22, Batubulan, Sukawati, Gianyar, Bali"
             styles={{
               input: {
                 backgroundColor: "#F9FAFB",

@@ -18,6 +18,29 @@ function isOwnerRole(roleName?: string | null) {
   return roleName?.trim().toLowerCase() === "owner";
 }
 
+function isAlamatDropPointLengkap(value: string) {
+  const alamat = value.trim();
+
+  if (alamat.length < 25) {
+    return false;
+  }
+
+  const bagianAlamat = alamat
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (bagianAlamat.length < 4) {
+    return false;
+  }
+
+  const hasJalan = /\b(jalan|jl\.?)\b/i.test(alamat);
+  const hasNomor = /\b(nomor|no\.?)\s*\d+|\b\d+[a-z]?\b/i.test(alamat);
+  const hasBali = /\bbali\b/i.test(alamat);
+
+  return hasJalan && hasNomor && hasBali;
+}
+
 function mapDropPointRow(dropPoint: {
   id: bigint;
   nama_drop_point: string;
@@ -96,6 +119,13 @@ export async function POST(request: Request) {
     if (!alamat) {
       return errorJson("Alamat wajib diisi.", 400);
     }
+
+    if (!isAlamatDropPointLengkap(alamat)) {
+  return errorJson(
+    "Mohon isi alamat lebih lengkap, contoh: Jalan Margapati Nomor 2, Sukawati, Gianyar, Bali.",
+    400
+  );
+}
 
     const existingDropPoint = await prisma.drop_point.findFirst({
       where: {

@@ -60,3 +60,24 @@ export type DiagnosaAiChatErrorResponse = {
 export type DiagnosaAiChatResponse =
   | DiagnosaAiChatSuccessResponse
   | DiagnosaAiChatErrorResponse;
+
+export type DiagnosaAiDetailData = {
+  id: string;
+  gejala: string | null;
+  gambar_gejala: string | null;
+  kemungkinan_penyebab: string | null;
+  kemungkinan_solusi: string | null;
+  saran_tindakan: string | null;
+  diagnosa_awal_kerusakan: string | null;
+};
+
+export type DiagnosaAiDetailResponse =
+  | {
+      success: true;
+      message: string;
+      data: DiagnosaAiDetailData;
+    }
+  | {
+      success: false;
+      message: string;
+    };

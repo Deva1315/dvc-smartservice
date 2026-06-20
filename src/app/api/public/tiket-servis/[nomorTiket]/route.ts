@@ -18,7 +18,11 @@ function errorJson(message: string, status: number) {
 }
 
 function isValidDateParts(year: number, month: number, day: number) {
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
     return false;
   }
 
@@ -74,8 +78,84 @@ function parseTicketDate(value: string | null | undefined) {
   return buildLocalDate(year, month, day);
 }
 
+function splitAiListText(value: string | null | undefined) {
+  return String(value ?? "")
+    .split("\n")
+    .map((item) =>
+      item
+        .replace(/^[-•]\s*/, "")
+        .replace(/^\d+[.)]\s*/, "")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
+function pilihSolusiTerbaik(diagnosaAi?: {
+  kemungkinan_solusi: string | null;
+  saran_tindakan: string | null;
+} | null) {
+  if (!diagnosaAi) {
+    return null;
+  }
+
+  const solusi = splitAiListText(diagnosaAi.kemungkinan_solusi);
+  const saran = splitAiListText(diagnosaAi.saran_tindakan);
+
+  return solusi[0] || saran[0] || null;
+}
+
+async function validateDiagnosaAiId(value: unknown, currentTicketId: string) {
+  const rawValue = String(value ?? "").trim();
+
+  if (!rawValue) {
+    return null;
+  }
+
+  if (!/^\d+$/.test(rawValue)) {
+    throw new Error("ID Diagnosa AI tidak valid");
+  }
+
+  const diagnosaAi = await prisma.diagnosa_ai.findUnique({
+    where: {
+      id: BigInt(rawValue),
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!diagnosaAi) {
+    throw new Error("Data Diagnosa AI tidak ditemukan");
+  }
+
+  const linkedTicket = await prisma.tiket_servis.findFirst({
+    where: {
+      id_diagnosa_ai: diagnosaAi.id,
+      NOT: {
+        id: currentTicketId,
+      },
+    },
+    select: {
+      nomor_tiket: true,
+    },
+  });
+
+  if (linkedTicket) {
+    throw new Error(
+      `Diagnosa AI ini sudah digunakan pada tiket ${linkedTicket.nomor_tiket}`
+    );
+  }
+
+  return diagnosaAi.id;
+}
+
 function normalizeTicketResponse(ticket: {
   id: string;
+  id_diagnosa_ai: bigint | null;
+  diagnosa_ai?: {
+    kemungkinan_solusi: string | null;
+    saran_tindakan: string | null;
+  } | null;
   nomor_tiket: string;
   tanggal_masuk: Date;
   nama_cust: string;
@@ -98,6 +178,10 @@ function normalizeTicketResponse(ticket: {
 }) {
   return {
     id: ticket.id,
+    id_diagnosa_ai: ticket.id_diagnosa_ai
+      ? ticket.id_diagnosa_ai.toString()
+      : null,
+    diagnosa_awal_kerusakan: pilihSolusiTerbaik(ticket.diagnosa_ai),
     nomor_tiket: ticket.nomor_tiket,
     tanggal_masuk: ticket.tanggal_masuk.toISOString(),
     nama_cust: ticket.nama_cust,
@@ -139,8 +223,8 @@ export async function PATCH(request: Request, context: RouteContext) {
         sumber_tiket: "Guest",
         guest_session_id: guestSessionId,
       },
-      include: {
-        drop_point: true,
+      select: {
+        id: true,
       },
     });
 
@@ -149,6 +233,11 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const body = await request.json().catch(() => null);
+
+    const id_diagnosa_ai = await validateDiagnosaAiId(
+      body?.id_diagnosa_ai,
+      existingTicket.id
+    );
 
     const tanggalMasukRaw = String(body?.tanggal_masuk ?? "").trim();
     const nama_cust = String(body?.nama_cust ?? "").trim();
@@ -166,6 +255,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       !tanggalMasukRaw ||
       !nama_cust ||
       !phone_cust ||
+      !alamat_cust ||
       !jenis_perangkat ||
       !keluhan
     ) {
@@ -185,9 +275,16 @@ export async function PATCH(request: Request, context: RouteContext) {
         return errorJson("Mohon pilih drop point terlebih dahulu", 400);
       }
 
+      if (!/^\d+$/.test(drop_point_id_raw)) {
+        return errorJson("Drop point tidak valid", 400);
+      }
+
       const selectedDropPoint = await prisma.drop_point.findUnique({
         where: {
           id: BigInt(drop_point_id_raw),
+        },
+        select: {
+          id: true,
         },
       });
 
@@ -203,6 +300,8 @@ export async function PATCH(request: Request, context: RouteContext) {
         id: existingTicket.id,
       },
       data: {
+        id_drop_point,
+        id_diagnosa_ai,
         tanggal_masuk: tanggalMasuk,
         nama_cust,
         phone_cust,
@@ -210,22 +309,15 @@ export async function PATCH(request: Request, context: RouteContext) {
         jenis_perangkat,
         merk_perangkat: merk_perangkat || null,
         keluhan,
-        ...(gunakan_drop_point && id_drop_point
-          ? {
-              drop_point: {
-                connect: {
-                  id: id_drop_point,
-                },
-              },
-            }
-          : {
-              drop_point: {
-                disconnect: true,
-              },
-            }),
       },
       include: {
         drop_point: true,
+        diagnosa_ai: {
+          select: {
+            kemungkinan_solusi: true,
+            saran_tindakan: true,
+          },
+        },
       },
     });
 
@@ -245,12 +337,20 @@ export async function PATCH(request: Request, context: RouteContext) {
         ? error.message
         : "Terjadi kesalahan saat memperbarui tiket servis";
 
+    const status = message.includes("ID Diagnosa AI tidak valid")
+      ? 400
+      : message.includes("Data Diagnosa AI tidak ditemukan")
+      ? 404
+      : message.includes("sudah digunakan")
+      ? 400
+      : 500;
+
     return NextResponse.json(
       {
         success: false,
         message,
       },
-      { status: 500 }
+      { status }
     );
   }
 }
