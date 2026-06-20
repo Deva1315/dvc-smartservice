@@ -85,8 +85,8 @@ model detail_transaksi {
   jumlah              BigInt              @default(1)
   harga_satuan        Decimal             @default(0.00) @db.Decimal(15, 2)
   sub_total           Decimal             @default(0.00) @db.Decimal(15, 2)
-  barang              barang              @relation(fields: [id_barang], references: [id], map: "fk_detail_transaksi_barang")
-  transaksi_penjualan transaksi_penjualan @relation(fields: [id_transaksi], references: [id], onDelete: Cascade, map: "fk_detail_transaksi_transaksi")
+  barang              barang              @relation(fields: [id_barang], references: [id], onUpdate: Cascade, map: "fk_detail_transaksi_barang")
+  transaksi_penjualan transaksi_penjualan @relation(fields: [id_transaksi], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "fk_detail_transaksi_transaksi")
 
   @@index([id_barang], map: "fk_detail_transaksi_barang")
   @@index([id_transaksi], map: "fk_detail_transaksi_transaksi")
@@ -187,9 +187,11 @@ model sparepart {
   harga               Decimal               @default(0.00) @db.Decimal(15, 2)
   stock               BigInt                @default(0)
   gambar              String?               @db.LongText
+
   detail_stock_mutasi detail_stock_mutasi[]
   detail_stock_opname detail_stock_opname[]
   detail_tiket_servis detail_tiket_servis[]
+
   suppliers           suppliers             @relation(fields: [id_supplier], references: [id], onUpdate: Restrict, map: "fk_sparepart_supplier")
 
   @@index([id_supplier], map: "fk_sparepart_supplier")

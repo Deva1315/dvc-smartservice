@@ -33,16 +33,13 @@ export type POSTransaksiApiItem = {
   id_user: string;
   nama_cust: string;
   tanggal_transaksi: string;
-
   subtotal_transaksi: string | number;
   diskon_transaksi: string | number;
   total_transaksi: string | number;
   nominal_bayar: string | number;
   kembalian: string | number;
-
   metode_transaksi: POSMetodePembayaran;
   status_transaksi: "Belum_Bayar" | "Dibayar" | "Dibatalkan";
-
   subtotal: number;
   diskon: number;
   total: number;
